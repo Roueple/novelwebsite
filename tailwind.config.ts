@@ -1,18 +1,25 @@
-import type { Config } from "tailwindcss";
+import type { Config } from 'tailwindcss';
 
-export default {
+const config: Config = {
   content: [
-    "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
-    "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
-    "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
+    './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
+    './src/components/**/*.{js,ts,jsx,tsx,mdx}',
+    './src/app/**/*.{js,ts,jsx,tsx,mdx}',
   ],
   theme: {
     extend: {
-      colors: {
-        background: "var(--background)",
-        foreground: "var(--foreground)",
+      fontFamily: {
+        merriweather: ['var(--font-merriweather)'],
+        'roboto-slab': ['var(--font-roboto-slab)'],
+        'libre-baskerville': ['var(--font-libre-baskerville)'],
+        'source-sans': ['var(--font-source-sans)'],
+        'open-sans': ['var(--font-open-sans)'],
       },
     },
   },
-  plugins: [],
-} satisfies Config;
+  plugins: [
+    require('@tailwindcss/typography'),
+  ],
+};
+
+export default config;
