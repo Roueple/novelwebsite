@@ -91,8 +91,8 @@ export default function ChapterPage() {
     );
   }
 
-  const prevChapter = novel.chapters.find((ch: any) => ch.chapter_number === chapterNumber - 1);
-  const nextChapter = novel.chapters.find((ch: any) => ch.chapter_number === chapterNumber + 1);
+  const prevChapter = novel.chapters.find((ch: ChapterType) => ch.chapter_number === chapterNumber - 1);
+  const nextChapter = novel.chapters.find((ch: ChapterType) => ch.chapter_number === chapterNumber + 1);
 
   if (chapter.is_locked) {
     return (
@@ -212,7 +212,7 @@ export default function ChapterPage() {
                       }`}>
                         Chapters
                       </div>
-                      {novel.chapters.map((ch: any) => (
+                      {novel.chapters.map((ch: ChapterType) => (
                         <Link
                           key={ch.id}
                           href={`/novels/${novelId}/chapter/${ch.chapter_number}`}
