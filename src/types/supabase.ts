@@ -21,6 +21,15 @@ export type Novel = {
     created_at: string;
     updated_at: string;
   }
+
+  interface ChapterType {
+    id: number;
+    title: string;
+    content: string;
+    chapter_number: number;
+    is_locked: boolean;
+    // add other fields as needed
+  }
   
   export interface Database {
     public: {

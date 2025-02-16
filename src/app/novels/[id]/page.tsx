@@ -9,6 +9,7 @@ import { ImageUpload } from '@/components/ui/image-upload';
 import { supabase } from '@/lib/supabase';
 import { getNovel } from '@/lib/api';
 import type { Novel } from '@/types/supabase';
+import Image from 'next/image';
 
 interface NovelWithChapters extends Novel {
   chapters: {
@@ -100,11 +101,13 @@ export default function NovelPage() {
           {/* Left Column - Cover and Info */}
           <div className="md:col-span-1">
             <div className={`${isDark ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-lg p-4`}>
-              <img 
-                src={novel.cover_url || '/api/placeholder/200/300'} 
-                alt={novel.title}
-                className="w-full rounded-lg mb-4"
-              />
+            <Image 
+  src={novel.cover_url || '/api/placeholder/200/300'}
+  alt={novel.title}
+  width={200}
+  height={300}
+  className="w-full h-full object-cover"
+/>
               <div className="mt-2">
               <ImageUpload 
   onUploadComplete={async (url: string) => {

@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { getLatestNovels } from '@/lib/api';
 import type { Novel } from '@/types/supabase';
 import { useAuth } from '@/providers/auth-provider';
+import Image from 'next/image';
 
 
 export default function Home() {
@@ -129,11 +130,13 @@ export default function Home() {
                   hover:shadow-xl transition-all duration-200 hover:-translate-y-1`}
               >
                 <div className="aspect-[2/3] relative">
-                  <img 
-                    src={novel.cover_url || '/api/placeholder/200/300'} 
-                    alt={novel.title}
-                    className="absolute inset-0 w-full h-full object-cover"
-                  />
+                <Image 
+  src={novel.cover_url || '/api/placeholder/200/300'}
+  alt={novel.title}
+  width={200}
+  height={300}
+  className="w-full h-full object-cover"
+/>
                 </div>
                 <div className="p-4">
                   <h3 className={`font-bold text-lg mb-1 line-clamp-2 ${
