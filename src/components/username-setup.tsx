@@ -20,49 +20,57 @@ export default function UsernameSetup() {
     setError('');
     setLoading(true);
 
-    // Validate username format
-    if (!/^[a-z0-9]+$/.test(username)) {
-      setError('Username can only contain lowercase letters and numbers');
-      setLoading(false);
-      return;
-    }
-
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      // Get current user
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
       
-      if (!user) {
-        throw new Error('No user found');
+      if (userError) throw userError;
+      if (!user) throw new Error('No user found');
+
+      // Validate username format
+      if (!/^[a-z0-9]+$/.test(username)) {
+        setError('Username can only contain lowercase letters and numbers');
+        return;
       }
 
       // Check if username exists
-      const { data: existingUser } = await supabase
+      const { data: existingUser, error: checkError } = await supabase
         .from('profiles')
         .select('username')
         .eq('username', username.toLowerCase())
         .single();
 
+      if (checkError && checkError.code !== 'PGRST116') { // PGRST116 means no rows returned
+        throw checkError;
+      }
+
       if (existingUser) {
         setError('Username already taken');
-        setLoading(false);
         return;
       }
 
       // Create profile
       const { error: profileError } = await supabase
         .from('profiles')
-        .insert({
+        .upsert({
           id: user.id,
           username: username.toLowerCase(),
-          role: 'reader'
+          role: 'reader',
+          is_guest: false,
+          updated_at: new Date().toISOString()
         });
 
-      if (profileError) throw profileError;
+      if (profileError) {
+        console.error('Profile error:', profileError);
+        throw profileError;
+      }
 
-      // Redirect to home page
+      // Success! Redirect to home
       router.push('/');
       router.refresh();
+
     } catch (err) {
-      console.error('Error setting username:', err);
+      console.error('Error in username setup:', err);
       setError('Failed to set username. Please try again.');
     } finally {
       setLoading(false);
@@ -92,17 +100,27 @@ export default function UsernameSetup() {
                 <input
                   type="text"
                   value={username}
-                  onChange={(e) => setUsername(e.target.value.toLowerCase())}
+                  onChange={(e) => {
+                    const value = e.target.value.toLowerCase();
+                    if (/^[a-z0-9]*$/.test(value)) {
+                      setUsername(value);
+                    }
+                  }}
                   placeholder="Enter username"
                   className={`w-full px-4 py-2 rounded-lg border ${
                     isDark 
-                      ? 'bg-gray-700 border-gray-600 text-white' 
-                      : 'bg-white border-gray-300 text-gray-900'
+                      ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
+                      : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
                   }`}
                   required
-                  pattern="[a-z0-9]+"
-                  title="Only lowercase letters and numbers allowed"
+                  minLength={3}
+                  maxLength={20}
                 />
+                <p className={`mt-2 text-sm ${
+                  isDark ? 'text-gray-400' : 'text-gray-600'
+                }`}>
+                  Username must be 3-20 characters long, using only lowercase letters and numbers.
+                </p>
                 {error && (
                   <p className="mt-2 text-sm text-red-500">
                     {error}
@@ -112,9 +130,12 @@ export default function UsernameSetup() {
 
               <button
                 type="submit"
-                disabled={loading}
-                className={`w-full py-2 px-4 rounded-lg bg-red-600 text-white 
-                  hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed`}
+                disabled={loading || username.length < 3}
+                className={`w-full py-2 px-4 rounded-lg ${
+                  loading || username.length < 3
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : 'bg-red-600 hover:bg-red-700'
+                } text-white transition-colors`}
               >
                 {loading ? 'Setting Username...' : 'Continue'}
               </button>
