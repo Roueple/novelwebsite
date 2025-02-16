@@ -33,6 +33,20 @@ export type Novel = {
     updated_at?: string;
   }
   
+  export interface NovelType {
+    id: number;
+    title: string;
+    description: string;
+    author: string;
+    cover_url?: string;
+    rating: number;
+    status: 'Ongoing' | 'Completed';
+    tags: string[];
+    chapters: ChapterType[];
+    created_at?: string;
+    updated_at?: string;
+  }
+  
   export interface Database {
     public: {
       Tables: {

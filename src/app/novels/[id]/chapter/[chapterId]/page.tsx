@@ -26,6 +26,7 @@ export default function ChapterPage() {
   const [loading, setLoading] = useState(true);
   const [chapter, setChapter] = useState<ChapterType | null>(null);
   const [novel, setNovel] = useState<any>(null);
+  
 
   useEffect(() => {
     async function loadChapter() {
