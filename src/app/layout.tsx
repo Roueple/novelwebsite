@@ -42,11 +42,13 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className={`${merriweather.variable} ${robotoSlab.variable} ${libreBaskerville.variable} ${sourceSans.variable} ${openSans.variable}`}>
+      <body>
         <AuthProvider>
           <ThemeProvider>
             <Header />
-            {children}
+            <main>
+              {children}
+            </main>
           </ThemeProvider>
         </AuthProvider>
       </body>
