@@ -1,6 +1,6 @@
 // src/lib/api.ts
 import { supabase } from './supabase';
-import type { Novel, NovelType, ChapterType } from '@/types/supabase';
+import type { NovelType, ChapterType } from '@/types/supabase';
 
 export async function getLatestNovels() {
   try {
