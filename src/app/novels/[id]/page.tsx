@@ -8,17 +8,8 @@ import { useParams } from 'next/navigation';
 import { ImageUpload } from '@/components/ui/image-upload';
 import { supabase } from '@/lib/supabase';
 import { getNovel } from '@/lib/api';
-import type { Novel } from '@/types/supabase';
+import type { NovelType } from '@/types/supabase';
 import Image from 'next/image';
-
-interface NovelWithChapters extends Novel {
-  chapters: {
-    id: number;
-    chapter_number: number;
-    title: string;
-    is_locked: boolean;
-  }[];
-}
 
 export default function NovelPage() {
   const { theme, toggleTheme } = useTheme();
@@ -26,7 +17,7 @@ export default function NovelPage() {
   const params = useParams();
   const novelId = Number(params.id);
   
-  const [novel, setNovel] = useState<NovelWithChapters | null>(null);
+  const [novel, setNovel] = useState<NovelType | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
