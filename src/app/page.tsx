@@ -12,7 +12,7 @@ import Image from 'next/image';
 
 export default function Home() {
   const { theme, toggleTheme } = useTheme();
-  const { user, role } = useAuth();
+  const { role } = useAuth();
   const isDark = theme === 'dark';
   const [novels, setNovels] = useState<Novel[]>([]);
   const [loading, setLoading] = useState(true);

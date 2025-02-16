@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
+import Image from 'next/image';
 
 export default function CreateNovel() {
   const { theme } = useTheme();
@@ -90,11 +91,13 @@ export default function CreateNovel() {
                 </label>
                 {coverUrl ? (
                   <div className="relative w-48 aspect-[2/3] mb-2">
-                    <img 
-                      src={coverUrl} 
-                      alt="Cover preview" 
-                      className="absolute inset-0 w-full h-full object-cover rounded-lg"
-                    />
+                    <Image 
+  src={coverUrl} 
+  alt="Cover preview"
+  width={200}
+  height={300}
+  className="w-full h-full object-cover"
+/>
                     <button
                       type="button"
                       onClick={() => setCoverUrl('')}

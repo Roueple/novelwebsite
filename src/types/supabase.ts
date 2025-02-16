@@ -22,13 +22,15 @@ export type Novel = {
     updated_at: string;
   }
 
-  interface ChapterType {
+  export interface ChapterType {
     id: number;
     title: string;
     content: string;
     chapter_number: number;
     is_locked: boolean;
-    // add other fields as needed
+    novel_id: number;
+    created_at?: string;
+    updated_at?: string;
   }
   
   export interface Database {

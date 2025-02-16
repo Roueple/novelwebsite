@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -6,6 +7,7 @@ import { Moon, Sun, Type, ChevronLeft, ChevronRight, Minus, Plus, ArrowLeft, Lis
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { getChapter, getNovel } from '@/lib/api';
+import { ChapterType } from '@/types/supabase';
 
 const MIN_FONT_SIZE = 14;
 const MAX_FONT_SIZE = 24;
@@ -22,7 +24,7 @@ export default function ChapterPage() {
   const chapterNumber = Number(params.chapterId);
   
   const [loading, setLoading] = useState(true);
-  const [chapter, setChapter] = useState<any>(null);
+  const [chapter, setChapter] = useState<ChapterType | null>(null);
   const [novel, setNovel] = useState<any>(null);
 
   useEffect(() => {
