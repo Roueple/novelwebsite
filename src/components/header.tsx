@@ -6,11 +6,32 @@ import { useAuth } from '@/providers/auth-provider';
 import { useTheme } from '@/providers/theme-provider';
 import LoginForm from './login-form';
 import { Moon, Sun, User } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabase';
 
 export default function Header() {
   const { theme, toggleTheme } = useTheme();
   const { user, role } = useAuth();
   const isDark = theme === 'dark';
+  const [username, setUsername] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function fetchUsername() {
+      if (user) {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('username')
+          .eq('id', user.id)
+          .single();
+
+        if (!error && data) {
+          setUsername(data.username);
+        }
+      }
+    }
+
+    fetchUsername();
+  }, [user]);
 
   return (
     <header className="container mx-auto px-4 py-4">
@@ -23,8 +44,16 @@ export default function Header() {
           {user && (
             <div className={`flex items-center gap-2 ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>
               <User size={20} />
-              <span>{user.email}</span>
-              {role && <span className="px-2 py-1 text-sm rounded-full bg-red-100 text-red-800">{role}</span>}
+              <span>{username || 'Loading...'}</span>
+              {role && (
+                <span className={`px-2 py-1 text-sm rounded-full ${
+                  isDark 
+                    ? 'bg-gray-700 text-gray-200' 
+                    : 'bg-gray-100 text-gray-800'
+                }`}>
+                  {role}
+                </span>
+              )}
             </div>
           )}
           
