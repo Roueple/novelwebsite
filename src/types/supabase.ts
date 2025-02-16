@@ -16,7 +16,7 @@ export type Novel = {
   title: string;
   cover_url: string | null;
   author: string;
-  author_id: string;
+  author_id?: string;  // Make author_id optional with ?
   rating: number;
   status: 'Ongoing' | 'Completed';
   tags: string[];

@@ -8,10 +8,11 @@ import { HiMail } from 'react-icons/hi';
 import PhoneInput from 'react-phone-input-2';
 import 'react-phone-input-2/lib/style.css';
 
-export default function LoginButton() {
+export default function LoginForm() { // Changed from LoginButton to LoginForm
   const { theme } = useTheme();
   const isDark = theme === 'dark';
-  const { user, signInWithGoogle, signInWithEmail, signInWithPhone, signInAsGuest } = useAuth();
+  const { user, signInWithGoogle, signInWithEmail, signInWithPhone, signInAsGuest, signOut } = useAuth(); // Added signOut
+
   const [showModal, setShowModal] = useState(false);
   const [loginMethod, setLoginMethod] = useState<'email' | 'phone'>('email');
   const [email, setEmail] = useState('');
@@ -19,7 +20,18 @@ export default function LoginButton() {
   const [emailSent, setEmailSent] = useState(false);
   const [phoneSent, setPhoneSent] = useState(false);
 
-  if (user) return null;
+  if (user) {
+    return (
+      <button
+        onClick={signOut}
+        className={`px-4 py-2 rounded-lg ${
+          isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'
+        } border border-gray-300 hover:bg-opacity-80`}
+      >
+        Logout
+      </button>
+    );
+  }
 
   const handleContinue = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,6 +45,7 @@ export default function LoginButton() {
       }
     } catch (error) {
       console.error('Error during login:', error);
+      alert('Login failed. Please try again.'); // Added error feedback
     }
   };
 

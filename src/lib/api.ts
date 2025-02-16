@@ -2,13 +2,22 @@
 import { supabase } from './supabase';
 import type { Novel, NovelType, ChapterType } from '@/types/supabase';
 
-export async function getLatestNovels(): Promise<Novel[]> {
+export async function getLatestNovels() {
   try {
     const { data, error } = await supabase
       .from('novels')
       .select(`
-        *,
-        author:profiles!novels_author_id_fkey(username)
+        id,
+        title,
+        cover_url,
+        author,
+        author_id,
+        rating,
+        status,
+        tags,
+        description,
+        created_at,
+        updated_at
       `)
       .order('created_at', { ascending: false });
 
@@ -17,10 +26,7 @@ export async function getLatestNovels(): Promise<Novel[]> {
       throw error;
     }
 
-    return data.map(novel => ({
-      ...novel,
-      author: novel.author?.username || novel.author // Fallback to old author field if needed
-    }));
+    return data || [];
   } catch (error) {
     console.error('Error in getLatestNovels:', error);
     return [];
