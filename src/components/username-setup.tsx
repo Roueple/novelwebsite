@@ -21,15 +21,15 @@ export default function UsernameSetup() {
     setLoading(true);
 
     try {
-      // Get current user
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       
       if (userError) throw userError;
       if (!user) throw new Error('No user found');
 
       // Validate username format
-      if (!/^[a-z0-9]+$/.test(username)) {
-        setError('Username can only contain lowercase letters and numbers');
+      if (!/^[a-z][a-z0-9]*$/.test(username)) {
+        setError('Username must start with a letter and can only contain lowercase letters and numbers');
+        setLoading(false);
         return;
       }
 
@@ -40,24 +40,21 @@ export default function UsernameSetup() {
         .eq('username', username.toLowerCase())
         .single();
 
-      if (checkError && checkError.code !== 'PGRST116') { // PGRST116 means no rows returned
-        throw checkError;
-      }
-
       if (existingUser) {
         setError('Username already taken');
+        setLoading(false);
         return;
       }
 
       // Create profile
       const { error: profileError } = await supabase
         .from('profiles')
-        .upsert({
+        .insert({
           id: user.id,
           username: username.toLowerCase(),
+          email: user.email,
           role: 'reader',
-          is_guest: false,
-          updated_at: new Date().toISOString()
+          is_guest: false
         });
 
       if (profileError) {
@@ -102,7 +99,7 @@ export default function UsernameSetup() {
                   value={username}
                   onChange={(e) => {
                     const value = e.target.value.toLowerCase();
-                    if (/^[a-z0-9]*$/.test(value)) {
+                    if (/^[a-z][a-z0-9]*$/.test(value) || value === '') {
                       setUsername(value);
                     }
                   }}
@@ -115,11 +112,12 @@ export default function UsernameSetup() {
                   required
                   minLength={3}
                   maxLength={20}
+                  pattern="^[a-z][a-z0-9]*$"
                 />
                 <p className={`mt-2 text-sm ${
                   isDark ? 'text-gray-400' : 'text-gray-600'
                 }`}>
-                  Username must be 3-20 characters long, using only lowercase letters and numbers.
+                  Username must start with a letter and can only contain lowercase letters and numbers.
                 </p>
                 {error && (
                   <p className="mt-2 text-sm text-red-500">
