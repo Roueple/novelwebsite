@@ -3,7 +3,7 @@ import { Merriweather, Roboto_Slab, Libre_Baskerville, Source_Sans_3, Open_Sans 
 import { ThemeProvider } from "@/providers/theme-provider";
 import "./globals.css";
 import { AuthProvider } from '@/providers/auth-provider';
-import LoginForm from '@/components/login-form';
+import Header from '@/components/header';
 
 
 // Font configurations
@@ -45,12 +45,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className={`${merriweather.variable} ${robotoSlab.variable} ${libreBaskerville.variable} ${sourceSans.variable} ${openSans.variable}`}>
         <AuthProvider>
           <ThemeProvider>
-            <header className="container mx-auto py-4">
-              {/* Add other header content */}
-              <div className="flex justify-end">
-                <LoginForm />
-              </div>
-            </header>
+            <Header />
             {children}
           </ThemeProvider>
         </AuthProvider>

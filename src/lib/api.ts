@@ -35,12 +35,21 @@ export async function getLatestNovels() {
 
 export async function getNovel(id: number): Promise<NovelType | null> {
   try {
-    // Get novel with author information
+    // Get novel with basic info
     const { data: novel, error: novelError } = await supabase
       .from('novels')
       .select(`
-        *,
-        author:profiles!novels_author_id_fkey(username)
+        id,
+        title,
+        cover_url,
+        author,
+        author_id,
+        rating,
+        status,
+        tags,
+        description,
+        created_at,
+        updated_at
       `)
       .eq('id', id)
       .single();
@@ -53,18 +62,21 @@ export async function getNovel(id: number): Promise<NovelType | null> {
     // Get chapters
     const { data: chapters, error: chaptersError } = await supabase
       .from('chapters')
-      .select('id, chapter_number, title, is_locked')
+      .select(`
+        id,
+        novel_id,
+        chapter_number,
+        title,
+        content,
+        is_locked,
+        created_at,
+        updated_at
+      `)
       .eq('novel_id', id)
       .order('chapter_number', { ascending: true });
 
-    if (chaptersError) {
-      console.error('Error fetching chapters:', chaptersError);
-      throw chaptersError;
-    }
-
     return {
       ...novel,
-      author: novel.author?.username || novel.author, // Fallback to old author field if needed
       chapters: chapters || []
     };
   } catch (error) {
