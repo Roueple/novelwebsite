@@ -75,6 +75,11 @@ export async function getNovel(id: number): Promise<NovelType | null> {
       .eq('novel_id', id)
       .order('chapter_number', { ascending: true });
 
+    if (chaptersError) {
+      console.error('Error fetching chapters:', chaptersError);
+      throw chaptersError;
+    }
+
     return {
       ...novel,
       chapters: chapters || []
