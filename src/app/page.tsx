@@ -92,20 +92,19 @@ export default function Home() {
               {isDark ? <Sun size={20} /> : <Moon size={20} />}
             </button>
 
- {/* Conditionally render "Add Novel" button based on user role */}
- {(role === 'admin' || role === 'author') && (
-              <Link
-                href="/novels/create"
-                className={`p-2 rounded-lg border flex items-center gap-2 ${
-                  isDark 
-                    ? 'border-gray-600 hover:bg-gray-700 text-gray-200' 
-                    : 'border-gray-300 hover:bg-gray-50 text-gray-600'
-                }`}
-              >
-                <Plus size={20} />
-                <span>Add Novel</span>
-              </Link>
-            )}
+            {(role === 'admin' || role === 'author') && (
+  <Link
+    href="/novels/create"
+    className={`p-2 rounded-lg border flex items-center gap-2 ${
+      isDark 
+        ? 'border-gray-600 hover:bg-gray-700 text-gray-200' 
+        : 'border-gray-300 hover:bg-gray-50 text-gray-600'
+    }`}
+  >
+    <Plus size={20} />
+    <span>Add Novel</span>
+  </Link>
+)}
           </div>
         </div>
       </div>
