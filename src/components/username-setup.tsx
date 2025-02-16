@@ -34,7 +34,7 @@ export default function UsernameSetup() {
       }
 
       // Check if username exists
-      const { data: existingUser, error: checkError } = await supabase
+      const { data: existingUser } = await supabase
         .from('profiles')
         .select('username')
         .eq('username', username.toLowerCase())
