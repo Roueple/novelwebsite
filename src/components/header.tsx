@@ -51,9 +51,6 @@ export default function Header() {
               height={40}
               className="rounded-lg"
             />
-            <span className="text-2xl font-bold text-white hover:text-gray-100">
-              Canon Story
-            </span>
           </Link>
 
           <div className="flex items-center gap-4">
