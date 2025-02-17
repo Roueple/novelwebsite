@@ -40,22 +40,22 @@ export default function Header() {
   }, [user]);
 
   return (
-    <div className={`bg-crimson-900 text-white ${theme === 'dark' ? 'dark' : ''}`}>
-      <header className="container mx-auto px-4">
+    <div className={`bg-theme-background text-theme-foreground`}>
+  <header className="container mx-auto px-4">
     <div className="flex justify-between items-center h-16">
       <Link href="/" className="flex items-center">
-        <div className="w-24 h-24 flex items-center justify-center mr-2">
+        <div className="w-12 h-12 flex items-center justify-center mr-2">
           <Image 
             src={theme === 'dark' ? "/logo-dark.png" : "/logo-light.png"}
-            alt="Canon Story"
-            width={96}
-            height={96}
+            alt="Your Brand"
+            width={48}
+            height={48}
             className="rounded-lg"
           />
         </div>
       </Link>
 
-          <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4">
             {user && (
               <div className="flex items-center gap-2 text-white">
                 <User size={20} />
