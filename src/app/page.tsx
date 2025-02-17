@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { getLatestNovels } from '@/lib/api';
 import type { Novel } from '@/types/supabase';
 import Image from 'next/image';
-import Header from '@/components/header';
 
 export default function Home() {
   const [novels, setNovels] = useState<Novel[]>([]);
