@@ -9,7 +9,6 @@ import Image from 'next/image';
 import SearchNav from '@/components/search-nav';
 
 export default function Home() {
-  const { theme } = useTheme();
   const [novels, setNovels] = useState<Novel[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
