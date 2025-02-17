@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useTheme } from '@/providers/theme-provider';
-import { Moon, Sun, BookOpen } from 'lucide-react';
+import { BookOpen } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { ImageUpload } from '@/components/ui/image-upload';
@@ -12,7 +12,7 @@ import type { NovelType } from '@/types/supabase';
 import Image from 'next/image';
 
 export default function NovelPage() {
-  const { theme, toggleTheme } = useTheme();
+  const { theme } = useTheme();
   const isDark = theme === 'dark';
   const params = useParams();
   const novelId = Number(params.id);
@@ -63,61 +63,36 @@ export default function NovelPage() {
     <div className={`min-h-screen transition-colors duration-200 ${
       isDark ? 'bg-gray-900' : 'bg-gray-50'
     }`}>
-      {/* Rest of your novel detail page UI */}
-      <div className={`${isDark ? 'bg-gray-800' : 'bg-white'} shadow`}>
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex justify-between items-center">
-            <Link 
-              href="/"
-              className={`text-lg font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}
-            >
-              Novel Website
-            </Link>
-            <button
-              onClick={toggleTheme}
-              className={`p-2 rounded-lg border ${
-                isDark 
-                  ? 'border-gray-600 hover:bg-gray-700 text-yellow-400' 
-                  : 'border-gray-300 hover:bg-gray-50 text-gray-600'
-              }`}
-            >
-              {isDark ? <Sun size={20} /> : <Moon size={20} />}
-            </button>
-          </div>
-        </div>
-      </div>
-
       <div className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* Left Column - Cover and Info */}
           <div className="md:col-span-1">
             <div className={`${isDark ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-lg p-4`}>
-            <Image 
-  src={novel.cover_url || '/api/placeholder/200/300'}
-  alt={novel.title}
-  width={200}
-  height={300}
-  className="w-full h-full object-cover"
-/>
-              <div className="mt-2">
-              <ImageUpload 
-  onUploadComplete={async (url: string) => {
-    const { error } = await supabase
-      .from('novels')
-      .update({ cover_url: url })
-      .eq('id', novel.id);
-        
-    if (error) {
-      alert('Error updating cover');
-      return;
-    }
-      
-    // Refresh the page or update local state
-    window.location.reload();
-  }}
-/>
-    </div>
-              <div className="space-y-2">
+              <Image 
+                src={novel.cover_url || '/api/placeholder/200/300'}
+                alt={novel.title}
+                width={200}
+                height={300}
+                className="w-full h-full object-cover rounded-lg"
+              />
+              <div className="mt-4">
+                <ImageUpload 
+                  onUploadComplete={async (url: string) => {
+                    const { error } = await supabase
+                      .from('novels')
+                      .update({ cover_url: url })
+                      .eq('id', novel.id);
+                    
+                    if (error) {
+                      alert('Error updating cover');
+                      return;
+                    }
+                    
+                    window.location.reload();
+                  }}
+                />
+              </div>
+              <div className="space-y-4 mt-4">
                 <div className="flex items-center justify-between">
                   <span className={`font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Rating</span>
                   <span className="text-yellow-500">★ {novel.rating}</span>
