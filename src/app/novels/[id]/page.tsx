@@ -126,40 +126,6 @@ export default function NovelPage() {
     }
   };
 
-  const handleAddChapter = async () => {
-    try {
-      const maxChapterNumber = novel?.chapters.reduce(
-        (max, ch) => Math.max(max, ch.chapter_number),
-        0
-      ) || 0;
-
-      const { data, error } = await supabase
-        .from('chapters')
-        .insert({
-          novel_id: novel?.id,
-          chapter_number: maxChapterNumber + 1,
-          title: `Chapter ${maxChapterNumber + 1}`,
-          content: '',
-          is_locked: false
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      setNovel(prev => {
-        if (!prev) return null;
-        return {
-          ...prev,
-          chapters: [...prev.chapters, data]
-        };
-      });
-    } catch (error) {
-      console.error('Error adding chapter:', error);
-      alert('Failed to add chapter. Please try again.');
-    }
-  };
-
   if (loading) {
     return (
       <div className={`min-h-screen ${isDark ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'} 
@@ -368,9 +334,8 @@ export default function NovelPage() {
   <AddChapterModal
     novelId={novel.id}
     onClose={() => setShowAddChapter(false)}
-    onSuccess={(chapterId: number) => {
+    onSuccess={() => {
       setShowAddChapter(false);
-      // The modal will handle navigation to the edit page
     }}
   />
 )}
