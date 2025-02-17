@@ -1,18 +1,15 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { Search, Filter, Moon, Sun, Plus } from 'lucide-react';
 import { useTheme } from '@/providers/theme-provider';
 import Link from 'next/link';
 import { getLatestNovels } from '@/lib/api';
 import type { Novel } from '@/types/supabase';
-import { useAuth } from '@/providers/auth-provider';
 import Image from 'next/image';
-
+import SearchNav from '@/components/search-nav';
 
 export default function Home() {
-  const { theme, toggleTheme } = useTheme();
-  const { role } = useAuth();
+  const { theme } = useTheme();
   const isDark = theme === 'dark';
   const [novels, setNovels] = useState<Novel[]>([]);
   const [loading, setLoading] = useState(true);
@@ -59,58 +56,7 @@ export default function Home() {
     <div className={`min-h-screen transition-colors duration-200 ${
       isDark ? 'bg-gray-900' : 'bg-gray-50'
     }`}>
-      {/* Header with Search */}
-      <div className={`${isDark ? 'bg-gray-800' : 'bg-white'} shadow sticky top-0 z-10`}>
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center gap-4">
-            <div className="flex-1 relative">
-              <input
-                type="text"
-                placeholder="Search novels..."
-                className={`w-full px-4 py-2 pr-10 rounded-lg border ${
-                  isDark 
-                    ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
-                    : 'bg-white border-gray-300 text-gray-900'
-                } focus:outline-none focus:border-red-500`}
-              />
-              <Search className="absolute right-3 top-2.5 text-gray-400" size={20} />
-            </div>
-            <button className={`p-2 rounded-lg border ${
-              isDark 
-                ? 'border-gray-600 hover:bg-gray-700' 
-                : 'border-gray-300 hover:bg-gray-50'
-            }`}>
-              <Filter size={20} className={isDark ? 'text-gray-300' : 'text-gray-600'} />
-            </button>
-            <button
-              onClick={toggleTheme}
-              className={`p-2 rounded-lg border ${
-                isDark 
-                  ? 'border-gray-600 hover:bg-gray-700 text-yellow-400' 
-                  : 'border-gray-300 hover:bg-gray-50 text-gray-600'
-              }`}
-            >
-              {isDark ? <Sun size={20} /> : <Moon size={20} />}
-            </button>
-
-            {(role === 'admin' || role === 'author') && (
-  <Link
-    href="/novels/create"
-    className={`p-2 rounded-lg border flex items-center gap-2 ${
-      isDark 
-        ? 'border-gray-600 hover:bg-gray-700 text-gray-200' 
-        : 'border-gray-300 hover:bg-gray-50 text-gray-600'
-    }`}
-  >
-    <Plus size={20} />
-    <span>Add Novel</span>
-  </Link>
-)}
-          </div>
-        </div>
-      </div>
-
-      
+      <SearchNav />
 
       {/* Novel Grid */}
       <div className="container mx-auto px-4 py-8">
@@ -130,13 +76,13 @@ export default function Home() {
                   hover:shadow-xl transition-all duration-200 hover:-translate-y-1`}
               >
                 <div className="aspect-[2/3] relative">
-                <Image 
-  src={novel.cover_url || '/api/placeholder/200/300'}
-  alt={novel.title}
-  width={200}
-  height={300}
-  className="w-full h-full object-cover"
-/>
+                  <Image 
+                    src={novel.cover_url || '/api/placeholder/200/300'}
+                    alt={novel.title}
+                    width={200}
+                    height={300}
+                    className="w-full h-full object-cover"
+                  />
                 </div>
                 <div className="p-4">
                   <h3 className={`font-bold text-lg mb-1 line-clamp-2 ${

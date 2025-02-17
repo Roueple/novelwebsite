@@ -1,5 +1,4 @@
 // src/app/layout.tsx
-import type { Metadata } from "next";
 import { Merriweather, Roboto_Slab, Libre_Baskerville, Source_Sans_3, Open_Sans } from "next/font/google";
 import { AuthProvider } from '@/providers/auth-provider';
 import { ThemeProvider } from "@/providers/theme-provider";
@@ -41,7 +40,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <AuthProvider>
           <ThemeProvider>
             <Header />
-            <main>
+            <main className="min-h-screen">
               {children}
             </main>
           </ThemeProvider>
