@@ -5,17 +5,23 @@ import Link from 'next/link';
 import { useAuth } from '@/providers/auth-provider';
 import { useTheme } from '@/providers/theme-provider';
 import LoginForm from './login-form';
-import { Moon, Sun, User } from 'lucide-react';
+import { Moon, Sun, User, BookOpen } from 'lucide-react'; // Added BookOpen import
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import Image from 'next/image';
 
 export default function Header() {
-  const { theme, toggleTheme } = useTheme();
+  const { theme, cycleTheme } = useTheme(); // Changed to cycleTheme
   const { user, role } = useAuth();
   const isDark = theme === 'dark';
   const [username, setUsername] = useState<string | null>(null);
 
+  const themeIcons = {
+    light: <Sun size={20} />,
+    dark: <Moon size={20} />,
+    reading: <BookOpen size={20} /> // Changed to BookOpen
+  };
+  
   useEffect(() => {
     async function fetchUsername() {
       if (user) {
@@ -65,10 +71,17 @@ export default function Header() {
             )}
             
             <button
-              onClick={toggleTheme}
-              className="p-2 rounded-lg border border-crimson-700 hover:bg-crimson-800 text-white"
+              onClick={cycleTheme}
+              className={`p-2 rounded-lg border ${
+                theme === 'reading'
+                  ? 'border-reading-accent hover:bg-reading-accent/10'
+                  : theme === 'dark'
+                  ? 'border-gray-700 hover:bg-gray-800'
+                  : 'border-gray-200 hover:bg-gray-100'
+              }`}
+              aria-label="Toggle theme"
             >
-              {isDark ? <Sun size={20} /> : <Moon size={20} />}
+              {themeIcons[theme]}
             </button>
 
             <LoginForm />

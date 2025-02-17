@@ -183,6 +183,23 @@ export default function ChapterPage() {
         </div>
       </header>
 
+
+      <div className={`prose max-w-none ${
+  theme === 'reading' 
+    ? 'reading-prose px-8 py-6 rounded-lg bg-reading-bg'
+    : theme === 'dark'
+    ? 'prose-invert'
+    : ''
+}`}>
+  {chapter.content?.split('\n').map((paragraph, index) => (
+    <p key={index} className={`mb-4 ${
+      theme === 'reading' ? 'text-reading-text' : ''
+    }`}>
+      {paragraph}
+    </p>
+  ))}
+</div>
+
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-3xl mx-auto">
           {/* Chapter Title */}

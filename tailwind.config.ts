@@ -6,12 +6,18 @@ const config: Config = {
     './src/components/**/*.{js,ts,jsx,tsx,mdx}',
     './src/app/**/*.{js,ts,jsx,tsx,mdx}',
   ],
-  darkMode: 'class', // Enable dark mode
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {
         background: 'var(--background)',
         foreground: 'var(--foreground)',
+        reading: {
+          accent: 'var(--reading-accent)',
+          muted: 'var(--reading-muted)',
+          bg: '#F5E6D3',
+          text: '#2C3E50',
+        }
       },
       backgroundColor: {
         'gray-700': '#374151',
