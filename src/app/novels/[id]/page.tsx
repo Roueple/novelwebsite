@@ -11,6 +11,7 @@ import { getNovel } from '@/lib/api';
 import type { NovelType } from '@/types/supabase';
 import Image from 'next/image';
 import { useAuth } from '@/providers/auth-provider';
+import AddChapterModal from '@/components/add-chapter-modal';
 
 export default function NovelPage() {
   const { theme } = useTheme();
@@ -27,6 +28,7 @@ export default function NovelPage() {
   const [editedTitle, setEditedTitle] = useState('');
   const [editedDescription, setEditedDescription] = useState('');
   const [editedChapterTitle, setEditedChapterTitle] = useState('');
+  const [showAddChapter, setShowAddChapter] = useState(false);
 
   useEffect(() => {
     async function loadNovel() {
@@ -347,20 +349,31 @@ export default function NovelPage() {
 
             {/* Chapters */}
             <div className={`${isDark ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-lg p-6`}>
-              <div className="flex justify-between items-center mb-4">
-                <h2 className={`text-xl font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                  Chapters
-                </h2>
-                {isAuthor && (
-                  <button
-                    onClick={handleAddChapter}
-                    className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-                  >
-                    <Plus size={18} />
-                    Add Chapter
-                  </button>
-                )}
-              </div>
+            <div className="flex justify-between items-center mb-4">
+  <h2 className={`text-xl font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+    Chapters
+  </h2>
+  {isAuthor && (
+    <button
+      onClick={() => setShowAddChapter(true)}
+      className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+    >
+      <Plus size={18} />
+      Add Chapter
+    </button>
+  )}
+</div>
+
+{showAddChapter && (
+  <AddChapterModal
+    novelId={novel.id}
+    onClose={() => setShowAddChapter(false)}
+    onSuccess={(chapterId: number) => {
+      setShowAddChapter(false);
+      // The modal will handle navigation to the edit page
+    }}
+  />
+)}
 
               <div className="space-y-2">
                 {novel.chapters?.map((chapter) => (
