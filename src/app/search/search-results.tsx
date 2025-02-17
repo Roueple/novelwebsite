@@ -6,7 +6,6 @@ import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { searchNovels } from '@/lib/api';
 import type { Novel } from '@/types/supabase';
-import Header from '@/components/header';
 
 export default function SearchResults() {
   const searchParams = useSearchParams();
@@ -42,7 +41,6 @@ export default function SearchResults() {
   if (loading) {
     return (
       <div className="min-h-screen bg-theme-background text-theme-foreground flex flex-col">
-        <Header />
         <div className="flex-grow flex items-center justify-center">
           <div className="text-xl">Searching...</div>
         </div>
@@ -53,7 +51,6 @@ export default function SearchResults() {
   if (error) {
     return (
       <div className="min-h-screen bg-theme-background text-theme-foreground flex flex-col">
-        <Header />
         <div className="flex-grow flex items-center justify-center">
           <div className="text-xl text-red-500">{error}</div>
         </div>
@@ -63,7 +60,6 @@ export default function SearchResults() {
 
   return (
     <div className="min-h-screen bg-theme-background text-theme-foreground">
-      <Header />
       <div className="container mx-auto px-4 py-8">
         <h1 className="text-2xl font-bold mb-6">
           Search Results for &quot;{query}&quot;
