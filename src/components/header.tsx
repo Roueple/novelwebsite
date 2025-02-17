@@ -91,16 +91,24 @@ export default function Header() {
 
           {/* Action Buttons */}
           <div className="flex items-center space-x-2">
-            {user && (
-              <div className="flex items-center gap-2 text-theme-foreground mr-2">
-                <span>{username || 'Loading...'}</span>
-                {role && (
-                  <span className="px-2 py-1 text-sm rounded-full bg-theme-accent text-white">
-                    {role}
-                  </span>
-                )}
-              </div>
-            )}
+          {user && (
+  <div className="flex items-center gap-2 text-theme-foreground mr-2">
+    <span>{username || 'Loading...'}</span>
+    {role && (
+      <span 
+        className={`px-2 py-1 text-sm rounded-full text-white ${
+          role === 'admin' 
+            ? 'bg-red-800' 
+            : role === 'author' 
+            ? 'bg-blue-800' 
+            : 'bg-green-800'
+        }`}
+      >
+        {role}
+      </span>
+    )}
+  </div>
+)}
 
             {(role === 'admin' || role === 'author') && (
               <Link
