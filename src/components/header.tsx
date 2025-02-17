@@ -47,8 +47,8 @@ export default function Header() {
             <Image 
               src="/logo.png"
               alt="Canon Story"
-              width={40}
-              height={40}
+              width={160}
+              height={160}
               className="rounded-lg"
             />
           </Link>
