@@ -13,32 +13,27 @@
 }
 
 .reading {
-  --background: #F5E6D3; /* Warm beige background */
-  --foreground: #2C3E50; /* Soft navy text */
-  --reading-accent: #A67C52; /* Warm brown for accents */
-  --reading-muted: #8B4513; /* Darker brown for secondary text */
+  --background: #F5E6D3;
+  --foreground: #2C3E50;
+  --reading-accent: #A67C52;
+  --reading-muted: #8B4513;
   color-scheme: light;
 }
 
-/* Reading mode specific styles */
 .reading {
-  /* Softer text rendering */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Adjust link colors for reading mode */
 .reading a {
   color: var(--reading-accent);
 }
 
-/* Specific text styles for reading mode */
 .reading .prose {
   line-height: 1.8;
   font-size: 1.1rem;
 }
 
-/* Reduce harsh contrasts in reading mode */
 .reading img {
   filter: brightness(0.95);
 }

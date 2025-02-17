@@ -5,20 +5,20 @@ import Link from 'next/link';
 import { useAuth } from '@/providers/auth-provider';
 import { useTheme } from '@/providers/theme-provider';
 import LoginForm from './login-form';
-import { Moon, Sun, User, BookOpen } from 'lucide-react'; // Added BookOpen import
+import { Moon, Sun, User, BookOpen } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import Image from 'next/image';
 
 export default function Header() {
-  const { theme, cycleTheme } = useTheme(); // Changed to cycleTheme
+  const { theme, cycleTheme } = useTheme();
   const { user, role } = useAuth();
   const [username, setUsername] = useState<string | null>(null);
 
   const themeIcons = {
     light: <Sun size={20} />,
     dark: <Moon size={20} />,
-    reading: <BookOpen size={20} /> // Changed to BookOpen
+    reading: <BookOpen size={20} />
   };
   
   useEffect(() => {
@@ -40,17 +40,19 @@ export default function Header() {
   }, [user]);
 
   return (
-    <div className="bg-crimson-900 text-white">
+    <div className={`bg-crimson-900 text-white ${theme === 'dark' ? 'dark' : ''}`}>
       <header className="container mx-auto px-4 py-4">
         <div className="flex justify-between items-center">
           <Link href="/" className="flex items-center gap-3">
-            <Image 
-              src="/logo.png"
-              alt="Canon Story"
-              width={160}
-              height={160}
-              className="rounded-lg"
-            />
+            <div className="w-10 h-10 flex items-center justify-center">
+              <Image 
+                src={theme === 'dark' ? "/logo-dark.png" : "/logo-light.png"}
+                alt="Your Brand"
+                width={32}
+                height={32}
+                className="rounded-lg"
+              />
+            </div>
           </Link>
 
           <div className="flex items-center gap-4">
