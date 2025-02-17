@@ -129,6 +129,38 @@ export async function getChapter(novelId: number, chapterNumber: number): Promis
   }
 }
 
+export async function deleteChapter(novelId: number, chapterId: number) {
+  try {
+    const { error } = await supabase
+      .from('chapters')
+      .delete()
+      .eq('id', chapterId)
+      .eq('novel_id', novelId);
+
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    console.error('Error deleting chapter:', error);
+    return false;
+  }
+}
+
+export async function addChapter(novelId: number, chapterData: Partial<ChapterType>) {
+  try {
+    const { data, error } = await supabase
+      .from('chapters')
+      .insert({ ...chapterData, novel_id: novelId })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error adding chapter:', error);
+    return null;
+  }
+}
+
 export async function updateChapter(
   novelId: number, 
   chapterId: number, 
