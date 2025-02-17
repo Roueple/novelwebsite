@@ -1,7 +1,7 @@
 // src/components/add-chapter-modal.tsx
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { useTheme } from '@/providers/theme-provider';
 import { useRouter } from 'next/navigation';
@@ -9,11 +9,17 @@ import { supabase } from '@/lib/supabase';
 
 interface AddChapterModalProps {
   novelId: number;
+  currentChapters: { chapter_number: number }[];
   onClose: () => void;
-  onSuccess: (chapterId: number) => void;
+  onSuccess: () => void;
 }
 
-export default function AddChapterModal({ novelId, onClose, onSuccess }: AddChapterModalProps) {
+export default function AddChapterModal({ 
+  novelId, 
+  currentChapters,
+  onClose, 
+  onSuccess 
+}: AddChapterModalProps) {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const router = useRouter();
@@ -23,18 +29,34 @@ export default function AddChapterModal({ novelId, onClose, onSuccess }: AddChap
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // Set initial chapter number based on existing chapters
+  useEffect(() => {
+    const maxChapterNumber = currentChapters.reduce(
+      (max, ch) => Math.max(max, ch.chapter_number),
+      0
+    );
+    setChapterNumber((maxChapterNumber + 1).toString());
+  }, [currentChapters]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
 
     try {
+      // Validate chapter number doesn't already exist
+      if (currentChapters.some(ch => ch.chapter_number === parseInt(chapterNumber))) {
+        setError('This chapter number already exists');
+        setIsLoading(false);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('chapters')
         .insert({
           novel_id: novelId,
           chapter_number: parseInt(chapterNumber),
-          title: title,
+          title: title || `Chapter ${chapterNumber}`, // Default title if none provided
           content: '',
           is_locked: false
         })
@@ -43,13 +65,13 @@ export default function AddChapterModal({ novelId, onClose, onSuccess }: AddChap
 
       if (error) throw error;
 
-      // Navigate to the chapter edit page
-      router.push(`/novels/${novelId}/chapter/${data.chapter_number}/edit`);
-      onSuccess(data.id);
+      onSuccess();
+      
+      // Redirect to chapter page
+      router.push(`/novels/${novelId}/chapter/${data.chapter_number}`);
     } catch (err) {
       console.error('Error adding chapter:', err);
       setError('Failed to add chapter. Please try again.');
-    } finally {
       setIsLoading(false);
     }
   };
@@ -104,13 +126,13 @@ export default function AddChapterModal({ novelId, onClose, onSuccess }: AddChap
             </label>
             <input
               type="text"
-              required
               value={title}
               onChange={(e) => setTitle(e.target.value)}
+              placeholder={`Chapter ${chapterNumber}`}
               className={`w-full px-4 py-2 rounded-lg border ${
                 isDark 
-                  ? 'bg-gray-700 border-gray-600 text-white' 
-                  : 'bg-white border-gray-300 text-gray-900'
+                  ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-500' 
+                  : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'
               }`}
             />
           </div>
@@ -136,7 +158,7 @@ export default function AddChapterModal({ novelId, onClose, onSuccess }: AddChap
               disabled={isLoading}
               className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
             >
-              {isLoading ? 'Adding...' : 'Add & Edit Content'}
+              {isLoading ? 'Adding...' : 'Add Chapter'}
             </button>
           </div>
         </form>

@@ -333,6 +333,7 @@ export default function NovelPage() {
 {showAddChapter && (
   <AddChapterModal
     novelId={novel.id}
+    currentChapters={novel.chapters}
     onClose={() => setShowAddChapter(false)}
     onSuccess={() => {
       setShowAddChapter(false);
