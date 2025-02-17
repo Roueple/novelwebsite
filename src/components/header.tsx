@@ -37,7 +37,7 @@ export default function Header() {
     <header className="container mx-auto px-4 py-4">
       <div className="flex justify-between items-center">
         <Link href="/" className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          Novel Website
+          Canon Story
         </Link>
 
         <div className="flex items-center gap-4">
