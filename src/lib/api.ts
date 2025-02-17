@@ -128,3 +128,23 @@ export async function getChapter(novelId: number, chapterNumber: number): Promis
     return null;
   }
 }
+
+export async function updateChapter(
+  novelId: number, 
+  chapterId: number, 
+  data: Partial<ChapterType>
+) {
+  try {
+    const { error } = await supabase
+      .from('chapters')
+      .update(data)
+      .eq('id', chapterId)
+      .eq('novel_id', novelId);
+
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    console.error('Error updating chapter:', error);
+    return false;
+  }
+}

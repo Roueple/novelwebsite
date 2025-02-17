@@ -40,7 +40,7 @@ export interface ChapterType extends Chapter {
   content: string;
 }
 
-export interface NovelType extends Omit<Novel, 'author_id'> {
+export interface NovelType extends Novel {
   chapters: ChapterType[];
 }
 

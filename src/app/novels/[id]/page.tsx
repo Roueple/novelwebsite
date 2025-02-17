@@ -10,16 +10,36 @@ import { supabase } from '@/lib/supabase';
 import { getNovel } from '@/lib/api';
 import type { NovelType } from '@/types/supabase';
 import Image from 'next/image';
+import { useAuth } from '@/providers/auth-provider';
+import { Edit, Trash2, Plus } from 'lucide-react';
 
 export default function NovelPage() {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const params = useParams();
   const novelId = Number(params.id);
+  const { user, role } = useAuth();
+const [isAuthor, setIsAuthor] = useState(false);
   
   const [novel, setNovel] = useState<NovelType | null>(null);
   const [loading, setLoading] = useState(true);
 
+  useEffect(() => {
+    async function checkAuthorAccess() {
+      if (!user) return;
+      
+      // Check if user is admin or the author of this novel
+      const isAdmin = role === 'admin';
+      const isNovelAuthor = novel?.author_id === user.id;
+      
+      setIsAuthor(isAdmin || isNovelAuthor);
+    }
+  
+    if (novel) {
+      checkAuthorAccess();
+    }
+  }, [novel, user, role]);
+  
   useEffect(() => {
     async function loadNovel() {
       const data = await getNovel(novelId);
@@ -147,6 +167,76 @@ export default function NovelPage() {
             </div>
 
             {/* Chapters */}
+
+            <div className={`${isDark ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-lg p-6`}>
+  <div className="flex justify-between items-center mb-4">
+    <h2 className={`text-xl font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+      Chapters
+    </h2>
+    {isAuthor && (
+      <button
+        onClick={() => {/* TODO: Implement add chapter */}}
+        className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+      >
+        <Plus size={18} />
+        Add Chapter
+      </button>
+    )}
+  </div>
+  
+  <div className="space-y-2">
+    {novel.chapters?.map((chapter) => (
+      <div 
+        key={chapter.id}
+        className={`flex items-center justify-between p-3 rounded-lg ${
+          isDark 
+            ? 'hover:bg-gray-700' 
+            : 'hover:bg-gray-50'
+        }`}
+      >
+        <Link 
+          href={`/novels/${novel.id}/chapter/${chapter.chapter_number}`}
+          className="flex-1 flex items-center gap-3"
+        >
+          <BookOpen size={20} className={isDark ? 'text-gray-400' : 'text-gray-500'} />
+          <span className={`${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+            Chapter {chapter.chapter_number}: {chapter.title}
+          </span>
+          {chapter.is_locked && (
+            <span className={`ml-2 px-2 py-1 text-sm rounded-full ${
+              isDark 
+                ? 'bg-gray-700 text-gray-300' 
+                : 'bg-gray-200 text-gray-700'
+            }`}>
+              Locked
+            </span>
+          )}
+        </Link>
+        
+        {isAuthor && (
+          <div className="flex items-center gap-2 ml-4">
+            <button
+              onClick={() => {/* TODO: Implement edit chapter */}}
+              className={`p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 ${
+                isDark ? 'text-gray-300' : 'text-gray-600'
+              }`}
+            >
+              <Edit size={18} />
+            </button>
+            <button
+              onClick={() => {/* TODO: Implement delete chapter */}}
+              className={`p-2 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50 ${
+                isDark ? 'text-red-300' : 'text-red-600'
+              }`}
+            >
+              <Trash2 size={18} />
+            </button>
+          </div>
+        )}
+      </div>
+    ))}
+  </div>
+</div>
             <div className={`${isDark ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-lg p-6`}>
               <h2 className={`text-xl font-semibold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
                 Chapters
