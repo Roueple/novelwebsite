@@ -8,6 +8,7 @@ import LoginForm from './login-form';
 import { Moon, Sun, User } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import Image from 'next/image';
 
 export default function Header() {
   const { theme, toggleTheme } = useTheme();
@@ -34,43 +35,46 @@ export default function Header() {
   }, [user]);
 
   return (
-    <header className="container mx-auto px-4 py-4">
-      <div className="flex justify-between items-center">
-        <Link href="/" className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          Canon Story
-        </Link>
+    <div className="bg-crimson-900 text-white">
+      <header className="container mx-auto px-4 py-4">
+        <div className="flex justify-between items-center">
+          <Link href="/" className="flex items-center gap-3">
+            <Image 
+              src="/logo.png"
+              alt="Canon Story"
+              width={40}
+              height={40}
+              className="rounded-lg"
+            />
+            <span className="text-2xl font-bold text-white hover:text-gray-100">
+              Canon Story
+            </span>
+          </Link>
 
-        <div className="flex items-center gap-4">
-          {user && (
-            <div className={`flex items-center gap-2 ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>
-              <User size={20} />
-              <span>{username || 'Loading...'}</span>
-              {role && (
-                <span className={`px-2 py-1 text-sm rounded-full ${
-                  isDark 
-                    ? 'bg-gray-700 text-gray-200' 
-                    : 'bg-gray-100 text-gray-800'
-                }`}>
-                  {role}
-                </span>
-              )}
-            </div>
-          )}
-          
-          <button
-            onClick={toggleTheme}
-            className={`p-2 rounded-lg border ${
-              isDark 
-                ? 'border-gray-600 hover:bg-gray-700 text-yellow-400' 
-                : 'border-gray-300 hover:bg-gray-50 text-gray-600'
-            }`}
-          >
-            {isDark ? <Sun size={20} /> : <Moon size={20} />}
-          </button>
+          <div className="flex items-center gap-4">
+            {user && (
+              <div className="flex items-center gap-2 text-white">
+                <User size={20} />
+                <span>{username || 'Loading...'}</span>
+                {role && (
+                  <span className="px-2 py-1 text-sm rounded-full bg-crimson-800 text-white">
+                    {role}
+                  </span>
+                )}
+              </div>
+            )}
+            
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-lg border border-crimson-700 hover:bg-crimson-800 text-white"
+            >
+              {isDark ? <Sun size={20} /> : <Moon size={20} />}
+            </button>
 
-          <LoginForm />
+            <LoginForm />
+          </div>
         </div>
-      </div>
-    </header>
+      </header>
+    </div>
   );
 }
