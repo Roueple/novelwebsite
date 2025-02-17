@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { useTheme } from '@/providers/theme-provider';
 import Link from 'next/link';
 import { getLatestNovels } from '@/lib/api';
 import type { Novel } from '@/types/supabase';
