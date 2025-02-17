@@ -2,134 +2,125 @@
 import { supabase } from './supabase';
 import type { NovelType, ChapterType } from '@/types/supabase';
 
-export async function getLatestNovels() {
+// Common select fields to avoid repetition
+const NOVEL_SELECT = `
+  id,
+  title,
+  cover_url,
+  author,
+  author_id,
+  rating,
+  status,
+  tags,
+  description,
+  created_at,
+  updated_at
+`;
+
+const CHAPTER_SELECT = `
+  id,
+  novel_id,
+  chapter_number,
+  title,
+  content,
+  is_locked,
+  created_at,
+  updated_at
+`;
+
+// Error handling utility
+function handleSupabaseError(error: any, context: string) {
+  console.error(`Error in ${context}:`, error);
+  return null;
+}
+
+export async function searchNovels(query: string) {
+  try {
+    // Sanitize query to prevent SQL injection
+    const sanitizedQuery = query.replace(/[^a-zA-Z0-9 ]/g, '');
+
+    const { data, error } = await supabase
+      .from('novels')
+      .select(NOVEL_SELECT)
+      .or(
+        `title.ilike.%${sanitizedQuery}%,author.ilike.%${sanitizedQuery}%,tags.cs.{${sanitizedQuery}}`
+      )
+      .order('created_at', { ascending: false })
+      .limit(50); // Limit results to prevent performance issues
+
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    return handleSupabaseError(error, 'searchNovels') || [];
+  }
+}
+
+export async function getLatestNovels(limit = 20) {
   try {
     const { data, error } = await supabase
       .from('novels')
-      .select(`
-        id,
-        title,
-        cover_url,
-        author,
-        author_id,
-        rating,
-        status,
-        tags,
-        description,
-        created_at,
-        updated_at
-      `)
-      .order('created_at', { ascending: false });
+      .select(NOVEL_SELECT)
+      .order('created_at', { ascending: false })
+      .limit(limit);
 
-    if (error) {
-      console.error('Error fetching novels:', error);
-      throw error;
-    }
-
+    if (error) throw error;
     return data || [];
   } catch (error) {
-    console.error('Error in getLatestNovels:', error);
-    return [];
+    return handleSupabaseError(error, 'getLatestNovels') || [];
   }
 }
 
 export async function getNovel(id: number): Promise<NovelType | null> {
   try {
-    // Get novel with author information
-    const { data: novel, error: novelError } = await supabase
-      .from('novels')
-      .select(`
-        id,
-        title,
-        cover_url,
-        author,
-        author_id,
-        rating,
-        status,
-        tags,
-        description,
-        created_at,
-        updated_at
-      `)
-      .eq('id', id)
-      .single();
+    // Fetch novel and chapters in parallel
+    const [novelResponse, chaptersResponse] = await Promise.all([
+      supabase
+        .from('novels')
+        .select(NOVEL_SELECT)
+        .eq('id', id)
+        .single(),
+      supabase
+        .from('chapters')
+        .select(CHAPTER_SELECT)
+        .eq('novel_id', id)
+        .order('chapter_number', { ascending: true })
+    ]);
 
-    if (novelError) {
-      console.error('Error fetching novel:', novelError);
-      throw novelError;
-    }
-
-    // Get chapters
-    const { data: chapters, error: chaptersError } = await supabase
-      .from('chapters')
-      .select(`
-        id,
-        novel_id,
-        chapter_number,
-        title,
-        content,
-        is_locked,
-        created_at,
-        updated_at
-      `)
-      .eq('novel_id', id)
-      .order('chapter_number', { ascending: true });
-
-    if (chaptersError) {
-      console.error('Error fetching chapters:', chaptersError);
-      throw chaptersError;
-    }
+    if (novelResponse.error) throw novelResponse.error;
+    if (chaptersResponse.error) throw chaptersResponse.error;
 
     return {
-      ...novel,
-      chapters: chapters || []
+      ...novelResponse.data,
+      chapters: chaptersResponse.data || []
     };
   } catch (error) {
-    console.error('Error in getNovel:', error);
-    return null;
+    return handleSupabaseError(error, 'getNovel');
   }
 }
 
-export async function getChapter(novelId: number, chapterNumber: number): Promise<ChapterType | null> {
+export async function getChapter(
+  novelId: number, 
+  chapterNumber: number
+): Promise<ChapterType | null> {
   try {
-    console.log('Fetching chapter:', { novelId, chapterNumber });
-
-    // First, get the chapter
-    const { data: chapter, error: chapterError } = await supabase
+    const { data, error } = await supabase
       .from('chapters')
-      .select(`
-        id,
-        novel_id,
-        chapter_number,
-        title,
-        content,
-        is_locked,
-        created_at,
-        updated_at
-      `)
+      .select(CHAPTER_SELECT)
       .eq('novel_id', novelId)
       .eq('chapter_number', chapterNumber)
       .single();
 
-    if (chapterError) {
-      console.error('Error fetching chapter:', chapterError);
-      return null;
-    }
-
-    if (!chapter) {
-      console.error('Chapter not found');
-      return null;
-    }
-
-    console.log('Chapter found:', chapter);
-    return chapter;
+    if (error) throw error;
+    return data;
   } catch (error) {
-    console.error('Error in getChapter:', error);
-    return null;
+    return handleSupabaseError(error, 'getChapter');
   }
 }
 
-export async function deleteChapter(novelId: number, chapterId: number) {
+export async function deleteChapter(
+  novelId: number, 
+  chapterId: number
+): Promise<boolean> {
   try {
     const { error } = await supabase
       .from('chapters')
@@ -140,12 +131,15 @@ export async function deleteChapter(novelId: number, chapterId: number) {
     if (error) throw error;
     return true;
   } catch (error) {
-    console.error('Error deleting chapter:', error);
+    handleSupabaseError(error, 'deleteChapter');
     return false;
   }
 }
 
-export async function addChapter(novelId: number, chapterData: Partial<ChapterType>) {
+export async function addChapter(
+  novelId: number, 
+  chapterData: Partial<ChapterType>
+) {
   try {
     const { data, error } = await supabase
       .from('chapters')
@@ -156,8 +150,7 @@ export async function addChapter(novelId: number, chapterData: Partial<ChapterTy
     if (error) throw error;
     return data;
   } catch (error) {
-    console.error('Error adding chapter:', error);
-    return null;
+    return handleSupabaseError(error, 'addChapter');
   }
 }
 
@@ -165,7 +158,7 @@ export async function updateChapter(
   novelId: number, 
   chapterId: number, 
   data: Partial<ChapterType>
-) {
+): Promise<boolean> {
   try {
     const { error } = await supabase
       .from('chapters')
@@ -176,7 +169,7 @@ export async function updateChapter(
     if (error) throw error;
     return true;
   } catch (error) {
-    console.error('Error updating chapter:', error);
+    handleSupabaseError(error, 'updateChapter');
     return false;
   }
 }

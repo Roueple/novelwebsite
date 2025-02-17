@@ -2,53 +2,73 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { getLatestNovels } from '@/lib/api';
-import type { Novel } from '@/types/supabase';
+import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
+import { searchNovels } from '@/lib/api';
+import type { Novel } from '@/types/supabase';
 import Header from '@/components/header';
 
-export default function Home() {
+export default function SearchPage() {
+  const searchParams = useSearchParams();
+  const query = searchParams.get('q') || '';
+
   const [novels, setNovels] = useState<Novel[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    async function loadNovels() {
+    async function performSearch() {
+      if (!query) {
+        setNovels([]);
+        setLoading(false);
+        return;
+      }
+
       try {
-        const data = await getLatestNovels();
-        setNovels(data);
+        setLoading(true);
+        const results = await searchNovels(query);
+        setNovels(results);
       } catch (err) {
-        setError('Failed to load novels');
-        console.error('Error loading novels:', err);
+        console.error('Search error:', err);
+        setError('Failed to perform search');
       } finally {
         setLoading(false);
       }
     }
-    loadNovels();
-  }, []);
+
+    performSearch();
+  }, [query]);
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-theme-background text-theme-foreground flex items-center justify-center">
-        <div className="text-xl">Loading...</div>
+      <div className="min-h-screen bg-theme-background text-theme-foreground flex flex-col">
+        <Header />
+        <div className="flex-grow flex items-center justify-center">
+          <div className="text-xl">Searching...</div>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-theme-background text-theme-foreground flex items-center justify-center">
-        <div className="text-xl text-red-500">{error}</div>
+      <div className="min-h-screen bg-theme-background text-theme-foreground flex flex-col">
+        <Header />
+        <div className="flex-grow flex items-center justify-center">
+          <div className="text-xl text-red-500">{error}</div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-theme-background text-theme-foreground transition-colors duration-200">
+    <div className="min-h-screen bg-theme-background text-theme-foreground">
       <Header />
-
-      {/* Novel Grid */}
       <div className="container mx-auto px-4 py-8">
+        <h1 className="text-2xl font-bold mb-6">
+          Search Results for "{query}"
+        </h1>
+
         {novels.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-xl text-theme-muted">No novels found</p>
