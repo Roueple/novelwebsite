@@ -44,12 +44,12 @@ export default function Header() {
   <header className="container mx-auto px-4">
     <div className="flex justify-between items-center h-16">
       <Link href="/" className="flex items-center">
-        <div className="w-12 h-12 flex items-center justify-center mr-2">
+        <div className="w-36 h-36 flex items-center justify-center mr-2">
           <Image 
             src={theme === 'dark' ? "/logo-dark.png" : "/logo-light.png"}
             alt="Your Brand"
-            width={48}
-            height={48}
+            width={144}
+            height={144}
             className="rounded-lg"
           />
         </div>
