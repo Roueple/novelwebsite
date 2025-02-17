@@ -2,6 +2,13 @@
 import { supabase } from './supabase';
 import type { NovelType, ChapterType } from '@/types/supabase';
 
+// Error type for Supabase errors
+type SupabaseError = {
+  message: string;
+  details?: string;
+  hint?: string;
+};
+
 // Common select fields to avoid repetition
 const NOVEL_SELECT = `
   id,
@@ -29,8 +36,8 @@ const CHAPTER_SELECT = `
 `;
 
 // Error handling utility
-function handleSupabaseError(error: any, context: string) {
-  console.error(`Error in ${context}:`, error);
+function handleSupabaseError(error: SupabaseError, context: string) {
+  console.error(`Error in ${context}:`, error.message);
   return null;
 }
 
@@ -51,7 +58,7 @@ export async function searchNovels(query: string) {
     if (error) throw error;
     return data || [];
   } catch (error) {
-    return handleSupabaseError(error, 'searchNovels') || [];
+    return handleSupabaseError(error as SupabaseError, 'searchNovels') || [];
   }
 }
 
@@ -66,7 +73,7 @@ export async function getLatestNovels(limit = 20) {
     if (error) throw error;
     return data || [];
   } catch (error) {
-    return handleSupabaseError(error, 'getLatestNovels') || [];
+    return handleSupabaseError(error as SupabaseError, 'getLatestNovels') || [];
   }
 }
 
@@ -94,7 +101,7 @@ export async function getNovel(id: number): Promise<NovelType | null> {
       chapters: chaptersResponse.data || []
     };
   } catch (error) {
-    return handleSupabaseError(error, 'getNovel');
+    return handleSupabaseError(error as SupabaseError, 'getNovel');
   }
 }
 
@@ -113,7 +120,7 @@ export async function getChapter(
     if (error) throw error;
     return data;
   } catch (error) {
-    return handleSupabaseError(error, 'getChapter');
+    return handleSupabaseError(error as SupabaseError, 'getChapter');
   }
 }
 
@@ -131,7 +138,7 @@ export async function deleteChapter(
     if (error) throw error;
     return true;
   } catch (error) {
-    handleSupabaseError(error, 'deleteChapter');
+    handleSupabaseError(error as SupabaseError, 'deleteChapter');
     return false;
   }
 }
@@ -150,7 +157,7 @@ export async function addChapter(
     if (error) throw error;
     return data;
   } catch (error) {
-    return handleSupabaseError(error, 'addChapter');
+    return handleSupabaseError(error as SupabaseError, 'addChapter');
   }
 }
 
@@ -169,7 +176,7 @@ export async function updateChapter(
     if (error) throw error;
     return true;
   } catch (error) {
-    handleSupabaseError(error, 'updateChapter');
+    handleSupabaseError(error as SupabaseError, 'updateChapter');
     return false;
   }
 }
