@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { useTheme } from '@/providers/theme-provider';
 import { ChevronLeft, ChevronRight, Edit, Save, Lock, Unlock } from 'lucide-react';
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { getChapter, getNovel } from '@/lib/api';
 import { ChapterType, NovelType } from '@/types/supabase';
 import { useAuth } from '@/providers/auth-provider';
@@ -14,7 +14,6 @@ import { supabase } from '@/lib/supabase';
 export default function ChapterPage() {
   const { theme } = useTheme();
   const { user, role } = useAuth();
-  const router = useRouter();
   const params = useParams();
   const isDark = theme === 'dark';
   
