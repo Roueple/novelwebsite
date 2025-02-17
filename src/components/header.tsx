@@ -41,19 +41,19 @@ export default function Header() {
 
   return (
     <div className={`bg-crimson-900 text-white ${theme === 'dark' ? 'dark' : ''}`}>
-      <header className="container mx-auto px-4 py-4">
-        <div className="flex justify-between items-center">
-          <Link href="/" className="flex items-center gap-3">
-            <div className="w-20 h-20 flex items-center justify-center">
-              <Image 
-                src={theme === 'dark' ? "/logo-dark.png" : "/logo-light.png"}
-                alt="Your Brand"
-                width={64}
-                height={64}
-                className="rounded-lg"
-              />
-            </div>
-          </Link>
+      <header className="container mx-auto px-4">
+    <div className="flex justify-between items-center h-16">
+      <Link href="/" className="flex items-center">
+        <div className="w-12 h-12 flex items-center justify-center mr-2">
+          <Image 
+            src={theme === 'dark' ? "/logo-dark.png" : "/logo-light.png"}
+            alt="Canon Story"
+            width={48}
+            height={48}
+            className="rounded-lg"
+          />
+        </div>
+      </Link>
 
           <div className="flex items-center gap-4">
             {user && (
