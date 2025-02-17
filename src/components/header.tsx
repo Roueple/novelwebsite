@@ -13,7 +13,6 @@ import Image from 'next/image';
 export default function Header() {
   const { theme, cycleTheme } = useTheme(); // Changed to cycleTheme
   const { user, role } = useAuth();
-  const isDark = theme === 'dark';
   const [username, setUsername] = useState<string | null>(null);
 
   const themeIcons = {
