@@ -12,16 +12,8 @@
   --reading-muted: #8B4513;
   --reading-accent: #A0522D;
 
-  /* Transition */
   scroll-behavior: smooth;
-}
-
-body {
-  color: var(--foreground);
-  background-color: var(--background);
-  transition: 
-    color 0.3s ease-in-out, 
-    background-color 0.3s ease-in-out;
+  font-size: 16px;
 }
 
 .dark {
@@ -31,6 +23,31 @@ body {
   --card-background: #1f2937;
 }
 
+.dark .reading {
+  --reading-background: #1C2331;
+  --reading-foreground: #E0E0E0;
+  --reading-muted: #A0A0A0;
+  --reading-accent: #D2691E;
+}
+
+body {
+  color: var(--foreground);
+  background-color: var(--background);
+  will-change: color, background-color;
+  transition: 
+    color 0.3s ease-in-out, 
+    background-color 0.3s ease-in-out;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@media (max-width: 768px) {
+  :root {
+    font-size: 14px;
+  }
+}
+
 .reading {
   --background: var(--reading-background);
   --foreground: var(--reading-foreground);
@@ -38,27 +55,22 @@ body {
   --card-background: var(--reading-background);
 }
 
-/* Theme Utility Classes */
-.bg-theme-background {
-  background-color: var(--background);
-}
-
-.text-theme-foreground {
-  color: var(--foreground);
-}
-
-.text-theme-muted {
-  color: var(--muted);
-}
-
-.bg-theme-card {
-  background-color: var(--card-background);
-}
+/* Utility Classes */
+.bg-theme-background { background-color: var(--background); }
+.text-theme-foreground { color: var(--foreground); }
+.text-theme-muted { color: var(--muted); }
+.bg-theme-card { background-color: var(--card-background); }
 
 /* Reading Mode Enhancements */
-.reading {
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+.reading-content, 
+.reading .prose {
+  max-width: 65ch;
+  margin: 0 auto;
+  line-height: 1.8;
+  font-size: 1.125rem;
+  hyphens: auto;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .reading a {
@@ -68,18 +80,24 @@ body {
 }
 
 .reading a:hover {
-  color: darken(var(--reading-accent), 10%);
-}
-
-.reading .prose {
-  line-height: 1.8;
-  font-size: 1.1rem;
-  max-width: 65ch;
-  margin: 0 auto;
+  opacity: 0.8;
 }
 
 .reading img {
   filter: brightness(0.95);
   max-width: 100%;
   height: auto;
+}
+
+/* Print Styles */
+@media print {
+  body {
+    color: #000;
+    background: white;
+  }
+  
+  .reading .prose {
+    max-width: none;
+    line-height: 1.6;
+  }
 }

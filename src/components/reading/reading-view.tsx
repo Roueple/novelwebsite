@@ -54,12 +54,19 @@ export default function ReadingView({
           }`}
         />
       ) : (
-        <div className="prose max-w-none leading-relaxed">
+        <div className="reading-content">
           {content?.split('\n\n').map((paragraph, index) => (
             <p 
               key={index} 
-              className={`mb-6 text-lg ${isDark ? 'text-gray-300' : 'text-gray-800'}`}
-              style={{ lineHeight: '1.8' }}
+              className={`mb-6 text-lg leading-relaxed ${
+                isDark ? 'text-gray-300' : 'text-gray-800'
+              }`}
+              style={{ 
+                textIndent: '2rem',  // Indent first line of each paragraph
+                lineHeight: 1.8,     // Increased line height for better readability
+                wordBreak: 'break-word', // Prevent overflow of long words
+                hyphens: 'auto'      // Allow hyphenation for better text flow
+              }}
             >
               {paragraph}
             </p>
