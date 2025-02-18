@@ -1,5 +1,6 @@
 // src/components/reading/reading-view.tsx
-import { Lock } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Lock, TextCursorInput, ZoomIn, ZoomOut } from 'lucide-react';
 import { useTheme } from '@/providers/theme-provider';
 
 interface ReadingViewProps {
@@ -18,6 +19,21 @@ export default function ReadingView({
   onContentChange
 }: ReadingViewProps) {
   const { theme } = useTheme();
+  const [textSize, setTextSize] = useState<'sm' | 'md' | 'lg' | 'xl'>('md');
+
+  // Retrieve text size from localStorage on component mount
+  useEffect(() => {
+    const savedTextSize = localStorage.getItem('readingTextSize') as 'sm' | 'md' | 'lg' | 'xl';
+    if (savedTextSize) {
+      setTextSize(savedTextSize);
+    }
+  }, []);
+
+  // Handle text size change
+  const changeTextSize = (size: 'sm' | 'md' | 'lg' | 'xl') => {
+    setTextSize(size);
+    localStorage.setItem('readingTextSize', size);
+  };
 
   // Function to normalize content while preserving special formatting
   const normalizeContent = (text: string) => {
@@ -59,6 +75,14 @@ export default function ReadingView({
     const styles = getContainerStyles();
     const lines = text.split('\n');
     
+    // Determine text size classes
+    const sizeClasses = {
+      sm: 'text-base',
+      md: 'text-lg',
+      lg: 'text-xl',
+      xl: 'text-2xl'
+    };
+
     return lines.map((line, index) => {
       const isBracketed = line.startsWith('[') && line.endsWith(']');
       const isDialogue = line.startsWith('"') && line.endsWith('"');
@@ -67,7 +91,9 @@ export default function ReadingView({
         <p 
           key={index} 
           className={`
-            mb-6 text-xl leading-relaxed
+            mb-6 
+            leading-relaxed
+            ${sizeClasses[textSize]}
             ${isBracketed ? styles.bracketed : ''}
             ${isDialogue ? styles.dialogue : ''}
             ${styles.text}
@@ -111,44 +137,71 @@ export default function ReadingView({
   }
 
   return (
-    <div className={`
-      w-full 
-      max-w-5xl  // Increased from max-w-4xl
-      mx-auto 
-      reading-content 
-      p-8  // Increased from p-6
-      rounded-xl  // Slightly larger rounded corners
-      shadow-lg  // Slightly larger shadow
-      ${containerStyles.container}
-    `}>
-      {isEditing ? (
-        <textarea
-          value={content}
-          onChange={(e) => {
-            const normalizedContent = normalizeContent(e.target.value);
-            onContentChange?.(normalizedContent);
-          }}
-          rows={20}
-          className={`
-            w-full 
-            py-2 
-            rounded-lg 
-            border 
-            ${containerStyles.container}
-            border-theme-border 
-            focus:border-red-500 
-            focus:outline-none
-          `}
-        />
-      ) : (
-        <div className={`
-          prose 
-          max-w-none 
-          ${theme === 'reading' ? 'reading' : ''}
-        `}>
-          {renderContent(content)}
-        </div>
-      )}
+    <div className="relative">
+      {/* Text Size Controls */}
+      <div className="absolute top-0 right-0 flex items-center space-x-2 mb-4">
+        {(['sm', 'md', 'lg', 'xl'] as const).map((size) => (
+          <button
+            key={size}
+            onClick={() => changeTextSize(size)}
+            className={`
+              p-2 
+              rounded-full 
+              ${textSize === size 
+                ? 'bg-red-600 text-white' 
+                : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+              }
+            `}
+          >
+            {size === 'sm' && <ZoomOut size={16} />}
+            {size === 'md' && <TextCursorInput size={16} />}
+            {size === 'lg' && <ZoomIn size={16} />}
+            {size === 'xl' && <ZoomIn size={20} />}
+          </button>
+        ))}
+      </div>
+
+      <div className={`
+        w-full 
+        max-w-5xl  
+        mx-auto 
+        reading-content 
+        p-8  
+        rounded-xl  
+        shadow-lg 
+        relative
+        mt-12  // Added to make room for text size controls
+        ${containerStyles.container}
+      `}>
+        {isEditing ? (
+          <textarea
+            value={content}
+            onChange={(e) => {
+              const normalizedContent = normalizeContent(e.target.value);
+              onContentChange?.(normalizedContent);
+            }}
+            rows={20}
+            className={`
+              w-full 
+              py-2 
+              rounded-lg 
+              border 
+              ${containerStyles.container}
+              border-theme-border 
+              focus:border-red-500 
+              focus:outline-none
+            `}
+          />
+        ) : (
+          <div className={`
+            prose 
+            max-w-none 
+            ${theme === 'reading' ? 'reading' : ''}
+          `}>
+            {renderContent(content)}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
