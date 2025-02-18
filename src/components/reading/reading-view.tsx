@@ -67,7 +67,7 @@ export default function ReadingView({
         <p 
           key={index} 
           className={`
-            mb-4 text-lg leading-relaxed
+            mb-6 text-xl leading-relaxed
             ${isBracketed ? styles.bracketed : ''}
             ${isDialogue ? styles.dialogue : ''}
             ${styles.text}
@@ -113,12 +113,12 @@ export default function ReadingView({
   return (
     <div className={`
       w-full 
-      max-w-4xl 
+      max-w-5xl  // Increased from max-w-4xl
       mx-auto 
       reading-content 
-      p-6 
-      rounded-lg 
-      shadow-md 
+      p-8  // Increased from p-6
+      rounded-xl  // Slightly larger rounded corners
+      shadow-lg  // Slightly larger shadow
       ${containerStyles.container}
     `}>
       {isEditing ? (
