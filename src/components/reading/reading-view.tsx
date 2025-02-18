@@ -20,6 +20,24 @@ export default function ReadingView({
   const { theme } = useTheme();
   const isDark = theme === 'dark';
 
+  // Function to normalize paragraph spacing
+  const normalizeContent = (text: string) => {
+    // Replace multiple consecutive newlines with double newline
+    return text
+      .replace(/\n{3,}/g, '\n\n')  // Reduce multiple newlines to double
+      .replace(/^\s+|\s+$/g, '')   // Trim start and end whitespace
+      .split('\n\n')                // Split into paragraphs
+      .map(p => p.trim())           // Trim each paragraph
+      .filter(p => p.length > 0)    // Remove empty paragraphs
+      .join('\n\n');                // Rejoin with double newline
+  };
+
+  // Handler for content change that normalizes input
+  const handleContentChange = (newContent: string) => {
+    const normalizedContent = normalizeContent(newContent);
+    onContentChange?.(normalizedContent);
+  };
+
   if (isLocked && !isAuthor) {
     return (
       <div className="text-center py-16">
@@ -41,11 +59,11 @@ export default function ReadingView({
   }
 
   return (
-    <div className={`max-w-3xl mx-auto ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+    <div className={`reading-content ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
       {isEditing ? (
         <textarea
           value={content}
-          onChange={(e) => onContentChange?.(e.target.value)}
+          onChange={(e) => handleContentChange(e.target.value)}
           rows={20}
           className={`w-full px-4 py-2 rounded-lg border ${
             isDark 
@@ -54,21 +72,15 @@ export default function ReadingView({
           }`}
         />
       ) : (
-        <div className="reading-content">
+        <div className="prose max-w-none">
           {content?.split('\n\n').map((paragraph, index) => (
             <p 
               key={index} 
               className={`mb-6 text-lg leading-relaxed ${
                 isDark ? 'text-gray-300' : 'text-gray-800'
               }`}
-              style={{ 
-                textIndent: '2rem',  // Indent first line of each paragraph
-                lineHeight: 1.8,     // Increased line height for better readability
-                wordBreak: 'break-word', // Prevent overflow of long words
-                hyphens: 'auto'      // Allow hyphenation for better text flow
-              }}
             >
-              {paragraph}
+              {paragraph.trim()}
             </p>
           ))}
         </div>

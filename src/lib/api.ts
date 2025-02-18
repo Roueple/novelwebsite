@@ -161,22 +161,37 @@ export async function addChapter(
   }
 }
 
+// Modify the existing updateChapter function
 export async function updateChapter(
   novelId: number, 
   chapterId: number, 
   data: Partial<ChapterType>
-): Promise<boolean> {
+) {
+  // Normalize content before updating
+  const normalizedContent = data.content 
+    ? data.content
+        .replace(/\n{3,}/g, '\n\n')  // Reduce multiple newlines to double
+        .replace(/^\s+|\s+$/g, '')   // Trim start and end whitespace
+        .split('\n\n')                // Split into paragraphs
+        .map(p => p.trim())           // Trim each paragraph
+        .filter(p => p.length > 0)    // Remove empty paragraphs
+        .join('\n\n')                 // Rejoin with double newline
+    : data.content;
+
   try {
     const { error } = await supabase
       .from('chapters')
-      .update(data)
+      .update({
+        ...data,
+        content: normalizedContent
+      })
       .eq('id', chapterId)
       .eq('novel_id', novelId);
 
     if (error) throw error;
     return true;
   } catch (error) {
-    handleSupabaseError(error as SupabaseError, 'updateChapter');
+    console.error('Error updating chapter:', error);
     return false;
   }
 }
