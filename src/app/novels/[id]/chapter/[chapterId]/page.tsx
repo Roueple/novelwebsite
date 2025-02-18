@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { useTheme } from '@/providers/theme-provider';
 import { ChevronLeft, ChevronRight, Edit, Save, Lock, Unlock, ChevronDown } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
