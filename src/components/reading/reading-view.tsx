@@ -160,55 +160,55 @@ export default function ReadingView({
   }
 
   return (
-    <div className="relative max-w-6xl mx-auto px-4 sm:px-6 md:px-8">
-      {/* Text Size Controls */}
-      <div className="absolute top-0 right-0 z-10" ref={dropdownRef}>
-        <div className="relative">
-          <button
-            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-theme-background border border-theme-border text-theme-foreground"
-          >
-            {textSizeLabel[textSize]} <ChevronDown size={16} />
-          </button>
-          
-          {isDropdownOpen && (
-            <div className="absolute right-0 mt-2 w-48 bg-theme-background border border-theme-border rounded-lg shadow-lg">
-              {(['sm', 'md', 'lg', 'xl'] as const).map((size) => (
-                <button
-                  key={size}
-                  onClick={() => changeTextSize(size)}
-                  className={`
-                    w-full 
-                    text-left 
-                    px-4 
-                    py-2 
-                    hover:bg-theme-hover
-                    ${textSize === size 
-                      ? 'bg-red-600 text-white' 
-                      : 'text-theme-foreground'
-                    }
-                  `}
-                >
-                  {textSizeLabel[size]}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
+    <div className="relative w-full">
       <div className={`
         w-full 
+        max-w-[1000px]  // Fixed width for desktop
         mx-auto 
         reading-content 
         p-6 
         sm:p-8 
         rounded-xl  
         shadow-lg 
-        relative
-        mt-12  
         ${containerStyles.container}
       `}>
+        {/* Text Size Control */}
+        <div className="absolute top-0 right-0 flex items-center space-x-2" ref={dropdownRef}>
+          <div className="relative">
+            <button
+              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              className="flex items-center gap-2 text-sm text-theme-foreground"
+            >
+              Text Size: {textSizeLabel[textSize]} <ChevronDown size={16} />
+            </button>
+            
+            {isDropdownOpen && (
+              <div className="absolute right-0 mt-2 w-36 bg-theme-background border border-theme-border rounded-lg shadow-lg">
+                {(['sm', 'md', 'lg', 'xl'] as const).map((size) => (
+                  <button
+                    key={size}
+                    onClick={() => changeTextSize(size)}
+                    className={`
+                      w-full 
+                      text-left 
+                      px-3 
+                      py-2 
+                      text-sm
+                      hover:bg-theme-hover
+                      ${textSize === size 
+                        ? 'bg-red-600 text-white' 
+                        : 'text-theme-foreground'
+                      }
+                    `}
+                  >
+                    {textSizeLabel[size]}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
         {isEditing ? (
           <textarea
             value={content}
