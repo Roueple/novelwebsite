@@ -1,5 +1,5 @@
 // src/components/reading/reading-view.tsx
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Lock } from 'lucide-react';
 import { useTheme } from '@/providers/theme-provider';
 
@@ -8,7 +8,7 @@ interface ReadingViewProps {
   isLocked: boolean;
   isAuthor: boolean;
   isEditing: boolean;
-  initialTextSize?: 'sm' | 'md' | 'lg' | 'xl';
+  textSize: 'sm' | 'md' | 'lg' | 'xl';
   onContentChange?: (content: string) => void;
 }
 
@@ -17,22 +17,10 @@ export default function ReadingView({
   isLocked,
   isAuthor,
   isEditing,
-  initialTextSize = 'md',
+  textSize,
   onContentChange
 }: ReadingViewProps) {
   const { theme } = useTheme();
-  const [textSize, setTextSize] = useState<'sm' | 'md' | 'lg' | 'xl'>(initialTextSize);
-
-  useEffect(() => {
-    const savedTextSize = localStorage.getItem('readingTextSize') as 'sm' | 'md' | 'lg' | 'xl';
-    if (savedTextSize) {
-      setTextSize(savedTextSize);
-    }
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem('readingTextSize', textSize);
-  }, [textSize]);
 
   const normalizeContent = (text: string) => {
     return text
@@ -132,9 +120,9 @@ export default function ReadingView({
 
   const styles = getThemeStyles();
   return (
-    <div className={`mx-auto ${styles.background}`}>
+    <div className={`w-full ${styles.background}`}>
       {isEditing ? (
-        <div className="max-w-prose mx-auto px-4">
+        <div className="max-w-[65ch] mx-auto px-4 md:px-0">
           <textarea
             value={content}
             onChange={(e) => {
@@ -153,16 +141,16 @@ export default function ReadingView({
               focus:border-red-500 
               focus:outline-none
               ${styles.background}
+              resize-y
             `}
           />
         </div>
       ) : (
         <div className={`
-          max-w-prose 
+          max-w-[65ch]
           mx-auto 
-          px-4
-          sm:px-0
-          ${theme === 'reading' ? 'reading' : ''}
+          px-4 
+          md:px-0
         `}>
           {renderContent(content)}
         </div>

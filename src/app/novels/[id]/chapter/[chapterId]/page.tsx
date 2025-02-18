@@ -78,6 +78,13 @@ export default function ChapterPage() {
     setIsTextSizeDropdownOpen(false);
   };
 
+  useEffect(() => {
+    const savedTextSize = localStorage.getItem('readingTextSize') as 'sm' | 'md' | 'lg' | 'xl';
+    if (savedTextSize) {
+      setTextSize(savedTextSize);
+    }
+  }, []);
+
   const handleSave = async () => {
     if (!chapter) return;
     setSaving(true);
@@ -251,13 +258,13 @@ export default function ChapterPage() {
 
         {/* Reading View */}
         <ReadingView
-          content={isEditing ? editedContent : chapter.content || ''}
-          isLocked={isLocked}
-          isAuthor={isAuthor}
-          isEditing={isEditing}
-          initialTextSize={textSize}
-          onContentChange={setEditedContent}
-        />
+    content={isEditing ? editedContent : chapter.content || ''}
+    isLocked={isLocked}
+    isAuthor={isAuthor}
+    isEditing={isEditing}
+    textSize={textSize}  // Changed from initialTextSize to textSize
+    onContentChange={setEditedContent}
+  />
 
         {/* Chapter Navigation */}
         <div className="max-w-prose mx-auto px-4 mt-12 flex justify-between items-center">
