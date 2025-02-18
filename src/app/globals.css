@@ -101,3 +101,12 @@ body {
     line-height: 1.6;
   }
 }
+
+[contenteditable]:focus {
+  outline: none;
+  border-color: transparent;
+}
+
+[contenteditable] {
+  cursor: text;
+}

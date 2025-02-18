@@ -121,43 +121,28 @@ export default function ReadingView({
   const styles = getThemeStyles();
   return (
     <div className="w-full">
-      {isEditing ? (
-        <div className="max-w-4xl
-                        mx-auto 
-                        px-4 
-                        md:px-8">
-          <textarea
-            value={content}
-            onChange={(e) => {
-              const normalizedContent = normalizeContent(e.target.value);
+      <div className="max-w-4xl mx-auto px-4 md:px-8">
+        {isEditing ? (
+          <div
+            contentEditable
+            onInput={(e) => {
+              const normalizedContent = normalizeContent(e.currentTarget.innerText);
               onContentChange?.(normalizedContent);
             }}
-            rows={20}
             className={`
-              w-full 
-              px-4
-              py-2 
-              rounded-lg 
-              border 
+              outline-none
+              focus:ring-0
               ${styles.text}
-              border-theme-border 
-              focus:border-red-500 
-              focus:outline-none
-              ${styles.background}
-              resize-y
             `}
-          />
-        </div>
-      ) : (
-        <div className={`
-          max-w-4xl
-  mx-auto 
-  px-4 
-  md:px-8
-        `}>
-          {renderContent(content)}
-        </div>
-      )}
+          >
+            {renderContent(content)}
+          </div>
+        ) : (
+          <div>
+            {renderContent(content)}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
