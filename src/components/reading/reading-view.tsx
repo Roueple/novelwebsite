@@ -18,7 +18,6 @@ export default function ReadingView({
   onContentChange
 }: ReadingViewProps) {
   const { theme } = useTheme();
-  const isDark = theme === 'dark';
 
   // Function to normalize content while preserving special formatting
   const normalizeContent = (text: string) => {
@@ -43,10 +42,19 @@ export default function ReadingView({
         <p 
           key={index} 
           className={`
-            ${isBracketed ? 'italic text-gray-500' : ''}
-            ${isDialogue ? 'text-gray-600' : ''}
+            ${isBracketed 
+              ? 'italic text-theme-muted' 
+              : ''
+            }
+            ${isDialogue 
+              ? (theme === 'dark' 
+                  ? 'text-gray-200'  // More visible in dark mode
+                  : 'text-gray-700'  // Slightly darker in light mode
+                )
+              : ''
+            }
             mb-4 text-lg leading-relaxed
-            ${isDark ? 'text-gray-300' : 'text-gray-800'}
+            text-theme-foreground
           `}
         >
           {line}
@@ -58,11 +66,11 @@ export default function ReadingView({
   if (isLocked && !isAuthor) {
     return (
       <div className="text-center py-16">
-        <Lock size={48} className={`mx-auto mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`} />
-        <h2 className={`text-2xl font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+        <Lock size={48} className="mx-auto mb-4 text-theme-muted" />
+        <h2 className="text-2xl font-bold mb-2 text-theme-foreground">
           Premium Chapter
         </h2>
-        <p className={`mb-8 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+        <p className="mb-8 text-theme-muted">
           This chapter is locked. Please subscribe to continue reading.
         </p>
         <button
@@ -76,7 +84,7 @@ export default function ReadingView({
   }
 
   return (
-    <div className={`reading-content ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+    <div className="reading-content">
       {isEditing ? (
         <textarea
           value={content}
@@ -85,11 +93,12 @@ export default function ReadingView({
             onContentChange?.(normalizedContent);
           }}
           rows={20}
-          className={`w-full px-4 py-2 rounded-lg border ${
-            isDark 
-              ? 'bg-gray-800 border-gray-700 text-white' 
-              : 'bg-white border-gray-300 text-gray-900'
-          }`}
+          className="w-full px-4 py-2 rounded-lg border 
+            bg-theme-background 
+            border-theme-muted 
+            text-theme-foreground 
+            focus:border-red-500 
+            focus:outline-none"
         />
       ) : (
         <div className="prose max-w-none">
