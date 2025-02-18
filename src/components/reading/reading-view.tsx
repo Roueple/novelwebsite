@@ -20,22 +20,39 @@ export default function ReadingView({
   const { theme } = useTheme();
   const isDark = theme === 'dark';
 
-  // Function to normalize paragraph spacing
+  // Function to normalize content while preserving special formatting
   const normalizeContent = (text: string) => {
-    // Replace multiple consecutive newlines with double newline
+    // Preserve multiple consecutive newlines for special formatting
     return text
-      .replace(/\n{3,}/g, '\n\n')  // Reduce multiple newlines to double
-      .replace(/^\s+|\s+$/g, '')   // Trim start and end whitespace
-      .split('\n\n')                // Split into paragraphs
-      .map(p => p.trim())           // Trim each paragraph
-      .filter(p => p.length > 0)    // Remove empty paragraphs
-      .join('\n\n');                // Rejoin with double newline
+      .replace(/\r\n/g, '\n')  // Normalize line endings
+      .replace(/\n{3,}/g, '\n\n')  // Reduce more than 2 consecutive newlines to double
+      .trim();  // Remove leading/trailing whitespace
   };
 
-  // Handler for content change that normalizes input
-  const handleContentChange = (newContent: string) => {
-    const normalizedContent = normalizeContent(newContent);
-    onContentChange?.(normalizedContent);
+  // Render method that preserves special formatting
+  const renderContent = (text: string) => {
+    // Split content into lines
+    const lines = text.split('\n');
+    
+    return lines.map((line, index) => {
+      // Check for special formatting
+      const isBracketed = line.startsWith('[') && line.endsWith(']');
+      const isDialogue = line.startsWith('"') && line.endsWith('"');
+      
+      return (
+        <p 
+          key={index} 
+          className={`
+            ${isBracketed ? 'italic text-gray-500' : ''}
+            ${isDialogue ? 'text-gray-600' : ''}
+            mb-4 text-lg leading-relaxed
+            ${isDark ? 'text-gray-300' : 'text-gray-800'}
+          `}
+        >
+          {line}
+        </p>
+      );
+    });
   };
 
   if (isLocked && !isAuthor) {
@@ -63,7 +80,10 @@ export default function ReadingView({
       {isEditing ? (
         <textarea
           value={content}
-          onChange={(e) => handleContentChange(e.target.value)}
+          onChange={(e) => {
+            const normalizedContent = normalizeContent(e.target.value);
+            onContentChange?.(normalizedContent);
+          }}
           rows={20}
           className={`w-full px-4 py-2 rounded-lg border ${
             isDark 
@@ -73,16 +93,7 @@ export default function ReadingView({
         />
       ) : (
         <div className="prose max-w-none">
-          {content?.split('\n\n').map((paragraph, index) => (
-            <p 
-              key={index} 
-              className={`mb-6 text-lg leading-relaxed ${
-                isDark ? 'text-gray-300' : 'text-gray-800'
-              }`}
-            >
-              {paragraph.trim()}
-            </p>
-          ))}
+          {renderContent(content)}
         </div>
       )}
     </div>

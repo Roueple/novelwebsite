@@ -167,15 +167,12 @@ export async function updateChapter(
   chapterId: number, 
   data: Partial<ChapterType>
 ) {
-  // Normalize content before updating
+  // Normalize content while preserving formatting
   const normalizedContent = data.content 
     ? data.content
-        .replace(/\n{3,}/g, '\n\n')  // Reduce multiple newlines to double
-        .replace(/^\s+|\s+$/g, '')   // Trim start and end whitespace
-        .split('\n\n')                // Split into paragraphs
-        .map(p => p.trim())           // Trim each paragraph
-        .filter(p => p.length > 0)    // Remove empty paragraphs
-        .join('\n\n')                 // Rejoin with double newline
+        .replace(/\r\n/g, '\n')  // Normalize line endings
+        .replace(/\n{3,}/g, '\n\n')  // Reduce more than 2 consecutive newlines to double
+        .trim()  // Remove leading/trailing whitespace
     : data.content;
 
   try {
