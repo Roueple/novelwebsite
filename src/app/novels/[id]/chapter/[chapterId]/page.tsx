@@ -61,7 +61,16 @@ export default function ChapterPage() {
           const isAdmin = role === 'admin';
           const isNovelAuthor = novelData.author_id === user?.id;
           setIsAuthor(isAdmin || isNovelAuthor);
+          const { created_at, updated_at } = chapterData;
+
+        // Check if the chapter is newly added
+        const isNewChapter = Math.abs(new Date(created_at).getTime() - new Date(updated_at).getTime()) < 10000;
+
+        // Set isEditing state based on isNewChapter
+        setIsEditing(isNewChapter);
         }
+
+        
       } catch (error) {
         console.error('Error loading chapter:', error);
       } finally {
