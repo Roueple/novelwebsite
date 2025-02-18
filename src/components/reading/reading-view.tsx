@@ -122,7 +122,10 @@ export default function ReadingView({
   return (
     <div className="w-full">
       {isEditing ? (
-        <div className="max-w-[65ch] mx-auto px-4 md:px-0">
+        <div className="max-w-4xl
+                        mx-auto 
+                        px-4 
+                        md:px-8">
           <textarea
             value={content}
             onChange={(e) => {
@@ -147,10 +150,10 @@ export default function ReadingView({
         </div>
       ) : (
         <div className={`
-          max-w-[65ch]
-          mx-auto 
-          px-4 
-          md:px-0
+          max-w-4xl
+  mx-auto 
+  px-4 
+  md:px-8
         `}>
           {renderContent(content)}
         </div>
