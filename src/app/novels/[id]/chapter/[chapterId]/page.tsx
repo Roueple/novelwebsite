@@ -1,4 +1,3 @@
-// src/app/novels/[id]/chapter/[chapterId]/page.tsx
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -145,30 +144,30 @@ export default function ChapterPage() {
   const nextChapter = currentIndex < chapterList.length - 1 ? chapterList[currentIndex + 1] : null;
 
   return (
-    <main className={`min-h-screen bg-theme-background ${theme === 'reading' ? 'reading' : ''}`}>
-      {/* Navigation Header */}
-      <header className="sticky top-0 z-10 bg-theme-background border-b border-theme-border shadow">
-        <div className="container mx-auto px-4 py-4">
+    <main className="min-h-screen bg-theme-background">
+      {/* Fixed Header */}
+      <header className="sticky top-0 z-10 bg-theme-background/95 backdrop-blur-sm border-b border-theme-border">
+        <div className="max-w-screen-xl mx-auto px-4 py-3">
           <div className="flex justify-between items-center">
             <Link 
               href={`/novels/${novelId}`}
               className="flex items-center gap-2 text-theme-foreground hover:opacity-80"
             >
               <ChevronLeft size={20} />
-              <span>{novel.title}</span>
+              <span className="line-clamp-1">{novel?.title}</span>
             </Link>
 
             <div className="flex items-center gap-2">
               {/* Text Size Dropdown */}
-              <div className="relative mr-2">
+              <div className="relative">
                 <button
                   onClick={() => setIsTextSizeDropdownOpen(!isTextSizeDropdownOpen)}
-                  className="flex items-center gap-1 text-sm text-theme-foreground"
+                  className="flex items-center gap-1 text-sm text-theme-foreground px-2 py-1 rounded hover:bg-theme-hover"
                 >
-                  Text Size: {textSizeLabel[textSize]} <ChevronDown size={16} />
+                  <span className="hidden sm:inline">Text Size:</span> {textSizeLabel[textSize]} <ChevronDown size={16} />
                 </button>
                 {isTextSizeDropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-36 bg-theme-background border border-theme-border rounded-lg shadow-lg">
+                  <div className="absolute right-0 mt-1 w-36 bg-theme-background border border-theme-border rounded-lg shadow-lg">
                     {(['sm', 'md', 'lg', 'xl'] as const).map((size) => (
                       <button
                         key={size}
@@ -197,27 +196,28 @@ export default function ChapterPage() {
                 <>
                   <button
                     onClick={() => setIsLocked(!isLocked)}
-                    className="p-2 rounded-lg hover:bg-theme-hover text-theme-foreground"
+                    className="p-2 rounded hover:bg-theme-hover text-theme-foreground"
                     title={isLocked ? 'Unlock Chapter' : 'Lock Chapter'}
                   >
                     {isLocked ? <Lock size={20} /> : <Unlock size={20} />}
                   </button>
+                  
                   {isEditing ? (
                     <button
                       onClick={handleSave}
                       disabled={saving}
-                      className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+                      className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
                     >
                       <Save size={18} />
-                      <span>{saving ? 'Saving...' : 'Save'}</span>
+                      <span className="hidden sm:inline">{saving ? 'Saving...' : 'Save'}</span>
                     </button>
                   ) : (
                     <button
                       onClick={() => setIsEditing(true)}
-                      className="flex items-center gap-2 px-4 py-2 bg-theme-background border border-theme-border text-theme-foreground rounded-lg hover:bg-theme-hover"
+                      className="flex items-center gap-2 px-4 py-2 rounded hover:bg-theme-hover text-theme-foreground"
                     >
                       <Edit size={18} />
-                      <span>Edit</span>
+                      <span className="hidden sm:inline">Edit</span>
                     </button>
                   )}
                 </>
@@ -227,124 +227,63 @@ export default function ChapterPage() {
         </div>
       </header>
 
-      <div className="container mx-auto px-0 sm:px-4 lg:px-8 py-8">
-        <div className="max-w-4xl mx-auto">
-          {/* Chapter Title */}
+      {/* Main Content */}
+      <div className="py-8">
+        {/* Chapter Title */}
+        <div className="max-w-prose mx-auto px-4 mb-8">
           {isEditing ? (
             <input
               type="text"
               value={editedTitle}
               onChange={(e) => setEditedTitle(e.target.value)}
-              className="
-                w-full 
-                text-3xl 
-                font-bold 
-                mb-8 
-                px-4 
-                py-2 
-                rounded-lg 
-                border 
-                bg-theme-background 
-                border-theme-border 
-                text-theme-foreground 
-                focus:border-red-500 
-                focus:outline-none
-              "
+              className="w-full text-2xl font-bold px-4 py-2 rounded-lg border bg-theme-background border-theme-border text-theme-foreground focus:border-red-500 focus:outline-none"
             />
           ) : (
-            <h1 className="
-              text-3xl 
-              font-bold 
-              mb-8 
-              text-theme-foreground 
-              px-4
-            ">
+            <h1 className="text-2xl sm:text-3xl font-bold text-theme-foreground">
               Chapter {chapter.chapter_number}: {chapter.title}
               {isLocked && (
-                <span className="
-                  ml-3 
-                  inline-flex 
-                  items-center 
-                  px-2 
-                  py-1 
-                  text-sm 
-                  rounded-full 
-                  bg-theme-background 
-                  border 
-                  border-theme-border 
-                  text-theme-muted
-                ">
+                <span className="ml-3 inline-flex items-center px-2 py-1 text-sm rounded-full bg-theme-background border border-theme-border text-theme-muted">
                   <Lock size={14} className="mr-1" />
                   Premium
                 </span>
               )}
             </h1>
           )}
+        </div>
 
-          {/* Reading View */}
-          <ReadingView
-            content={isEditing ? editedContent : chapter.content || ''}
-            isLocked={isLocked}
-            isAuthor={isAuthor}
-            isEditing={isEditing}
-            initialTextSize={textSize}
-            onContentChange={setEditedContent}
-          />
+        {/* Reading View */}
+        <ReadingView
+          content={isEditing ? editedContent : chapter.content || ''}
+          isLocked={isLocked}
+          isAuthor={isAuthor}
+          isEditing={isEditing}
+          initialTextSize={textSize}
+          onContentChange={setEditedContent}
+        />
 
-          {/* Chapter Navigation */}
-          <div className="
-            flex 
-            justify-between 
-            items-center 
-            mt-8 
-            px-4
-          ">
-            {prevChapter ? (
-              <Link 
-                href={`/novels/${novelId}/chapter/${prevChapter.chapter_number}`}
-                className="
-                  flex 
-                  items-center 
-                  gap-2 
-                  px-4 
-                  py-2 
-                  rounded-lg 
-                  bg-theme-background 
-                  border 
-                  border-theme-border 
-                  text-theme-foreground 
-                  hover:bg-theme-hover 
-                  shadow
-                "
-              >
-                <ChevronLeft size={20} />
-                <span>Previous Chapter</span>
-              </Link>
-            ) : <div />}
+        {/* Chapter Navigation */}
+        <div className="max-w-prose mx-auto px-4 mt-12 flex justify-between items-center">
+          {prevChapter ? (
+            <Link 
+              href={`/novels/${novelId}/chapter/${prevChapter.chapter_number}`}
+              className="flex items-center gap-2 px-4 py-2 rounded hover:bg-theme-hover text-theme-foreground"
+            >
+              <ChevronLeft size={20} />
+              <span className="hidden sm:inline">Previous Chapter</span>
+              <span className="inline sm:hidden">Prev</span>
+            </Link>
+          ) : <div />}
 
-            {nextChapter && (
-              <Link 
-                href={`/novels/${novelId}/chapter/${nextChapter.chapter_number}`}
-                className="
-                  flex 
-                  items-center 
-                  gap-2 
-                  px-4 
-                  py-2 
-                  rounded-lg 
-                  bg-theme-background 
-                  border 
-                  border-theme-border 
-                  text-theme-foreground 
-                  hover:bg-theme-hover 
-                  shadow
-                "
-              >
-                <span>Next Chapter</span>
-                <ChevronRight size={20} />
-              </Link>
-            )}
-          </div>
+          {nextChapter && (
+            <Link 
+              href={`/novels/${novelId}/chapter/${nextChapter.chapter_number}`}
+              className="flex items-center gap-2 px-4 py-2 rounded hover:bg-theme-hover text-theme-foreground"
+            >
+              <span className="hidden sm:inline">Next Chapter</span>
+              <span className="inline sm:hidden">Next</span>
+              <ChevronRight size={20} />
+            </Link>
+          )}
         </div>
       </div>
     </main>

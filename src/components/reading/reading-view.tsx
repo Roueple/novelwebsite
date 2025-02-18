@@ -23,7 +23,6 @@ export default function ReadingView({
   const { theme } = useTheme();
   const [textSize, setTextSize] = useState<'sm' | 'md' | 'lg' | 'xl'>(initialTextSize);
 
-  // Persist and sync text size
   useEffect(() => {
     const savedTextSize = localStorage.getItem('readingTextSize') as 'sm' | 'md' | 'lg' | 'xl';
     if (savedTextSize) {
@@ -35,7 +34,6 @@ export default function ReadingView({
     localStorage.setItem('readingTextSize', textSize);
   }, [textSize]);
 
-  // Normalize content function
   const normalizeContent = (text: string) => {
     return text
       .replace(/\r\n/g, '\n')
@@ -43,34 +41,32 @@ export default function ReadingView({
       .trim();
   };
 
-  // Theme-specific styles
   const getThemeStyles = () => {
     switch (theme) {
       case 'reading':
         return {
-          container: 'bg-[#F5E6D3] text-[#2C3E50]',
           text: 'text-[#2C3E50]',
           bracketed: 'text-[#8B4513]',
-          dialogue: 'text-[#2C3E50] font-semibold'
+          dialogue: 'text-[#2C3E50] font-semibold',
+          background: 'bg-[#F5E6D3]'
         };
       case 'dark':
         return {
-          container: 'bg-gray-800 text-gray-100',
           text: 'text-gray-100',
           bracketed: 'text-gray-400',
-          dialogue: 'text-gray-200 font-semibold'
+          dialogue: 'text-gray-200 font-semibold',
+          background: 'bg-gray-800'
         };
       default:
         return {
-          container: 'bg-gray-100 text-gray-900',
           text: 'text-gray-900',
           bracketed: 'text-gray-600',
-          dialogue: 'text-gray-800 font-semibold'
+          dialogue: 'text-gray-800 font-semibold',
+          background: 'bg-white'
         };
     }
   };
 
-  // Text size classes
   const sizeClasses = {
     sm: 'text-base',
     md: 'text-lg',
@@ -78,7 +74,6 @@ export default function ReadingView({
     xl: 'text-2xl'
   };
 
-  // Render content with special formatting
   const renderContent = (text: string) => {
     const styles = getThemeStyles();
     const lines = text.split('\n');
@@ -105,11 +100,10 @@ export default function ReadingView({
     });
   };
 
-  // Locked content view
   if (isLocked && !isAuthor) {
     const styles = getThemeStyles();
     return (
-      <div className={`text-center py-16 ${styles.container}`}>
+      <div className={`text-center py-16 ${styles.background}`}>
         <Lock 
           size={48} 
           className={`mx-auto mb-4 ${
@@ -136,22 +130,11 @@ export default function ReadingView({
     );
   }
 
-  // Main content view
   const styles = getThemeStyles();
   return (
-    <div className="w-full">
-      <div className={`
-        w-full 
-        max-w-[900px]  
-        mx-auto 
-        reading-content 
-        p-4 
-        sm:p-6 
-        rounded-xl  
-        shadow-lg 
-        ${styles.container}
-      `}>
-        {isEditing ? (
+    <div className={`mx-auto ${styles.background}`}>
+      {isEditing ? (
+        <div className="max-w-prose mx-auto px-4">
           <textarea
             value={content}
             onChange={(e) => {
@@ -161,25 +144,29 @@ export default function ReadingView({
             rows={20}
             className={`
               w-full 
+              px-4
               py-2 
               rounded-lg 
               border 
-              ${styles.container}
+              ${styles.text}
               border-theme-border 
               focus:border-red-500 
               focus:outline-none
+              ${styles.background}
             `}
           />
-        ) : (
-          <div className={`
-            prose 
-            max-w-none 
-            ${theme === 'reading' ? 'reading' : ''}
-          `}>
-            {renderContent(content)}
-          </div>
-        )}
-      </div>
+        </div>
+      ) : (
+        <div className={`
+          max-w-prose 
+          mx-auto 
+          px-4
+          sm:px-0
+          ${theme === 'reading' ? 'reading' : ''}
+        `}>
+          {renderContent(content)}
+        </div>
+      )}
     </div>
   );
 }
