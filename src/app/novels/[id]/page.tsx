@@ -153,14 +153,17 @@ export default function NovelPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* Left Column - Cover and Info */}
           <div className="md:col-span-1">
-            <div className="bg-theme-card rounded-lg shadow-lg p-4">
-              <Image 
-                src={novel.cover_url || '/api/placeholder/200/300'}
-                alt={novel.title}
-                width={200}
-                height={300}
-                className="w-full h-full object-cover rounded-lg"
-              />
+          <div className="relative aspect-[2/3] w-full">
+                <Image 
+                  src={novel.cover_url || '/api/placeholder/400/600'}
+                  alt={novel.title}
+                  fill
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 800px"
+                  quality={95}
+                  priority
+                  className="rounded-lg object-cover"
+                  style={{ transform: 'translate3d(0, 0, 0)' }}
+                />
               {isAuthor && (
                 <div className="mt-4">
                   <ImageUpload 
