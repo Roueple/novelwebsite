@@ -61,11 +61,13 @@ export default function Home() {
               >
                 <div className="aspect-[2/3] relative">
                   <Image
-                    src={novel.cover_url || '/api/placeholder/200/300'}
+                    src={novel.cover_url || '/api/placeholder/300/450'}
                     alt={novel.title}
-                    width={200}
-                    height={300}
-                    className="w-full h-full object-cover"
+                    fill
+                    sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 20vw"
+                    quality={85}
+                    className="object-cover"
+                    loading="lazy"
                   />
                 </div>
                 <div className="p-4">
