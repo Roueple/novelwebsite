@@ -40,10 +40,10 @@ export default function ReadingView({
         };
       case 'dark':
         return {
-          text: 'text-gray-100',
-          bracketed: 'text-gray-400',
-          dialogue: 'text-gray-200 font-semibold',
-          background: 'bg-gray-800'
+          text: 'text-white',
+          bracketed: 'text-gray-300',
+          dialogue: 'text-gray-100 font-semibold',
+          background: 'bg-[#1a1a1a]'
         };
       default:
         return {
@@ -91,14 +91,14 @@ export default function ReadingView({
   if (isLocked && !isAuthor) {
     const styles = getThemeStyles();
     return (
-      <div className={`text-center py-16 ${styles.background}`}>
+      <div className="text-center py-16">
         <Lock 
           size={48} 
           className={`mx-auto mb-4 ${
             theme === 'reading' 
               ? 'text-[#8B4513]' 
               : theme === 'dark'
-                ? 'text-gray-400'
+                ? 'text-gray-300' 
                 : 'text-gray-500'
           }`} 
         />
@@ -120,7 +120,7 @@ export default function ReadingView({
 
   const styles = getThemeStyles();
   return (
-    <div className={`w-full ${styles.background}`}>
+    <div className="w-full">
       {isEditing ? (
         <div className="max-w-[65ch] mx-auto px-4 md:px-0">
           <textarea
