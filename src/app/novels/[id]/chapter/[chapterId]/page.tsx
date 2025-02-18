@@ -12,7 +12,6 @@ import { supabase } from '@/lib/supabase';
 import ReadingView from '@/components/reading/reading-view';
 
 export default function ChapterPage() {
-  const { theme } = useTheme();
   const { user, role } = useAuth();
   const params = useParams();
   
