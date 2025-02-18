@@ -22,13 +22,6 @@ export default function ReadingView({
 }: ReadingViewProps) {
   const { theme } = useTheme();
 
-  const normalizeContent = (text: string) => {
-    return text
-      .replace(/\r\n/g, '\n')
-      .replace(/\n{3,}/g, '\n\n')
-      .trim();
-  };
-
   const getThemeStyles = () => {
     switch (theme) {
       case 'reading':
