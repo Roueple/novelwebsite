@@ -1,5 +1,4 @@
 // src/components/reading/reading-view.tsx
-import { useState } from 'react';
 import { Lock } from 'lucide-react';
 import { useTheme } from '@/providers/theme-provider';
 
