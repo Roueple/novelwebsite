@@ -227,7 +227,7 @@ export default function ChapterPage() {
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-0 sm:px-4 lg:px-8 py-8">
         <div className="max-w-4xl mx-auto">
           {/* Chapter Title */}
           {isEditing ? (
@@ -240,7 +240,7 @@ export default function ChapterPage() {
                 text-3xl 
                 font-bold 
                 mb-8 
-                px-4 sm:px-6 md:px-0 
+                px-4 
                 py-2 
                 rounded-lg 
                 border 
@@ -257,7 +257,7 @@ export default function ChapterPage() {
               font-bold 
               mb-8 
               text-theme-foreground 
-              px-4 sm:px-6 md:px-0
+              px-4
             ">
               Chapter {chapter.chapter_number}: {chapter.title}
               {isLocked && (
@@ -287,8 +287,8 @@ export default function ChapterPage() {
             isLocked={isLocked}
             isAuthor={isAuthor}
             isEditing={isEditing}
-            onContentChange={setEditedContent}
             initialTextSize={textSize}
+            onContentChange={setEditedContent}
           />
 
           {/* Chapter Navigation */}
@@ -297,7 +297,7 @@ export default function ChapterPage() {
             justify-between 
             items-center 
             mt-8 
-            px-4 sm:px-6 md:px-0
+            px-4
           ">
             {prevChapter ? (
               <Link 

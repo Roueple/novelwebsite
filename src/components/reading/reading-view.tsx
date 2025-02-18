@@ -1,5 +1,5 @@
 // src/components/reading/reading-view.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Lock } from 'lucide-react';
 import { useTheme } from '@/providers/theme-provider';
 
@@ -21,18 +21,30 @@ export default function ReadingView({
   onContentChange
 }: ReadingViewProps) {
   const { theme } = useTheme();
-  const [textSize] = useState<'sm' | 'md' | 'lg' | 'xl'>(initialTextSize);
+  const [textSize, setTextSize] = useState<'sm' | 'md' | 'lg' | 'xl'>(initialTextSize);
 
-  // Function to normalize content while preserving special formatting
+  // Persist and sync text size
+  useEffect(() => {
+    const savedTextSize = localStorage.getItem('readingTextSize') as 'sm' | 'md' | 'lg' | 'xl';
+    if (savedTextSize) {
+      setTextSize(savedTextSize);
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('readingTextSize', textSize);
+  }, [textSize]);
+
+  // Normalize content function
   const normalizeContent = (text: string) => {
     return text
-      .replace(/\r\n/g, '\n')  // Normalize line endings
-      .replace(/\n{3,}/g, '\n\n')  // Reduce more than 2 consecutive newlines to double
-      .trim();  // Remove leading/trailing whitespace
+      .replace(/\r\n/g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
   };
 
-  // Determine theme-specific container styles
-  const getContainerStyles = () => {
+  // Theme-specific styles
+  const getThemeStyles = () => {
     switch (theme) {
       case 'reading':
         return {
@@ -48,7 +60,7 @@ export default function ReadingView({
           bracketed: 'text-gray-400',
           dialogue: 'text-gray-200 font-semibold'
         };
-      default: // light theme
+      default:
         return {
           container: 'bg-gray-100 text-gray-900',
           text: 'text-gray-900',
@@ -58,18 +70,18 @@ export default function ReadingView({
     }
   };
 
-  // Render method that preserves special formatting
+  // Text size classes
+  const sizeClasses = {
+    sm: 'text-base',
+    md: 'text-lg',
+    lg: 'text-xl',
+    xl: 'text-2xl'
+  };
+
+  // Render content with special formatting
   const renderContent = (text: string) => {
-    const styles = getContainerStyles();
+    const styles = getThemeStyles();
     const lines = text.split('\n');
-    
-    // Determine text size classes
-    const sizeClasses = {
-      sm: 'text-base',
-      md: 'text-lg',
-      lg: 'text-xl',
-      xl: 'text-2xl'
-    };
 
     return lines.map((line, index) => {
       const isBracketed = line.startsWith('[') && line.endsWith(']');
@@ -93,11 +105,11 @@ export default function ReadingView({
     });
   };
 
-  const containerStyles = getContainerStyles();
-
+  // Locked content view
   if (isLocked && !isAuthor) {
+    const styles = getThemeStyles();
     return (
-      <div className={`text-center py-16 ${containerStyles.container}`}>
+      <div className={`text-center py-16 ${styles.container}`}>
         <Lock 
           size={48} 
           className={`mx-auto mb-4 ${
@@ -108,10 +120,10 @@ export default function ReadingView({
                 : 'text-gray-500'
           }`} 
         />
-        <h2 className={`text-2xl font-bold mb-2 ${containerStyles.text}`}>
+        <h2 className={`text-2xl font-bold mb-2 ${styles.text}`}>
           Premium Chapter
         </h2>
-        <p className={`mb-8 ${containerStyles.bracketed}`}>
+        <p className={`mb-8 ${styles.bracketed}`}>
           This chapter is locked. Please subscribe to continue reading.
         </p>
         <button
@@ -124,18 +136,20 @@ export default function ReadingView({
     );
   }
 
+  // Main content view
+  const styles = getThemeStyles();
   return (
-    <div className="relative w-full">
+    <div className="w-full">
       <div className={`
         w-full 
-        max-w-[1000px]  
+        max-w-[900px]  
         mx-auto 
         reading-content 
-        p-6 
-        sm:p-8 
+        p-4 
+        sm:p-6 
         rounded-xl  
         shadow-lg 
-        ${containerStyles.container}
+        ${styles.container}
       `}>
         {isEditing ? (
           <textarea
@@ -150,7 +164,7 @@ export default function ReadingView({
               py-2 
               rounded-lg 
               border 
-              ${containerStyles.container}
+              ${styles.container}
               border-theme-border 
               focus:border-red-500 
               focus:outline-none
