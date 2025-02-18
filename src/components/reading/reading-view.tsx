@@ -116,28 +116,27 @@ export default function ReadingView({
     <div className="w-full">
       <div className="max-w-4xl mx-auto px-4 md:px-8">
       {isEditing ? (
-  <div
-    contentEditable
-    suppressContentEditableWarning
-    onBlur={(e) => {
-      const content = e.currentTarget.innerText;
-      onContentChange?.(content);
-    }}
-    className={`
-      outline-none
-      focus:ring-0
-      min-h-[300px]
-      ${styles.text}
-      ${sizeClasses[textSize]}
-      whitespace-pre-wrap
-      border-2 
-      border-dashed 
-      border-red-500 
-      p-4
-      rounded-lg
-    `}
+  <div 
+    className="border-2 border-dashed border-red-500 p-4 rounded-lg"
   >
-    {renderContent(content)}
+    <div
+      contentEditable
+      suppressContentEditableWarning
+      onBlur={(e) => {
+        const content = e.currentTarget.innerText;
+        onContentChange?.(content);
+      }}
+      className={`
+        outline-none
+        focus:ring-0
+        min-h-[300px]
+        ${styles.text}
+        ${sizeClasses[textSize]}
+        whitespace-pre-wrap
+      `}
+    >
+      {renderContent(content)}
+    </div>
   </div>
 ) : (
   <div>
