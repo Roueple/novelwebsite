@@ -10,6 +10,7 @@ import { getChapter, getNovel } from '@/lib/api';
 import { ChapterType, NovelType } from '@/types/supabase';
 import { useAuth } from '@/providers/auth-provider';
 import { supabase } from '@/lib/supabase';
+import ReadingView from '@/components/reading/reading-view';
 
 export default function ChapterPage() {
   const { theme } = useTheme();
@@ -45,7 +46,6 @@ export default function ChapterPage() {
           setEditedContent(chapterData.content || '');
           setIsLocked(chapterData.is_locked);
 
-          // Check if user is author or admin
           const isAdmin = role === 'admin';
           const isNovelAuthor = novelData.author_id === user?.id;
           setIsAuthor(isAdmin || isNovelAuthor);
@@ -75,7 +75,6 @@ export default function ChapterPage() {
 
       if (error) throw error;
 
-      // Update local state
       setChapter(prev => prev ? {
         ...prev,
         title: editedTitle,
@@ -122,7 +121,6 @@ export default function ChapterPage() {
     );
   }
 
-  // Get next and previous chapters
   const chapterList = novel.chapters.sort((a, b) => a.chapter_number - b.chapter_number);
   const currentIndex = chapterList.findIndex(ch => ch.chapter_number === chapter.chapter_number);
   const prevChapter = currentIndex > 0 ? chapterList[currentIndex - 1] : null;
@@ -130,7 +128,7 @@ export default function ChapterPage() {
 
   return (
     <main className={`min-h-screen ${isDark ? 'bg-gray-900' : 'bg-gray-50'}`}>
-      {/* Top Navigation */}
+      {/* Navigation Header */}
       <header className={`sticky top-0 z-10 ${isDark ? 'bg-gray-800' : 'bg-white'} shadow`}>
         <div className="container mx-auto px-4 py-4">
           <div className="flex justify-between items-center">
@@ -183,23 +181,6 @@ export default function ChapterPage() {
         </div>
       </header>
 
-
-      <div className={`prose max-w-none ${
-  theme === 'reading' 
-    ? 'reading-prose px-8 py-6 rounded-lg bg-reading-bg'
-    : theme === 'dark'
-    ? 'prose-invert'
-    : ''
-}`}>
-  {chapter.content?.split('\n').map((paragraph, index) => (
-    <p key={index} className={`mb-4 ${
-      theme === 'reading' ? 'text-reading-text' : ''
-    }`}>
-      {paragraph}
-    </p>
-  ))}
-</div>
-
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-3xl mx-auto">
           {/* Chapter Title */}
@@ -228,48 +209,17 @@ export default function ChapterPage() {
             </h1>
           )}
 
-          {/* Chapter Content */}
-          {isLocked && !isAuthor ? (
-            <div className="text-center py-16">
-              <Lock size={48} className={`mx-auto mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`} />
-              <h2 className={`text-2xl font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                Premium Chapter
-              </h2>
-              <p className={`mb-8 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                This chapter is locked. Please subscribe to continue reading.
-              </p>
-              <button
-                className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                onClick={() => alert('Subscription feature coming soon!')}
-              >
-                Subscribe to Unlock
-              </button>
-            </div>
-          ) : (
-            <div className={`space-y-4 leading-relaxed mb-12 ${
-              isDark ? 'text-gray-300' : 'text-gray-600'
-            }`}>
-              {isEditing ? (
-                <textarea
-                  value={editedContent}
-                  onChange={(e) => setEditedContent(e.target.value)}
-                  rows={20}
-                  className={`w-full px-4 py-2 rounded-lg border ${
-                    isDark 
-                      ? 'bg-gray-800 border-gray-700 text-white' 
-                      : 'bg-white border-gray-300 text-gray-900'
-                  }`}
-                />
-              ) : (
-                chapter.content?.split('\n\n').map((paragraph, index) => (
-                  <p key={index}>{paragraph}</p>
-                ))
-              )}
-            </div>
-          )}
+          {/* Reading View */}
+          <ReadingView
+            content={isEditing ? editedContent : chapter.content || ''}
+            isLocked={isLocked}
+            isAuthor={isAuthor}
+            isEditing={isEditing}
+            onContentChange={setEditedContent}
+          />
 
           {/* Chapter Navigation */}
-          <div className="flex justify-between items-center">
+          <div className="flex justify-between items-center mt-8">
             {prevChapter ? (
               <Link 
                 href={`/novels/${novelId}/chapter/${prevChapter.chapter_number}`}
