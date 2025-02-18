@@ -1,5 +1,5 @@
 // src/components/reading/reading-view.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Lock } from 'lucide-react';
 import { useTheme } from '@/providers/theme-provider';
 
@@ -21,7 +21,7 @@ export default function ReadingView({
   onContentChange
 }: ReadingViewProps) {
   const { theme } = useTheme();
-  const [textSize, setTextSize] = useState<'sm' | 'md' | 'lg' | 'xl'>(initialTextSize);
+  const [textSize] = useState<'sm' | 'md' | 'lg' | 'xl'>(initialTextSize);
 
   // Function to normalize content while preserving special formatting
   const normalizeContent = (text: string) => {
