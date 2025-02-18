@@ -1,6 +1,6 @@
 // src/components/reading/reading-view.tsx
-import React, { useState, useEffect, useRef } from 'react';
-import { Lock, ChevronDown } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Lock } from 'lucide-react';
 import { useTheme } from '@/providers/theme-provider';
 
 interface ReadingViewProps {
@@ -8,6 +8,7 @@ interface ReadingViewProps {
   isLocked: boolean;
   isAuthor: boolean;
   isEditing: boolean;
+  initialTextSize?: 'sm' | 'md' | 'lg' | 'xl';
   onContentChange?: (content: string) => void;
 }
 
@@ -16,39 +17,11 @@ export default function ReadingView({
   isLocked,
   isAuthor,
   isEditing,
+  initialTextSize = 'md',
   onContentChange
 }: ReadingViewProps) {
   const { theme } = useTheme();
-  const [textSize, setTextSize] = useState<'sm' | 'md' | 'lg' | 'xl'>('md');
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  // Retrieve text size from localStorage on component mount
-  useEffect(() => {
-    const savedTextSize = localStorage.getItem('readingTextSize') as 'sm' | 'md' | 'lg' | 'xl';
-    if (savedTextSize) {
-      setTextSize(savedTextSize);
-    }
-
-    // Close dropdown when clicking outside
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsDropdownOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
-
-  // Handle text size change
-  const changeTextSize = (size: 'sm' | 'md' | 'lg' | 'xl') => {
-    setTextSize(size);
-    localStorage.setItem('readingTextSize', size);
-    setIsDropdownOpen(false);
-  };
+  const [textSize, setTextSize] = useState<'sm' | 'md' | 'lg' | 'xl'>(initialTextSize);
 
   // Function to normalize content while preserving special formatting
   const normalizeContent = (text: string) => {
@@ -122,14 +95,6 @@ export default function ReadingView({
 
   const containerStyles = getContainerStyles();
 
-  // Text size label
-  const textSizeLabel = {
-    sm: 'Small',
-    md: 'Medium',
-    lg: 'Large',
-    xl: 'Extra Large'
-  };
-
   if (isLocked && !isAuthor) {
     return (
       <div className={`text-center py-16 ${containerStyles.container}`}>
@@ -163,7 +128,7 @@ export default function ReadingView({
     <div className="relative w-full">
       <div className={`
         w-full 
-        max-w-[1000px]  // Fixed width for desktop
+        max-w-[1000px]  
         mx-auto 
         reading-content 
         p-6 
@@ -172,43 +137,6 @@ export default function ReadingView({
         shadow-lg 
         ${containerStyles.container}
       `}>
-        {/* Text Size Control */}
-        <div className="absolute top-0 right-0 flex items-center space-x-2" ref={dropdownRef}>
-          <div className="relative">
-            <button
-              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              className="flex items-center gap-2 text-sm text-theme-foreground"
-            >
-              Text Size: {textSizeLabel[textSize]} <ChevronDown size={16} />
-            </button>
-            
-            {isDropdownOpen && (
-              <div className="absolute right-0 mt-2 w-36 bg-theme-background border border-theme-border rounded-lg shadow-lg">
-                {(['sm', 'md', 'lg', 'xl'] as const).map((size) => (
-                  <button
-                    key={size}
-                    onClick={() => changeTextSize(size)}
-                    className={`
-                      w-full 
-                      text-left 
-                      px-3 
-                      py-2 
-                      text-sm
-                      hover:bg-theme-hover
-                      ${textSize === size 
-                        ? 'bg-red-600 text-white' 
-                        : 'text-theme-foreground'
-                      }
-                    `}
-                  >
-                    {textSizeLabel[size]}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
         {isEditing ? (
           <textarea
             value={content}

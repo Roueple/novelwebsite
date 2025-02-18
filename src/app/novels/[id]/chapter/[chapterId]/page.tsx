@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { useTheme } from '@/providers/theme-provider';
-import { ChevronLeft, ChevronRight, Edit, Save, Lock, Unlock } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Edit, Save, Lock, Unlock, ChevronDown } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { getChapter, getNovel } from '@/lib/api';
@@ -29,8 +29,24 @@ export default function ChapterPage() {
   const [editedTitle, setEditedTitle] = useState('');
   const [editedContent, setEditedContent] = useState('');
   const [isLocked, setIsLocked] = useState(false);
+  const [textSize, setTextSize] = useState<'sm' | 'md' | 'lg' | 'xl'>('md');
+  const [isTextSizeDropdownOpen, setIsTextSizeDropdownOpen] = useState(false);
+
+  // Text size label
+  const textSizeLabel = {
+    sm: 'Small',
+    md: 'Medium',
+    lg: 'Large',
+    xl: 'Extra Large'
+  };
 
   useEffect(() => {
+    // Retrieve text size from localStorage
+    const savedTextSize = localStorage.getItem('readingTextSize') as 'sm' | 'md' | 'lg' | 'xl';
+    if (savedTextSize) {
+      setTextSize(savedTextSize);
+    }
+
     async function loadChapter() {
       try {
         const [chapterData, novelData] = await Promise.all([
@@ -57,6 +73,13 @@ export default function ChapterPage() {
     }
     loadChapter();
   }, [novelId, chapterNumber, user, role]);
+
+  // Handle text size change
+  const changeTextSize = (size: 'sm' | 'md' | 'lg' | 'xl') => {
+    setTextSize(size);
+    localStorage.setItem('readingTextSize', size);
+    setIsTextSizeDropdownOpen(false);
+  };
 
   const handleSave = async () => {
     if (!chapter) return;
@@ -135,35 +158,71 @@ export default function ChapterPage() {
               <span>{novel.title}</span>
             </Link>
 
-            {isAuthor && (
-              <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2">
+              {/* Text Size Dropdown */}
+              <div className="relative mr-2">
                 <button
-                  onClick={() => setIsLocked(!isLocked)}
-                  className="p-2 rounded-lg hover:bg-theme-hover text-theme-foreground"
-                  title={isLocked ? 'Unlock Chapter' : 'Lock Chapter'}
+                  onClick={() => setIsTextSizeDropdownOpen(!isTextSizeDropdownOpen)}
+                  className="flex items-center gap-1 text-sm text-theme-foreground"
                 >
-                  {isLocked ? <Lock size={20} /> : <Unlock size={20} />}
+                  Text Size: {textSizeLabel[textSize]} <ChevronDown size={16} />
                 </button>
-                {isEditing ? (
-                  <button
-                    onClick={handleSave}
-                    disabled={saving}
-                    className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
-                  >
-                    <Save size={18} />
-                    <span>{saving ? 'Saving...' : 'Save'}</span>
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => setIsEditing(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-theme-background border border-theme-border text-theme-foreground rounded-lg hover:bg-theme-hover"
-                  >
-                    <Edit size={18} />
-                    <span>Edit</span>
-                  </button>
+                {isTextSizeDropdownOpen && (
+                  <div className="absolute right-0 mt-2 w-36 bg-theme-background border border-theme-border rounded-lg shadow-lg">
+                    {(['sm', 'md', 'lg', 'xl'] as const).map((size) => (
+                      <button
+                        key={size}
+                        onClick={() => changeTextSize(size)}
+                        className={`
+                          w-full 
+                          text-left 
+                          px-3 
+                          py-2 
+                          text-sm
+                          hover:bg-theme-hover
+                          ${textSize === size 
+                            ? 'bg-red-600 text-white' 
+                            : 'text-theme-foreground'
+                          }
+                        `}
+                      >
+                        {textSizeLabel[size]}
+                      </button>
+                    ))}
+                  </div>
                 )}
               </div>
-            )}
+
+              {isAuthor && (
+                <>
+                  <button
+                    onClick={() => setIsLocked(!isLocked)}
+                    className="p-2 rounded-lg hover:bg-theme-hover text-theme-foreground"
+                    title={isLocked ? 'Unlock Chapter' : 'Lock Chapter'}
+                  >
+                    {isLocked ? <Lock size={20} /> : <Unlock size={20} />}
+                  </button>
+                  {isEditing ? (
+                    <button
+                      onClick={handleSave}
+                      disabled={saving}
+                      className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+                    >
+                      <Save size={18} />
+                      <span>{saving ? 'Saving...' : 'Save'}</span>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setIsEditing(true)}
+                      className="flex items-center gap-2 px-4 py-2 bg-theme-background border border-theme-border text-theme-foreground rounded-lg hover:bg-theme-hover"
+                    >
+                      <Edit size={18} />
+                      <span>Edit</span>
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
           </div>
         </div>
       </header>
@@ -229,6 +288,7 @@ export default function ChapterPage() {
             isAuthor={isAuthor}
             isEditing={isEditing}
             onContentChange={setEditedContent}
+            initialTextSize={textSize}
           />
 
           {/* Chapter Navigation */}
