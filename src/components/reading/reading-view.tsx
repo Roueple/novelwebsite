@@ -1,6 +1,6 @@
 // src/components/reading/reading-view.tsx
-import React, { useState, useEffect } from 'react';
-import { Lock, TextCursorInput, ZoomIn, ZoomOut } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Lock, ChevronDown } from 'lucide-react';
 import { useTheme } from '@/providers/theme-provider';
 
 interface ReadingViewProps {
@@ -20,6 +20,8 @@ export default function ReadingView({
 }: ReadingViewProps) {
   const { theme } = useTheme();
   const [textSize, setTextSize] = useState<'sm' | 'md' | 'lg' | 'xl'>('md');
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Retrieve text size from localStorage on component mount
   useEffect(() => {
@@ -27,12 +29,25 @@ export default function ReadingView({
     if (savedTextSize) {
       setTextSize(savedTextSize);
     }
+
+    // Close dropdown when clicking outside
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
   }, []);
 
   // Handle text size change
   const changeTextSize = (size: 'sm' | 'md' | 'lg' | 'xl') => {
     setTextSize(size);
     localStorage.setItem('readingTextSize', size);
+    setIsDropdownOpen(false);
   };
 
   // Function to normalize content while preserving special formatting
@@ -107,6 +122,14 @@ export default function ReadingView({
 
   const containerStyles = getContainerStyles();
 
+  // Text size label
+  const textSizeLabel = {
+    sm: 'Small',
+    md: 'Medium',
+    lg: 'Large',
+    xl: 'Extra Large'
+  };
+
   if (isLocked && !isAuthor) {
     return (
       <div className={`text-center py-16 ${containerStyles.container}`}>
@@ -137,40 +160,53 @@ export default function ReadingView({
   }
 
   return (
-    <div className="relative">
+    <div className="relative max-w-6xl mx-auto px-4 sm:px-6 md:px-8">
       {/* Text Size Controls */}
-      <div className="absolute top-0 right-0 flex items-center space-x-2 mb-4">
-        {(['sm', 'md', 'lg', 'xl'] as const).map((size) => (
+      <div className="absolute top-0 right-0 z-10" ref={dropdownRef}>
+        <div className="relative">
           <button
-            key={size}
-            onClick={() => changeTextSize(size)}
-            className={`
-              p-2 
-              rounded-full 
-              ${textSize === size 
-                ? 'bg-red-600 text-white' 
-                : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
-              }
-            `}
+            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-theme-background border border-theme-border text-theme-foreground"
           >
-            {size === 'sm' && <ZoomOut size={16} />}
-            {size === 'md' && <TextCursorInput size={16} />}
-            {size === 'lg' && <ZoomIn size={16} />}
-            {size === 'xl' && <ZoomIn size={20} />}
+            {textSizeLabel[textSize]} <ChevronDown size={16} />
           </button>
-        ))}
+          
+          {isDropdownOpen && (
+            <div className="absolute right-0 mt-2 w-48 bg-theme-background border border-theme-border rounded-lg shadow-lg">
+              {(['sm', 'md', 'lg', 'xl'] as const).map((size) => (
+                <button
+                  key={size}
+                  onClick={() => changeTextSize(size)}
+                  className={`
+                    w-full 
+                    text-left 
+                    px-4 
+                    py-2 
+                    hover:bg-theme-hover
+                    ${textSize === size 
+                      ? 'bg-red-600 text-white' 
+                      : 'text-theme-foreground'
+                    }
+                  `}
+                >
+                  {textSizeLabel[size]}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className={`
         w-full 
-        max-w-5xl  
         mx-auto 
         reading-content 
-        p-8  
+        p-6 
+        sm:p-8 
         rounded-xl  
         shadow-lg 
         relative
-        mt-12  // Added to make room for text size controls
+        mt-12  
         ${containerStyles.container}
       `}>
         {isEditing ? (
