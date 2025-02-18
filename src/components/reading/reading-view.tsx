@@ -130,15 +130,20 @@ export default function ReadingView({
       ${styles.text}
       ${sizeClasses[textSize]}
       whitespace-pre-wrap
+      border-2 
+      border-dashed 
+      border-red-500 
+      p-4
+      rounded-lg
     `}
   >
     {renderContent(content)}
   </div>
 ) : (
-          <div>
-            {renderContent(content)}
-          </div>
-        )}
+  <div>
+    {renderContent(content)}
+  </div>
+)}
       </div>
     </div>
   );
