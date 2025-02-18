@@ -16,7 +16,6 @@ export default function ChapterPage() {
   const { theme } = useTheme();
   const { user, role } = useAuth();
   const params = useParams();
-  const isDark = theme === 'dark';
   
   const novelId = Number(params.id);
   const chapterNumber = Number(params.chapterId);
@@ -93,10 +92,9 @@ export default function ChapterPage() {
 
   if (loading) {
     return (
-      <div className={`min-h-screen ${isDark ? 'bg-gray-900' : 'bg-gray-50'} 
-        flex items-center justify-center`}>
+      <div className="min-h-screen bg-theme-background flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Loading...</h1>
+          <h1 className="text-2xl font-bold mb-4 text-theme-foreground">Loading...</h1>
         </div>
       </div>
     );
@@ -104,15 +102,12 @@ export default function ChapterPage() {
 
   if (!chapter || !novel) {
     return (
-      <div className={`min-h-screen ${isDark ? 'bg-gray-900' : 'bg-gray-50'} 
-        flex items-center justify-center`}>
+      <div className="min-h-screen bg-theme-background flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Chapter not found</h1>
+          <h1 className="text-2xl font-bold mb-4 text-theme-foreground">Chapter not found</h1>
           <Link 
             href={`/novels/${novelId}`}
-            className={`px-4 py-2 rounded-lg ${
-              isDark ? 'bg-gray-800 hover:bg-gray-700' : 'bg-white hover:bg-gray-100'
-            } shadow`}
+            className="px-4 py-2 rounded-lg bg-theme-background border border-theme-border text-theme-foreground hover:bg-theme-hover shadow"
           >
             Return to Novel
           </Link>
@@ -127,16 +122,14 @@ export default function ChapterPage() {
   const nextChapter = currentIndex < chapterList.length - 1 ? chapterList[currentIndex + 1] : null;
 
   return (
-    <main className={`min-h-screen ${isDark ? 'bg-gray-900' : 'bg-gray-50'}`}>
+    <main className={`min-h-screen bg-theme-background ${theme === 'reading' ? 'reading' : ''}`}>
       {/* Navigation Header */}
-      <header className={`sticky top-0 z-10 ${isDark ? 'bg-gray-800' : 'bg-white'} shadow`}>
+      <header className="sticky top-0 z-10 bg-theme-background border-b border-theme-border shadow">
         <div className="container mx-auto px-4 py-4">
           <div className="flex justify-between items-center">
             <Link 
               href={`/novels/${novelId}`}
-              className={`flex items-center gap-2 ${
-                isDark ? 'text-gray-200 hover:text-white' : 'text-gray-700 hover:text-gray-900'
-              }`}
+              className="flex items-center gap-2 text-theme-foreground hover:opacity-80"
             >
               <ChevronLeft size={20} />
               <span>{novel.title}</span>
@@ -146,9 +139,7 @@ export default function ChapterPage() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setIsLocked(!isLocked)}
-                  className={`p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 ${
-                    isDark ? 'text-gray-300' : 'text-gray-600'
-                  }`}
+                  className="p-2 rounded-lg hover:bg-theme-hover text-theme-foreground"
                   title={isLocked ? 'Unlock Chapter' : 'Lock Chapter'}
                 >
                   {isLocked ? <Lock size={20} /> : <Unlock size={20} />}
@@ -165,11 +156,7 @@ export default function ChapterPage() {
                 ) : (
                   <button
                     onClick={() => setIsEditing(true)}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
-                      isDark 
-                        ? 'bg-gray-700 text-gray-200 hover:bg-gray-600' 
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
+                    className="flex items-center gap-2 px-4 py-2 bg-theme-background border border-theme-border text-theme-foreground rounded-lg hover:bg-theme-hover"
                   >
                     <Edit size={18} />
                     <span>Edit</span>
@@ -189,19 +176,18 @@ export default function ChapterPage() {
               type="text"
               value={editedTitle}
               onChange={(e) => setEditedTitle(e.target.value)}
-              className={`w-full text-3xl font-bold mb-8 px-4 py-2 rounded-lg border ${
-                isDark 
-                  ? 'bg-gray-800 border-gray-700 text-white' 
-                  : 'bg-white border-gray-300 text-gray-900'
-              }`}
+              className="w-full text-3xl font-bold mb-8 px-4 py-2 rounded-lg border 
+                bg-theme-background 
+                border-theme-border 
+                text-theme-foreground 
+                focus:border-red-500 
+                focus:outline-none"
             />
           ) : (
-            <h1 className={`text-3xl font-bold mb-8 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+            <h1 className="text-3xl font-bold mb-8 text-theme-foreground">
               Chapter {chapter.chapter_number}: {chapter.title}
               {isLocked && (
-                <span className={`ml-3 inline-flex items-center px-2 py-1 text-sm rounded-full ${
-                  isDark ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-700'
-                }`}>
+                <span className="ml-3 inline-flex items-center px-2 py-1 text-sm rounded-full bg-theme-background border border-theme-border text-theme-muted">
                   <Lock size={14} className="mr-1" />
                   Premium
                 </span>
@@ -223,11 +209,12 @@ export default function ChapterPage() {
             {prevChapter ? (
               <Link 
                 href={`/novels/${novelId}/chapter/${prevChapter.chapter_number}`}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
-                  isDark 
-                    ? 'bg-gray-800 hover:bg-gray-700 text-gray-200' 
-                    : 'bg-white hover:bg-gray-50 text-gray-700'
-                } shadow`}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg 
+                  bg-theme-background 
+                  border border-theme-border 
+                  text-theme-foreground 
+                  hover:bg-theme-hover 
+                  shadow"
               >
                 <ChevronLeft size={20} />
                 <span>Previous Chapter</span>
@@ -237,11 +224,12 @@ export default function ChapterPage() {
             {nextChapter && (
               <Link 
                 href={`/novels/${novelId}/chapter/${nextChapter.chapter_number}`}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
-                  isDark 
-                    ? 'bg-gray-800 hover:bg-gray-700 text-gray-200' 
-                    : 'bg-white hover:bg-gray-50 text-gray-700'
-                } shadow`}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg 
+                  bg-theme-background 
+                  border border-theme-border 
+                  text-theme-foreground 
+                  hover:bg-theme-hover 
+                  shadow"
               >
                 <span>Next Chapter</span>
                 <ChevronRight size={20} />
