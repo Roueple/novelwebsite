@@ -39,7 +39,8 @@ export default function ReadingView({
         <p 
           key={index} 
           className={`
-            mb-4 text-lg leading-relaxed
+            mb-4 text-lg leading-relaxed 
+            px-4 sm:px-6 md:px-0
             ${isBracketed ? 'italic text-theme-muted' : ''}
             ${isDialogue ? 'font-semibold' : ''}
             text-theme-foreground
@@ -53,7 +54,7 @@ export default function ReadingView({
 
   if (isLocked && !isAuthor) {
     return (
-      <div className="text-center py-16 bg-theme-background">
+      <div className="text-center py-16 bg-theme-background px-4">
         <Lock 
           size={48} 
           className="mx-auto mb-4 text-theme-muted"
@@ -75,7 +76,12 @@ export default function ReadingView({
   }
 
   return (
-    <div className={`reading-content ${theme === 'reading' ? 'reading' : ''}`}>
+    <div className={`
+      w-full max-w-4xl 
+      mx-auto 
+      reading-content 
+      ${theme === 'reading' ? 'reading' : ''}
+    `}>
       {isEditing ? (
         <textarea
           value={content}
@@ -84,15 +90,25 @@ export default function ReadingView({
             onContentChange?.(normalizedContent);
           }}
           rows={20}
-          className="w-full px-4 py-2 rounded-lg border 
+          className="
+            w-full 
+            px-4 sm:px-6 md:px-0 
+            py-2 
+            rounded-lg 
+            border 
             bg-theme-background 
             border-theme-border 
             text-theme-foreground 
             focus:border-red-500 
-            focus:outline-none"
+            focus:outline-none
+          "
         />
       ) : (
-        <div className={`prose max-w-none ${theme === 'reading' ? 'reading' : ''}`}>
+        <div className={`
+          prose 
+          max-w-none 
+          ${theme === 'reading' ? 'reading' : ''}
+        `}>
           {renderContent(content)}
         </div>
       )}

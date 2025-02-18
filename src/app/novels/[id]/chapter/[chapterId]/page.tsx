@@ -92,7 +92,7 @@ export default function ChapterPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-theme-background flex items-center justify-center">
+      <div className="min-h-screen bg-theme-background flex items-center justify-center px-4">
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-4 text-theme-foreground">Loading...</h1>
         </div>
@@ -102,7 +102,7 @@ export default function ChapterPage() {
 
   if (!chapter || !novel) {
     return (
-      <div className="min-h-screen bg-theme-background flex items-center justify-center">
+      <div className="min-h-screen bg-theme-background flex items-center justify-center px-4">
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-4 text-theme-foreground">Chapter not found</h1>
           <Link 
@@ -169,25 +169,52 @@ export default function ChapterPage() {
       </header>
 
       <div className="container mx-auto px-4 py-8">
-        <div className="max-w-3xl mx-auto">
+        <div className="max-w-4xl mx-auto">
           {/* Chapter Title */}
           {isEditing ? (
             <input
               type="text"
               value={editedTitle}
               onChange={(e) => setEditedTitle(e.target.value)}
-              className="w-full text-3xl font-bold mb-8 px-4 py-2 rounded-lg border 
+              className="
+                w-full 
+                text-3xl 
+                font-bold 
+                mb-8 
+                px-4 sm:px-6 md:px-0 
+                py-2 
+                rounded-lg 
+                border 
                 bg-theme-background 
                 border-theme-border 
                 text-theme-foreground 
                 focus:border-red-500 
-                focus:outline-none"
+                focus:outline-none
+              "
             />
           ) : (
-            <h1 className="text-3xl font-bold mb-8 text-theme-foreground">
+            <h1 className="
+              text-3xl 
+              font-bold 
+              mb-8 
+              text-theme-foreground 
+              px-4 sm:px-6 md:px-0
+            ">
               Chapter {chapter.chapter_number}: {chapter.title}
               {isLocked && (
-                <span className="ml-3 inline-flex items-center px-2 py-1 text-sm rounded-full bg-theme-background border border-theme-border text-theme-muted">
+                <span className="
+                  ml-3 
+                  inline-flex 
+                  items-center 
+                  px-2 
+                  py-1 
+                  text-sm 
+                  rounded-full 
+                  bg-theme-background 
+                  border 
+                  border-theme-border 
+                  text-theme-muted
+                ">
                   <Lock size={14} className="mr-1" />
                   Premium
                 </span>
@@ -205,16 +232,30 @@ export default function ChapterPage() {
           />
 
           {/* Chapter Navigation */}
-          <div className="flex justify-between items-center mt-8">
+          <div className="
+            flex 
+            justify-between 
+            items-center 
+            mt-8 
+            px-4 sm:px-6 md:px-0
+          ">
             {prevChapter ? (
               <Link 
                 href={`/novels/${novelId}/chapter/${prevChapter.chapter_number}`}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg 
+                className="
+                  flex 
+                  items-center 
+                  gap-2 
+                  px-4 
+                  py-2 
+                  rounded-lg 
                   bg-theme-background 
-                  border border-theme-border 
+                  border 
+                  border-theme-border 
                   text-theme-foreground 
                   hover:bg-theme-hover 
-                  shadow"
+                  shadow
+                "
               >
                 <ChevronLeft size={20} />
                 <span>Previous Chapter</span>
@@ -224,12 +265,20 @@ export default function ChapterPage() {
             {nextChapter && (
               <Link 
                 href={`/novels/${novelId}/chapter/${nextChapter.chapter_number}`}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg 
+                className="
+                  flex 
+                  items-center 
+                  gap-2 
+                  px-4 
+                  py-2 
+                  rounded-lg 
                   bg-theme-background 
-                  border border-theme-border 
+                  border 
+                  border-theme-border 
                   text-theme-foreground 
                   hover:bg-theme-hover 
-                  shadow"
+                  shadow
+                "
               >
                 <span>Next Chapter</span>
                 <ChevronRight size={20} />
