@@ -69,6 +69,60 @@ export default function NovelPage() {
     }
   };
 
+  const handleEditChapterTitle = async (chapterId: number) => {
+    try {
+      const { error } = await supabase
+        .from('chapters')
+        .update({ title: editedChapterTitle })
+        .eq('id', chapterId)
+        .eq('novel_id', novel?.id);
+
+      if (error) throw error;
+      
+      setNovel(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          chapters: prev.chapters.map(ch => 
+            ch.id === chapterId ? { ...ch, title: editedChapterTitle } : ch
+          )
+        };
+      });
+      
+      setIsEditingChapter(null);
+    } catch (error) {
+      console.error('Error updating chapter title:', error);
+      alert('Failed to update chapter title. Please try again.');
+    }
+  };
+
+  const handleDeleteChapter = async (chapterId: number, chapterNumber: number) => {
+    if (!confirm(`Are you sure you want to delete Chapter ${chapterNumber}?`)) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('chapters')
+        .delete()
+        .eq('id', chapterId)
+        .eq('novel_id', novel?.id);
+
+      if (error) throw error;
+
+      setNovel(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          chapters: prev.chapters.filter(ch => ch.id !== chapterId)
+        };
+      });
+    } catch (error) {
+      console.error('Error deleting chapter:', error);
+      alert('Failed to delete chapter. Please try again.');
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-theme-background text-theme-foreground flex items-center justify-center">
@@ -244,9 +298,77 @@ export default function NovelPage() {
                 />
               )}
 
-              <div className="space-y-2">
-                {/* ... rest of the chapters mapping code ... */}
-              </div>
+              {/* Inside the space-y-2 div in the Chapters Section */}
+<div className="space-y-2">
+  {novel.chapters?.map((chapter) => (
+    <div 
+      key={chapter.id}
+      className="flex items-center justify-between p-3 rounded-lg hover:bg-theme-background transition-colors"
+    >
+      <div className="flex items-center gap-3 flex-1">
+        <BookOpen size={20} className="text-theme-muted" />
+        {isEditingChapter === chapter.id ? (
+          <div className="flex-1 flex items-center gap-2">
+            <input
+              type="text"
+              value={editedChapterTitle}
+              onChange={(e) => setEditedChapterTitle(e.target.value)}
+              className="flex-1 px-2 py-1 rounded border bg-theme-background text-theme-foreground"
+            />
+            <button
+              onClick={() => setIsEditingChapter(null)}
+              className="p-1 rounded-lg hover:bg-theme-background text-theme-muted"
+            >
+              <X size={16} />
+            </button>
+            <button
+              onClick={() => handleEditChapterTitle(chapter.id)}
+              className="p-1 rounded-lg text-green-600 hover:bg-green-100"
+            >
+              <Check size={16} />
+            </button>
+          </div>
+        ) : (
+          <Link 
+            href={`/novels/${novel.id}/chapter/${chapter.chapter_number}`}
+            className="flex-1 flex items-center justify-between"
+          >
+            <span className="text-theme-foreground">
+              Chapter {chapter.chapter_number}: {chapter.title}
+            </span>
+            {chapter.is_locked && (
+              <span className="ml-2 px-2 py-1 text-sm rounded-full bg-theme-background text-theme-muted">
+                Locked
+              </span>
+            )}
+          </Link>
+        )}
+      </div>
+      
+      {isAuthor && (
+        <div className="flex items-center gap-2 ml-4">
+          {!isEditingChapter && (
+            <button
+              onClick={() => {
+                setEditedChapterTitle(chapter.title);
+                setIsEditingChapter(chapter.id);
+              }}
+              className="p-2 rounded-lg hover:bg-theme-background text-theme-muted"
+            >
+              <Edit size={18} />
+            </button>
+          )}
+          <button
+            onClick={() => handleDeleteChapter(chapter.id, chapter.chapter_number)}
+            className="p-2 rounded-lg hover:bg-red-100 text-red-600"
+          >
+            <Trash2 size={18} />
+          </button>
+        </div>
+      )}
+    </div>
+  ))}
+</div>
             </div>
           </div>
         </div>
