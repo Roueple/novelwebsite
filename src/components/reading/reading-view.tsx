@@ -122,22 +122,31 @@ export default function ReadingView({
   return (
     <div className="w-full">
       <div className="max-w-4xl mx-auto px-4 md:px-8">
-        {isEditing ? (
-          <div
-            contentEditable
-            onInput={(e) => {
-              const normalizedContent = normalizeContent(e.currentTarget.innerText);
-              onContentChange?.(normalizedContent);
-            }}
-            className={`
-              outline-none
-              focus:ring-0
-              ${styles.text}
-            `}
-          >
-            {renderContent(content)}
-          </div>
-        ) : (
+      {isEditing ? (
+  <div
+    contentEditable
+    suppressContentEditableWarning
+    onInput={(e) => {
+      const content = e.currentTarget.innerHTML
+        .replace(/<div>/g, '\n')
+        .replace(/<\/div>/g, '')
+        .replace(/<br>/g, '\n')
+        .replace(/&nbsp;/g, ' ');
+      onContentChange?.(content);
+    }}
+    dangerouslySetInnerHTML={{ 
+      __html: content.split('\n').map(line => `<div>${line}</div>`).join('')
+    }}
+    className={`
+      outline-none
+      focus:ring-0
+      min-h-[300px]
+      ${styles.text}
+      ${sizeClasses[textSize]}
+      whitespace-pre-wrap
+    `}
+  />
+) : (
           <div>
             {renderContent(content)}
           </div>
