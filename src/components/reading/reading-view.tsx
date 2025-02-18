@@ -119,16 +119,9 @@ export default function ReadingView({
   <div
     contentEditable
     suppressContentEditableWarning
-    onInput={(e) => {
-      const content = e.currentTarget.innerHTML
-        .replace(/<div>/g, '\n')
-        .replace(/<\/div>/g, '')
-        .replace(/<br>/g, '\n')
-        .replace(/&nbsp;/g, ' ');
+    onBlur={(e) => {
+      const content = e.currentTarget.innerText;
       onContentChange?.(content);
-    }}
-    dangerouslySetInnerHTML={{ 
-      __html: content.split('\n').map(line => `<div>${line}</div>`).join('')
     }}
     className={`
       outline-none
@@ -138,7 +131,9 @@ export default function ReadingView({
       ${sizeClasses[textSize]}
       whitespace-pre-wrap
     `}
-  />
+  >
+    {renderContent(content)}
+  </div>
 ) : (
           <div>
             {renderContent(content)}
