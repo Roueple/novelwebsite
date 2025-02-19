@@ -57,7 +57,7 @@ export default function ChapterPage() {
           setIsAuthor(isAdmin || isNovelAuthor);
   
           // Show editing UI only if first view is not completed and user is author/admin
-          if (!chapterData.newly_created && (isAdmin || isNovelAuthor)) {
+          if (chapterData.newly_created && (isAdmin || isNovelAuthor)) {
             setIsEditing(true);
           } else {
             setIsEditing(false);
