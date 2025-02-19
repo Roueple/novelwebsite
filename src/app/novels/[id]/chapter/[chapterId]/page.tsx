@@ -50,27 +50,33 @@ export default function ChapterPage() {
           getChapter(novelId, chapterNumber),
           getNovel(novelId)
         ]);
-
+  
         if (chapterData && novelData) {
           setChapter(chapterData);
           setNovel(novelData);
           setEditedTitle(chapterData.title);
           setEditedContent(chapterData.content || '');
           setIsLocked(chapterData.is_locked);
-
+  
           const isAdmin = role === 'admin';
           const isNovelAuthor = novelData.author_id === user?.id;
           setIsAuthor(isAdmin || isNovelAuthor);
+  
+          // Check if the chapter is newly created by comparing timestamps
           const { created_at, updated_at } = chapterData;
-
-        // Check if the chapter is newly added
-        const isNewChapter = Math.abs(new Date(created_at).getTime() - new Date(updated_at).getTime()) < 10000;
-
-        // Set isEditing state based on isNewChapter
-        setIsEditing(isNewChapter);
+          const createdTime = new Date(created_at).getTime();
+          const updatedTime = new Date(updated_at).getTime();
+  
+          // If the difference between created_at and updated_at is less than 10 seconds
+          // and the user is the author, show the editing UI
+          const isNewChapter = Math.abs(createdTime - updatedTime) < 10000; // 10 seconds in milliseconds
+          
+          if (isNewChapter && (isAdmin || isNovelAuthor)) {
+            setIsEditing(true);
+          } else {
+            setIsEditing(false);
+          }
         }
-
-        
       } catch (error) {
         console.error('Error loading chapter:', error);
       } finally {
