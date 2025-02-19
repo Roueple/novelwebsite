@@ -34,10 +34,12 @@ export type Chapter = {
   is_locked: boolean;
   created_at: string;
   updated_at: string;
+  newly_created: boolean;
 }
 
 export interface ChapterType extends Chapter {
   content: string;
+  newly_created: boolean;
 }
 
 export interface NovelType extends Novel {
