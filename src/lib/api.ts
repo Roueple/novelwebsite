@@ -31,6 +31,7 @@ const CHAPTER_SELECT = `
   title,
   content,
   is_locked,
+  newly_created,
   created_at,
   updated_at
 `;
@@ -161,34 +162,22 @@ export async function addChapter(
   }
 }
 
-// Modify the existing updateChapter function
 export async function updateChapter(
   novelId: number, 
   chapterId: number, 
   data: Partial<ChapterType>
-) {
-  // Normalize content while preserving formatting
-  const normalizedContent = data.content 
-    ? data.content
-        .replace(/\r\n/g, '\n')  // Normalize line endings
-        .replace(/\n{3,}/g, '\n\n')  // Reduce more than 2 consecutive newlines to double
-        .trim()  // Remove leading/trailing whitespace
-    : data.content;
-
+): Promise<boolean> {
   try {
     const { error } = await supabase
       .from('chapters')
-      .update({
-        ...data,
-        content: normalizedContent
-      })
+      .update(data)
       .eq('id', chapterId)
       .eq('novel_id', novelId);
 
     if (error) throw error;
     return true;
   } catch (error) {
-    console.error('Error updating chapter:', error);
+    handleSupabaseError(error as SupabaseError, 'updateChapter');
     return false;
   }
 }

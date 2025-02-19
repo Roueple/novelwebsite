@@ -58,7 +58,9 @@ export default function AddChapterModal({
           chapter_number: parseInt(chapterNumber),
           title: title || `Chapter ${chapterNumber}`, // Default title if none provided
           content: '',
-          is_locked: false
+          is_locked: true,
+          newly_created: true
+
         })
         .select()
         .single();

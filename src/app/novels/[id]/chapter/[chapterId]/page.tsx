@@ -38,12 +38,6 @@ export default function ChapterPage() {
   };
 
   useEffect(() => {
-    // Retrieve text size from localStorage
-    const savedTextSize = localStorage.getItem('readingTextSize') as 'sm' | 'md' | 'lg' | 'xl';
-    if (savedTextSize) {
-      setTextSize(savedTextSize);
-    }
-
     async function loadChapter() {
       try {
         const [chapterData, novelData] = await Promise.all([
@@ -62,16 +56,8 @@ export default function ChapterPage() {
           const isNovelAuthor = novelData.author_id === user?.id;
           setIsAuthor(isAdmin || isNovelAuthor);
   
-          // Check if the chapter is newly created by comparing timestamps
-          const { created_at, updated_at } = chapterData;
-          const createdTime = new Date(created_at).getTime();
-          const updatedTime = new Date(updated_at).getTime();
-  
-          // If the difference between created_at and updated_at is less than 10 seconds
-          // and the user is the author, show the editing UI
-          const isNewChapter = Math.abs(createdTime - updatedTime) < 10000; // 10 seconds in milliseconds
-          
-          if (isNewChapter && (isAdmin || isNovelAuthor)) {
+          // Show editing UI only if first view is not completed and user is author/admin
+          if (!chapterData.newly_created && (isAdmin || isNovelAuthor)) {
             setIsEditing(true);
           } else {
             setIsEditing(false);
@@ -110,7 +96,8 @@ export default function ChapterPage() {
         .update({
           title: editedTitle,
           content: editedContent,
-          is_locked: isLocked
+          is_locked: isLocked,
+          newly_created: false  // Mark as viewed when saving
         })
         .eq('id', chapter.id);
 
