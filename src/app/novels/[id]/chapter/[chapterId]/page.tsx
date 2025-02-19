@@ -203,12 +203,13 @@ export default function ChapterPage() {
   <>
     {/* Editing Mode Indicator */}
     {isEditing && (
-      <div className="flex items-center px-3 py-1 rounded-full bg-red-100 text-red-600 border border-red-200">
-        <span className="text-sm font-medium animate-pulse">
-          Editing Mode
-        </span>
-      </div>
-    )}
+  <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-orange-50 text-orange-600 border border-orange-200 shadow-sm">
+    <div className="h-2 w-2 rounded-full bg-orange-500 animate-pulse" />
+    <span className="text-sm font-medium tracking-wide">
+      Editing
+    </span>
+  </div>
+)}
     
     <button
       onClick={() => setIsLocked(!isLocked)}
