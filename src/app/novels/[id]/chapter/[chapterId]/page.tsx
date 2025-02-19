@@ -200,35 +200,44 @@ export default function ChapterPage() {
               </div>
 
               {isAuthor && (
-                <>
-                  <button
-                    onClick={() => setIsLocked(!isLocked)}
-                    className="p-2 rounded hover:bg-theme-hover text-theme-foreground"
-                    title={isLocked ? 'Unlock Chapter' : 'Lock Chapter'}
-                  >
-                    {isLocked ? <Lock size={20} /> : <Unlock size={20} />}
-                  </button>
-                  
-                  {isEditing ? (
-                    <button
-                      onClick={handleSave}
-                      disabled={saving}
-                      className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
-                    >
-                      <Save size={18} />
-                      <span className="hidden sm:inline">{saving ? 'Saving...' : 'Save'}</span>
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => setIsEditing(true)}
-                      className="flex items-center gap-2 px-4 py-2 rounded hover:bg-theme-hover text-theme-foreground"
-                    >
-                      <Edit size={18} />
-                      <span className="hidden sm:inline">Edit</span>
-                    </button>
-                  )}
-                </>
-              )}
+  <>
+    {/* Editing Mode Indicator */}
+    {isEditing && (
+      <div className="flex items-center px-3 py-1 rounded-full bg-red-100 text-red-600 border border-red-200">
+        <span className="text-sm font-medium animate-pulse">
+          Editing Mode
+        </span>
+      </div>
+    )}
+    
+    <button
+      onClick={() => setIsLocked(!isLocked)}
+      className="p-2 rounded hover:bg-theme-hover text-theme-foreground"
+      title={isLocked ? 'Unlock Chapter' : 'Lock Chapter'}
+    >
+      {isLocked ? <Lock size={20} /> : <Unlock size={20} />}
+    </button>
+   
+    {isEditing ? (
+      <button
+        onClick={handleSave}
+        disabled={saving}
+        className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
+      >
+        <Save size={18} />
+        <span className="hidden sm:inline">{saving ? 'Saving...' : 'Save'}</span>
+      </button>
+    ) : (
+      <button
+        onClick={() => setIsEditing(true)}
+        className="flex items-center gap-2 px-4 py-2 rounded hover:bg-theme-hover text-theme-foreground"
+      >
+        <Edit size={18} />
+        <span className="hidden sm:inline">Edit</span>
+      </button>
+    )}
+  </>
+)}
             </div>
           </div>
         </div>
