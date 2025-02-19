@@ -86,6 +86,32 @@ export default function ChapterPage() {
     }
   }, []);
 
+  const handleLockToggle = async () => {
+    if (!chapter) return;
+    
+    try {
+      const newLockedState = !isLocked;
+      const { error } = await supabase
+        .from('chapters')
+        .update({
+          is_locked: newLockedState
+        })
+        .eq('id', chapter.id);
+  
+      if (error) throw error;
+  
+      // Update local state
+      setIsLocked(newLockedState);
+      setChapter(prev => prev ? {
+        ...prev,
+        is_locked: newLockedState
+      } : null);
+    } catch (error) {
+      console.error('Error toggling chapter lock:', error);
+      alert('Failed to update chapter lock status. Please try again.');
+    }
+  };
+
   const handleSave = async () => {
     if (!chapter) return;
     setSaving(true);
@@ -199,7 +225,7 @@ export default function ChapterPage() {
                 )}
               </div>
 
-              {isAuthor && (
+{isAuthor && (
   <>
     {/* Editing Mode Indicator */}
     {isEditing && (
@@ -212,12 +238,12 @@ export default function ChapterPage() {
 )}
     
     <button
-      onClick={() => setIsLocked(!isLocked)}
-      className="p-2 rounded hover:bg-theme-hover text-theme-foreground"
-      title={isLocked ? 'Unlock Chapter' : 'Lock Chapter'}
-    >
-      {isLocked ? <Lock size={20} /> : <Unlock size={20} />}
-    </button>
+  onClick={handleLockToggle}  // Change this line
+  className="p-2 rounded hover:bg-theme-hover text-theme-foreground"
+  title={isLocked ? 'Unlock Chapter' : 'Lock Chapter'}
+>
+  {isLocked ? <Lock size={20} /> : <Unlock size={20} />}
+</button>
    
     {isEditing ? (
       <button
