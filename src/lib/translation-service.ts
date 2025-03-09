@@ -2,6 +2,10 @@
 import { TranslationProject, TranslationExample, TranslationChapter, ChapterLink, TranslationRequest } from '@/types/translation';
 import { supabase } from '@/lib/supabase';
 
+interface ErrorResponse {
+  error?: string;
+}
+
 export const translationService = {
   // Project operations
   async getProjects(): Promise<TranslationProject[]> {
@@ -15,31 +19,57 @@ export const translationService = {
   },
 
   async getProject(id: string): Promise<TranslationProject | null> {
-    const { data, error } = await supabase
-      .from('translation_projects')
-      .select(`
-        *,
-        translation_examples(*),
-        translation_chapters(*)
-      `)
-      .eq('id', id)
-      .single();
-    
-    if (error) {
-      if (error.code === 'PGRST116') return null; // Record not found
-      throw error;
+    try {
+      // First, get the project
+      const { data: projectData, error: projectError } = await supabase
+        .from('translation_projects')
+        .select('*')
+        .eq('id', id)
+        .single();
+      
+      if (projectError) {
+        if (projectError.code === 'PGRST116') return null; // Record not found
+        throw projectError;
+      }
+      
+      // Then get examples
+      const { data: examplesData, error: examplesError } = await supabase
+        .from('translation_examples')
+        .select('*')
+        .eq('project_id', id);
+      
+      if (examplesError) throw examplesError;
+      
+      // Then get chapters
+      const { data: chaptersData, error: chaptersError } = await supabase
+        .from('translation_chapters')
+        .select('*')
+        .eq('project_id', id);
+      
+      if (chaptersError) throw chaptersError;
+      
+      // Combine the data
+      return {
+        ...projectData,
+        examples: examplesData || [],
+        chapters: chaptersData || []
+      };
+    } catch (error) {
+      console.error('Error fetching project:', error);
+      return null;
     }
-    
-    return data;
   },
 
   async createProject(name: string, persistentPrompt: string = ''): Promise<TranslationProject> {
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData.user?.id || '';
+    
     const { data, error } = await supabase
       .from('translation_projects')
       .insert({
         name,
         persistent_prompt: persistentPrompt,
-        user_id: (await supabase.auth.getUser()).data.user?.id || ''
+        user_id: userId
       })
       .select()
       .single();
@@ -49,13 +79,16 @@ export const translationService = {
   },
 
   async updateProject(id: string, updates: Partial<TranslationProject>): Promise<void> {
+    const updateData: Record<string, unknown> = {
+      updated_at: new Date().toISOString()
+    };
+    
+    if (updates.name !== undefined) updateData.name = updates.name;
+    if (updates.persistent_prompt !== undefined) updateData.persistent_prompt = updates.persistent_prompt;
+    
     const { error } = await supabase
       .from('translation_projects')
-      .update({
-        name: updates.name,
-        persistent_prompt: updates.persistent_prompt,
-        updated_at: new Date().toISOString()
-      })
+      .update(updateData)
       .eq('id', id);
     
     if (error) throw error;
@@ -172,10 +205,15 @@ export const translationService = {
     id: string, 
     updates: Partial<TranslationChapter>
   ): Promise<void> {
-    const updateData: any = {...updates, updated_at: new Date().toISOString()};
-    delete updateData.id;
-    delete updateData.project_id;
-    delete updateData.created_at;
+    const updateData: Record<string, unknown> = {
+      updated_at: new Date().toISOString()
+    };
+    
+    // Only include fields that are provided in the updates
+    if (updates.title !== undefined) updateData.title = updates.title;
+    if (updates.source_text !== undefined) updateData.source_text = updates.source_text;
+    if (updates.translated_text !== undefined) updateData.translated_text = updates.translated_text;
+    if (updates.temp_prompt !== undefined) updateData.temp_prompt = updates.temp_prompt;
     
     const { error } = await supabase
       .from('translation_chapters')
@@ -208,8 +246,8 @@ export const translationService = {
     });
     
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Translation failed');
+      const errorData = await response.json() as ErrorResponse;
+      throw new Error(errorData.error || 'Translation failed');
     }
     
     return response;
@@ -225,13 +263,12 @@ export const translationService = {
     });
     
     if (!response.ok) {
-      const errorData = await response.json();
+      const errorData = await response.json() as ErrorResponse;
       throw new Error(errorData.error || 'Failed to scrape the website');
     }
     
     return response.json();
   },
-
 
   async scrapeChapterIndex(url: string): Promise<{ chapters: ChapterLink[] }> {
     const response = await fetch('/api/scrape-index', {
@@ -243,8 +280,8 @@ export const translationService = {
     });
     
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to scrape the chapter index');
+      const errorData = await response.json() as ErrorResponse;
+      throw new Error(errorData.error || 'Failed to scrape the chapter index');
     }
     
     return response.json();
