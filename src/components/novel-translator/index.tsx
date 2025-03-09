@@ -1,4 +1,5 @@
 // src/components/novel-translator/index.tsx
+
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -10,7 +11,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Label } from '@/components/ui/label';
-import { PlusCircle, BookOpen, Download, RefreshCw, Trash2, Save, Globe, List, Check, X } from 'lucide-react';
+import { PlusCircle, BookOpen, Download, RefreshCw, Trash2, Save, Globe, List, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { translationService } from '@/lib/translation-service';
 import { TranslationProject, TranslationExample, TranslationChapter, ChapterLink } from '@/types/translation';

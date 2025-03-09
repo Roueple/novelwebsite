@@ -1,4 +1,4 @@
-// src/app/api/scrape/route.ts
+// src/app/api/scrape/route.ts - fix 'title' const and explicit any
 import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
     const $ = cheerio.load(html);
 
     // Extract title
-    let title = $('title').text().trim();
+    const title = $('title').text().trim();
     
     // Look for chapter number in title or URL
     const chapterMatch = title.match(/chapter\s+(\d+)/i) || 
@@ -97,10 +97,11 @@ export async function POST(req: NextRequest) {
       chapter,
       text
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Scraping error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Failed to scrape the website';
     return NextResponse.json({
-      error: error.message || 'Failed to scrape the website'
+      error: errorMessage
     }, { status: 500 });
   }
 }

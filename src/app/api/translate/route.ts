@@ -38,7 +38,6 @@ export async function POST(req: NextRequest) {
     // Support streaming response if requested
     if (stream) {
       // Use ReadableStream for streaming
-      const encoder = new TextEncoder();
       const translationResponse = await translate(
         { sourceText, examples, persistentPrompt, tempPrompt },
         true
@@ -98,10 +97,11 @@ export async function POST(req: NextRequest) {
         translation: data.choices[0].message.content 
       });
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Translation error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Internal server error';
     return NextResponse.json({ 
-      error: error.message || 'Internal server error' 
+      error: errorMessage
     }, { status: 500 });
   }
 }

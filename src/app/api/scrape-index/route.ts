@@ -126,10 +126,11 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json({ chapters });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Scraping error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Failed to scrape the chapter index';
     return NextResponse.json({
-      error: error.message || 'Failed to scrape the chapter index'
+      error: errorMessage
     }, { status: 500 });
   }
 }

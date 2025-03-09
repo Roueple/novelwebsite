@@ -20,7 +20,7 @@ export async function translate(req: TranslationRequest, streaming = false): Pro
   const { sourceText, examples, persistentPrompt, tempPrompt } = req;
   
   // Build system prompt with persistent prompt
-  let systemPrompt = `You are a professional Korean to English translator specializing in novels and web novels. 
+  const systemPrompt = `You are a professional Korean to English translator specializing in novels and web novels. 
 Your task is to translate the Korean text into natural, flowing English while preserving the original meaning, tone, and style.
 
 ${persistentPrompt || ''}

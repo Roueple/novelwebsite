@@ -19,8 +19,8 @@ export const translationService = {
       .from('translation_projects')
       .select(`
         *,
-        translation_examples(*) as examples,
-        translation_chapters(*) as chapters
+        translation_examples(*),
+        translation_chapters(*)
       `)
       .eq('id', id)
       .single();
@@ -225,12 +225,13 @@ export const translationService = {
     });
     
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to scrape the website');
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to scrape the website');
     }
     
     return response.json();
   },
+
 
   async scrapeChapterIndex(url: string): Promise<{ chapters: ChapterLink[] }> {
     const response = await fetch('/api/scrape-index', {
