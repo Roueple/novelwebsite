@@ -1,4 +1,4 @@
-// Create a new file at src/components/novel-translator/scrape-debugger.tsx
+// src/components/novel-translator/scrape-debugger.tsx
 
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -50,7 +50,7 @@ const ScrapeDebugger: React.FC = () => {
       try {
         data = JSON.parse(rawText);
       } catch {
-        // Using _jsonError as a variable name to indicate it's intentionally unused
+        // Empty catch clause without variable
         setResult({ 
           error: `Failed to parse response as JSON. Raw response: ${rawText.substring(0, 200)}...` 
         });

@@ -40,8 +40,8 @@ export async function POST(req: NextRequest) {
     let baseUrl;
     try {
       baseUrl = new URL(url);
-    } catch (_unused) {
-      // We don't need to use the error variable
+    } catch {
+      // Empty catch clause without variable
       return NextResponse.json({ error: 'Invalid URL format' }, { status: 400 });
     }
 
