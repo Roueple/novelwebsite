@@ -49,7 +49,7 @@ const ScrapeDebugger: React.FC = () => {
       let data;
       try {
         data = JSON.parse(rawText);
-      } catch (_jsonError) {
+      } catch {
         // Using _jsonError as a variable name to indicate it's intentionally unused
         setResult({ 
           error: `Failed to parse response as JSON. Raw response: ${rawText.substring(0, 200)}...` 
