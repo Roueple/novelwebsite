@@ -1,5 +1,4 @@
-// Replace this in src/app/api/scrape-index/route.ts
-
+// src/app/api/scrape-index/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
@@ -41,7 +40,8 @@ export async function POST(req: NextRequest) {
     let baseUrl;
     try {
       baseUrl = new URL(url);
-    } catch (e) {
+    } catch (_unused) {
+      // We don't need to use the error variable
       return NextResponse.json({ error: 'Invalid URL format' }, { status: 400 });
     }
 
@@ -331,7 +331,7 @@ export async function POST(req: NextRequest) {
       throw axiosError; // Re-throw if not an axios error
     }
     
-  } catch (error: unknown) {
+  } catch (error) {
     console.error('Scraping error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Failed to scrape the chapter index';
     return NextResponse.json({
