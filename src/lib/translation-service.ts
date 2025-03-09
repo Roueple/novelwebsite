@@ -253,7 +253,10 @@ export const translationService = {
     return response;
   },
 
-  async scrapeWebsite(url: string): Promise<{ title: string; chapter: string | null; text: string }> {
+  // Update this in src/lib/translation-service.ts
+// Replace the scrapeWebsite method with this implementation
+
+async scrapeWebsite(url: string): Promise<{ title: string; chapter: string | null; text: string }> {
     const response = await fetch('/api/scrape', {
       method: 'POST',
       headers: {
@@ -262,12 +265,21 @@ export const translationService = {
       body: JSON.stringify({ url })
     });
     
+    // First parse the response to JSON
+    const data = await response.json();
+    
+    // Then check if the response was successful
     if (!response.ok) {
-      const errorData = await response.json() as ErrorResponse;
-      throw new Error(errorData.error || 'Failed to scrape the website');
+      // Throw an error with the specific error message from the server
+      throw new Error(data.error || 'Failed to scrape the website');
     }
     
-    return response.json();
+    // Verify that we have text content
+    if (!data.text || data.text.trim() === '') {
+      throw new Error('No content was extracted from the website');
+    }
+    
+    return data;
   },
 
   async scrapeChapterIndex(url: string): Promise<{ chapters: ChapterLink[] }> {

@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { translationService } from '@/lib/translation-service';
 import { TranslationProject, TranslationExample, TranslationChapter, ChapterLink } from '@/types/translation';
 import LoadingSpinner from '@/components/ui/loading-spinner';
+import ScrapeDebugger from './scrape-debugger';
 
 const NovelTranslator: React.FC = () => {
   // State management
@@ -204,7 +205,6 @@ const NovelTranslator: React.FC = () => {
     return cleaned.trim();
   };
   
-  // Scrape website and fetch content
   const scrapeWebsite = async () => {
     if (!websiteUrl.trim() || !currentProject) {
       toast.error('Please enter a website URL and select a project');
@@ -214,6 +214,7 @@ const NovelTranslator: React.FC = () => {
     setIsScraping(true);
     
     try {
+      // Use a more detailed error handling approach
       const data = await translationService.scrapeWebsite(websiteUrl);
       
       // Clean the scraped text
@@ -238,7 +239,12 @@ const NovelTranslator: React.FC = () => {
       toast.success('Content scraped successfully');
     } catch (error) {
       console.error('Error scraping website:', error);
-      toast.error('Failed to scrape website');
+      // Show the specific error message if available
+      if (error instanceof Error) {
+        toast.error(`Scraping failed: ${error.message}`);
+      } else {
+        toast.error('Failed to scrape website: Unknown error');
+      }
     } finally {
       setIsScraping(false);
     }
@@ -505,6 +511,7 @@ const NovelTranslator: React.FC = () => {
                 <TabsTrigger value="translate">Translate</TabsTrigger>
                 <TabsTrigger value="examples">Examples</TabsTrigger>
                 <TabsTrigger value="settings">Project Settings</TabsTrigger>
+                <TabsTrigger value="debug">Debug Tools</TabsTrigger>
               </TabsList>
               
               <TabsContent value="translate" className="space-y-4">
@@ -723,7 +730,22 @@ const NovelTranslator: React.FC = () => {
                   </CardFooter>
                 </Card>
               </TabsContent>
+
+                <TabsContent value="debug">
+                    <div className="space-y-4">
+                        <Alert>
+                            <AlertDescription>
+                                Use these tools to debug issues with the scraping functionality. 
+                                This tab is only visible to admins.
+                            </AlertDescription>
+                        </Alert>
+                        
+                        <ScrapeDebugger />
+                    </div>
+                </TabsContent>
             </Tabs>
+
+            
           ) : (
             <div className="flex items-center justify-center h-full">
               <div className="text-center">
