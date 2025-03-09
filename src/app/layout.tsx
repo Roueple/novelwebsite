@@ -4,6 +4,7 @@ import { AuthProvider } from '@/providers/auth-provider';
 import { ThemeProvider } from "@/providers/theme-provider";
 import Header from '@/components/header';
 import "./globals.css";
+import { Toaster } from 'sonner';
 
 const merriweather = Merriweather({
   subsets: ['latin'],
@@ -45,6 +46,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </main>
           </ThemeProvider>
         </AuthProvider>
+        <Toaster />
       </body>
     </html>
   );
