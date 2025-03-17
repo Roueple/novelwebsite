@@ -11,9 +11,9 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
-  // These experimental flags may help with auth in serverless environments
+  // Use JavaScript configuration for better compatibility
   experimental: {
-    serverActions: true,
+    // Next.js 15.1.7 features
     serverComponentsExternalPackages: ['@supabase/auth-helpers-nextjs'],
   },
 };
