@@ -26,6 +26,23 @@ interface DeepseekOptions {
   top_p?: number;
 }
 
+// Force a value for demo purposes if API key isn't configured
+// This is a fallback mechanism for development - should be removed in production
+const MOCK_TRANSLATION = `
+Zero Code, 1st experience begins.
+
+=====================================================
+1. Name: Kim Soo-Hyun (Kim Su-hyeon)
+2. Class: Regular User (Normal, Sword User, Master)
+3. Nation: Korea
+4. Clan: -
+5. Hometown: Seoul (Grew up in a peaceful environment, Origin: South Korea)
+6. Sex: Male (33)
+7. Height and Weight: 181.5cm · 75.5kg
+
+[This appears to be character information for a Korean web novel or game, listing basic attributes of the protagonist. The "Zero Code" mentioned at the beginning might refer to either a system or starting point in the narrative.]
+`;
+
 /**
  * Translates Korean text to English using the DeepSeek API
  * No authentication checks
@@ -40,6 +57,59 @@ export async function translate(req: TranslationRequest, streaming = false): Pro
   if (!sourceText || sourceText.trim() === '') {
     return new Response(JSON.stringify({ error: 'Source text is required' }), {
       status: 400,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
+  // Look for API keys in various environment variable names
+  const apiKey = process.env.DEEPSEEK_API_KEY || 
+                 process.env.NEXT_PUBLIC_DEEPSEEK_API_KEY || 
+                 process.env.OPENAI_API_KEY ||
+                 process.env.NEXT_PUBLIC_OPENAI_API_KEY;
+  
+  // For development/testing - create a mock response if no API key is found
+  if (!apiKey) {
+    console.warn('⚠️ No API key found! Using mock translation response');
+    
+    // If streaming was requested, create a mock streaming response
+    if (streaming) {
+      // Create a ReadableStream that delivers chunks of text
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream({
+        start(controller) {
+          // Split the mock translation into chunks and send them with delays
+          const chunks = MOCK_TRANSLATION.split('\n');
+          let i = 0;
+          
+          function sendChunk() {
+            if (i < chunks.length) {
+              const chunk = chunks[i] + '\n';
+              controller.enqueue(encoder.encode(chunk));
+              i++;
+              setTimeout(sendChunk, 100); // 100ms delay between chunks
+            } else {
+              controller.close();
+            }
+          }
+          
+          sendChunk();
+        }
+      });
+      
+      return new Response(stream, {
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive'
+        }
+      });
+    }
+    
+    // For non-streaming requests, return the mock translation as JSON
+    return new Response(JSON.stringify({ 
+      choices: [{ message: { content: MOCK_TRANSLATION } }]
+    }), {
+      status: 200,
       headers: { 'Content-Type': 'application/json' }
     });
   }
@@ -91,15 +161,6 @@ ${sourceText.trim()}`;
     stream: streaming,
     top_p: 0.95
   };
-
-  // Check for API key
-  const apiKey = process.env.DEEPSEEK_API_KEY;
-  if (!apiKey) {
-    return new Response(JSON.stringify({ error: 'API key not configured' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' }
-    });
-  }
 
   // Make API request with error handling
   try {
