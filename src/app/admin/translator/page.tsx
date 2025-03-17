@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/providers/auth-provider';
 import NovelTranslator from '@/components/novel-translator';
@@ -10,27 +10,34 @@ export default function NovelTranslatorPage() {
   const { user, role, loading } = useAuth();
   const router = useRouter();
 
-  useEffect(() => {
-    if (!loading) {
-      // Only allow admin and author roles to access this page
-      if (!user || (role !== 'admin' && role !== 'author')) {
-        router.push('/');
-      }
-    }
-  }, [user, role, loading, router]);
-
   // Show loading state while checking authentication
-  if (loading || !user || (role !== 'admin' && role !== 'author')) {
+  if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-background">
-        <div className="flex flex-col items-center space-y-4">
-          <LoadingSpinner size="lg" />
-          <p className="text-muted-foreground">Checking permissions...</p>
+      <div className="flex items-center justify-center h-screen">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
+
+  // If not authorized, show a message instead of redirecting
+  if (!user || (role !== 'admin' && role !== 'author')) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center p-6 max-w-md bg-white rounded-lg shadow-lg">
+          <h1 className="text-xl font-bold mb-4">Access Restricted</h1>
+          <p className="mb-4">You need admin or author permissions to access this page.</p>
+          <button 
+            onClick={() => router.push('/')}
+            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+          >
+            Return to Home
+          </button>
         </div>
       </div>
     );
   }
 
+  // User is authorized
   return (
     <div className="h-[calc(100vh-64px)]">
       <NovelTranslator />

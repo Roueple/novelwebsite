@@ -13,47 +13,34 @@ export const dynamic = 'force-dynamic';
  * POST handler for scraping content
  */
 export async function POST(req: NextRequest) {
+  // Create a new cookie store for this request
+  const cookieStore = cookies();
+  const supabase = createRouteHandlerClient<Database>({ cookies: () => cookieStore });
+  
   try {
-    // Create a new cookie store for this request
-    const cookieStore = cookies();
-    const supabase = createRouteHandlerClient<Database>({ cookies: () => cookieStore });
+    // Get user session
+    const { data: { session } } = await supabase.auth.getSession();
     
-    // Get session - with more resilient error handling
-    const { data, error } = await supabase.auth.getSession();
-    
-    if (error) {
-      console.error('Auth session error:', error.message);
-      return NextResponse.json({ error: 'Authentication error: ' + error.message }, { status: 401 });
+    if (!session) {
+      console.error('No session found');
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
     
-    if (!data?.session) {
-      console.error('No active session');
-      return NextResponse.json({ error: 'Unauthorized - Please login to continue' }, { status: 401 });
-    }
-    
-    // Check user authorization with better error handling
+    // Fetch user profile
     const { data: userProfile, error: profileError } = await supabase
       .from('profiles')
       .select('role')
-      .eq('id', data.session.user.id)
+      .eq('id', session.user.id)
       .single();
     
     if (profileError) {
-      console.error('Error fetching user profile:', profileError.message);
-      return NextResponse.json({ 
-        error: 'Error checking authorization: ' + profileError.message 
-      }, { status: 500 });
+      console.error('Error fetching profile:', profileError.message);
+      return NextResponse.json({ error: 'Failed to verify permissions' }, { status: 500 });
     }
     
-    if (!userProfile) {
-      return NextResponse.json({ error: 'User profile not found' }, { status: 404 });
-    }
-    
-    // Check if user is authorized (admin or author)
-    if (userProfile.role !== 'admin' && userProfile.role !== 'author') {
-      return NextResponse.json({ 
-        error: 'Insufficient permissions. This feature is for admins and authors.'
-      }, { status: 403 });
+    // Only allow admin or author roles
+    if (!userProfile || (userProfile.role !== 'admin' && userProfile.role !== 'author')) {
+      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
     
     // Parse request body
@@ -77,9 +64,7 @@ export async function POST(req: NextRequest) {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
           'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
-          'Accept-Language': 'en-US,en;q=0.9,ko-KR;q=0.8,ko;q=0.7',
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache'
+          'Accept-Language': 'en-US,en;q=0.9,ko-KR;q=0.8,ko;q=0.7'
         }
       });
 
@@ -114,7 +99,13 @@ export async function POST(req: NextRequest) {
       
       // First strategy: Try common content selectors
       for (const selector of contentSelectors) {
-        const extractedText = extractTextFromSelector($, selector);
+        const element = $(selector);
+        if (element.length === 0) continue;
+        
+        // Remove elements that are unlikely to be part of the content
+        element.find('script, style, iframe, .ads, .ad, .nav, .navigation, .comment, .comments, footer, header').remove();
+        
+        const extractedText = element.text().trim();
         
         if (extractedText && extractedText.length > 100) {
           text = extractedText;
@@ -203,7 +194,7 @@ export async function POST(req: NextRequest) {
       // Check if we actually got meaningful content
       if (text.length < 100) {
         return NextResponse.json({ 
-          error: 'Could not extract meaningful content from the page. Content length: ' + text.length
+          error: 'Could not extract meaningful content from the page'
         }, { status: 500 });
       }
 
@@ -233,24 +224,4 @@ export async function POST(req: NextRequest) {
       error: errorMessage
     }, { status: 500 });
   }
-}
-
-/**
- * Helper function to safely extract text from a selector
- */
-function extractTextFromSelector(
-  $: cheerio.CheerioAPI, 
-  selector: string
-): string {
-  const element = $(selector);
-  
-  if (element.length === 0) {
-    return '';
-  }
-  
-  // Remove elements that are unlikely to be part of the content
-  element.find('script, style, iframe, .ads, .ad, .nav, .navigation, .comment, .comments, footer, header').remove();
-  
-  // Return the text content
-  return element.text().trim();
 }
