@@ -1,8 +1,5 @@
 // src/app/api/scrape/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
-import { Database } from '@/types/supabase';
 import { ScrapeResult } from '@/types/translation';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
@@ -10,39 +7,10 @@ import * as cheerio from 'cheerio';
 export const dynamic = 'force-dynamic';
 
 /**
- * POST handler for scraping content
+ * POST handler for scraping content - Without Authentication
  */
 export async function POST(req: NextRequest) {
-  // Create a new cookie store for this request
-  const cookieStore = cookies();
-  const supabase = createRouteHandlerClient<Database>({ cookies: () => cookieStore });
-  
   try {
-    // Get user session
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (!session) {
-      console.error('No session found');
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
-    }
-    
-    // Fetch user profile
-    const { data: userProfile, error: profileError } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', session.user.id)
-      .single();
-    
-    if (profileError) {
-      console.error('Error fetching profile:', profileError.message);
-      return NextResponse.json({ error: 'Failed to verify permissions' }, { status: 500 });
-    }
-    
-    // Only allow admin or author roles
-    if (!userProfile || (userProfile.role !== 'admin' && userProfile.role !== 'author')) {
-      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
-    }
-    
     // Parse request body
     const { url } = await req.json();
 

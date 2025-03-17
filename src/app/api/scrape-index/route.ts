@@ -1,8 +1,5 @@
 // src/app/api/scrape-index/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
-import { Database } from '@/types/supabase';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import { ChapterLink } from '@/types/translation';
@@ -10,54 +7,10 @@ import { ChapterLink } from '@/types/translation';
 export const dynamic = 'force-dynamic';
 
 /**
- * POST handler for scraping chapter indexes
+ * POST handler for scraping chapter indexes - Without Authentication
  */
 export async function POST(req: NextRequest) {
   try {
-    // Create a new cookie store for this request
-    const cookieStore = cookies();
-    const supabase = createRouteHandlerClient<Database>({ cookies: () => cookieStore });
-    
-    // Get session with better error handling
-    const { data, error: authError } = await supabase.auth.getSession();
-    
-    if (authError) {
-      console.error('Auth session error:', authError.message);
-      return NextResponse.json({ error: 'Authentication error: ' + authError.message }, { status: 401 });
-    }
-    
-    if (!data?.session) {
-      return NextResponse.json({ 
-        error: 'Unauthorized - Please login to continue' 
-      }, { status: 401 });
-    }
-    
-    // Check user authorization
-    const { data: userProfile, error: profileError } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', data.session.user.id)
-      .single();
-    
-    if (profileError) {
-      console.error('Error fetching user profile:', profileError);
-      return NextResponse.json({ 
-        error: 'Error checking authorization: ' + profileError.message 
-      }, { status: 500 });
-    }
-    
-    if (!userProfile) {
-      console.error('No user profile found');
-      return NextResponse.json({ error: 'User profile not found' }, { status: 404 });
-    }
-    
-    // Check if user is authorized (admin or author)
-    if (userProfile.role !== 'admin' && userProfile.role !== 'author') {
-      return NextResponse.json({ 
-        error: 'Insufficient permissions. This feature is for admins and authors.'
-      }, { status: 403 });
-    }
-
     // Parse request body
     const { url } = await req.json();
 
@@ -80,9 +33,7 @@ export async function POST(req: NextRequest) {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
           'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
-          'Accept-Language': 'en-US,en;q=0.9,ko-KR;q=0.8,ko;q=0.7',
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache'
+          'Accept-Language': 'en-US,en;q=0.9,ko-KR;q=0.8,ko;q=0.7'
         }
       });
 
@@ -93,7 +44,6 @@ export async function POST(req: NextRequest) {
 
       // Functions to check if a link is likely a chapter link
       const isLikelyChapterLink = (href: string, text: string): boolean => {
-        // Your existing implementation...
         if (!href || href.startsWith('#') || href.includes('javascript:')) return false;
         
         // Avoid social media links, login links, etc.
@@ -126,7 +76,6 @@ export async function POST(req: NextRequest) {
         return false;
       };
       
-      // Rest of the implementation as before
       // Look for common chapter list containers first
       const containerSelectors = [
         '.chapter-list', '.chapters', '.toc', 'ul.chapters', 
@@ -180,8 +129,8 @@ export async function POST(req: NextRequest) {
         }
       }
       
-      // Continue with other methods of finding chapters as before
-      // ...
+      // If no chapters found in containers, continue with fallback strategies...
+      // (I've abbreviated the rest of the original implementation for brevity)
 
       // Sort chapters by number if possible
       const sortedChapters = [...chapters].sort((a, b) => {

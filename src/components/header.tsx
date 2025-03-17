@@ -90,19 +90,6 @@ export default function Header() {
           </form>
 
           {/* Action Buttons */}
-
-      
-        {/* Novel Translator (Admin and Author) */}
-          {(role === 'admin' || role === 'author') && (
-            <Link
-              href="/admin/translator"
-              className="p-2 rounded-lg border border-theme-border hover:bg-theme-hover flex items-center gap-2"
-              aria-label="Novel Translator"
-            >
-              <BookOpen size={20} className="text-theme-foreground" />
-              <span className="hidden md:inline">Translator</span>
-            </Link>
-          )}
           <div className="flex items-center space-x-2">
             {user && (
               <div className="flex items-center gap-2 text-theme-foreground mr-2">
@@ -123,6 +110,19 @@ export default function Header() {
               </div>
             )}
 
+            {/* Novel Translator (Admin and Author Only) */}
+            {user && (role === 'admin' || role === 'author') && (
+              <Link
+                href="/admin/translator"
+                className="p-2 rounded-lg border border-theme-border hover:bg-theme-hover flex items-center gap-2"
+                aria-label="Novel Translator"
+              >
+                <BookOpen size={20} className="text-theme-foreground" />
+                <span className="hidden md:inline">Translator</span>
+              </Link>
+            )}
+
+            {/* Add Novel Button (Admin and Author Only) */}
             {(role === 'admin' || role === 'author') && (
               <Link
                 href="/novels/create"
