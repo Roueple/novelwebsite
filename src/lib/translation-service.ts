@@ -102,12 +102,14 @@ export const translationService = {
    */
   async createProject(name: string, persistentPrompt: string = ''): Promise<TranslationProject> {
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      const userId = userData.user?.id;
+      const { data: userData, error: authError } = await supabase.auth.getUser();
       
-      if (!userId) {
-        throw new Error('User not authenticated');
+      if (authError || !userData.user) {
+        console.error('Auth error:', authError);
+        throw new Error('User authentication error');
       }
+      
+      const userId = userData.user.id;
       
       const { data, error } = await supabase
         .from('translation_projects')
@@ -340,10 +342,11 @@ export const translationService = {
   },
 
   /**
-   * Translates text using the translation API - No Authentication
+   * Translates text using the translation API - No Authentication required
    */
   async translateText(request: TranslationRequest, stream = false): Promise<Response> {
     try {
+      // Direct API call with no auth
       const response = await fetch('/api/translate', {
         method: 'POST',
         headers: {
@@ -355,10 +358,23 @@ export const translationService = {
         })
       });
       
+      // If the response is not ok, handle it gracefully
+      if (!response.ok) {
+        console.error('Translation API error:', response.status);
+        // Don't throw, just return the response
+      }
+      
       return response;
     } catch (error) {
       console.error('Translation API error:', error);
-      throw error;
+      
+      // Return a formatted error instead of throwing
+      return new Response(JSON.stringify({
+        error: error instanceof Error ? error.message : 'Translation service error'
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
   },
 
@@ -367,6 +383,7 @@ export const translationService = {
    */
   async scrapeWebsite(url: string): Promise<ScrapeResult> {
     try {
+      // Direct API call with no auth
       const response = await fetch('/api/scrape', {
         method: 'POST',
         headers: {
@@ -403,6 +420,7 @@ export const translationService = {
    */
   async scrapeChapterIndex(url: string): Promise<{ chapters: ChapterLink[] }> {
     try {
+      // Direct API call with no auth
       const response = await fetch('/api/scrape-index', {
         method: 'POST',
         headers: {

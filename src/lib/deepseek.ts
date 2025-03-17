@@ -28,6 +28,7 @@ interface DeepseekOptions {
 
 /**
  * Translates Korean text to English using the DeepSeek API
+ * No authentication checks
  * 
  * @param req Translation request
  * @param streaming Whether to use streaming
@@ -37,7 +38,10 @@ export async function translate(req: TranslationRequest, streaming = false): Pro
   const { sourceText, examples, persistentPrompt, tempPrompt } = req;
   
   if (!sourceText || sourceText.trim() === '') {
-    throw new Error('Source text is required');
+    return new Response(JSON.stringify({ error: 'Source text is required' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
   
   // Build system prompt with persistent prompt

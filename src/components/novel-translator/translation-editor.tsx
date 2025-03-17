@@ -31,6 +31,7 @@ const TranslationEditor: React.FC<TranslationEditorProps> = ({
   const [tempPrompt, setTempPrompt] = useState('');
   const [isTranslating, setIsTranslating] = useState(false);
   const [streamedTranslation, setStreamedTranslation] = useState('');
+  const [error, setError] = useState<string | null>(null);
   
   // Refs
   const translatedTextRef = useRef<HTMLDivElement>(null);
@@ -44,11 +45,13 @@ const TranslationEditor: React.FC<TranslationEditorProps> = ({
       setTranslatedText(currentChapter.translated_text || '');
       setStreamedTranslation(currentChapter.translated_text || '');
       setTempPrompt(currentChapter.temp_prompt || '');
+      setError(null);
     } else {
       setSourceText('');
       setTranslatedText('');
       setStreamedTranslation('');
       setTempPrompt('');
+      setError(null);
     }
   }, [currentChapter]);
 
@@ -77,6 +80,7 @@ const TranslationEditor: React.FC<TranslationEditorProps> = ({
     
     setIsTranslating(true);
     setStreamedTranslation('');
+    setError(null);
     
     try {
       // Use streaming translation
@@ -89,6 +93,14 @@ const TranslationEditor: React.FC<TranslationEditorProps> = ({
         },
         true
       );
+      
+      if (!response.ok) {
+        // Handle error response by parsing the JSON
+        const errorData = await response.json();
+        setError(errorData.error || 'Translation failed');
+        setIsTranslating(false);
+        return;
+      }
       
       // Process the streaming response
       if (!response.body) {
@@ -118,6 +130,18 @@ const TranslationEditor: React.FC<TranslationEditorProps> = ({
         }
       }
       
+      // Check if response contains error JSON
+      try {
+        const resultJson = JSON.parse(result);
+        if (resultJson.error) {
+          setError(resultJson.error);
+          setIsTranslating(false);
+          return;
+        }
+      } catch (e) {
+        // If it's not JSON, continue normally
+      }
+      
       // Save the translation to the chapter
       if (currentChapter) {
         await onSaveChapter(currentChapter.id!, {
@@ -130,7 +154,9 @@ const TranslationEditor: React.FC<TranslationEditorProps> = ({
     } catch (error) {
       console.error('Error translating text:', error);
       if (error instanceof Error) {
-        toast.error(error.message || 'Translation failed');
+        setError(error.message || 'Translation failed');
+      } else {
+        setError('Translation failed');
       }
     } finally {
       setIsTranslating(false);
@@ -214,7 +240,11 @@ const TranslationEditor: React.FC<TranslationEditorProps> = ({
                 ref={translatedTextRef}
                 className="h-64 overflow-auto border rounded-md p-3 font-mono bg-background"
               >
-                {streamedTranslation || translatedText || (
+                {error ? (
+                  <div className="text-red-500">Error: {error}</div>
+                ) : streamedTranslation || translatedText ? (
+                  <div className="whitespace-pre-wrap">{streamedTranslation || translatedText}</div>
+                ) : (
                   <span className="text-muted-foreground">Translation will appear here</span>
                 )}
               </div>
