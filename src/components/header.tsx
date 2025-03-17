@@ -91,8 +91,9 @@ export default function Header() {
 
           {/* Action Buttons */}
 
-          {/* Novel Translator (Admin only) */}
-          {role === 'admin' && (
+      
+        {/* Novel Translator (Admin and Author) */}
+          {(role === 'admin' || role === 'author') && (
             <Link
               href="/admin/translator"
               className="p-2 rounded-lg border border-theme-border hover:bg-theme-hover flex items-center gap-2"

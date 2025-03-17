@@ -1,23 +1,44 @@
 // src/lib/deepseek.ts
 import { TranslationRequest } from '@/types/translation';
 
+/**
+ * DeepSeek API URL
+ */
 const DEEPSEEK_API_URL = 'https://api.deepseek.com/v1/chat/completions';
 
+/**
+ * Message object for DeepSeek API
+ */
 interface DeepseekMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
 }
 
+/**
+ * Options for DeepSeek API request
+ */
 interface DeepseekOptions {
   model: string;
   messages: DeepseekMessage[];
   temperature?: number;
   max_tokens?: number;
   stream?: boolean;
+  top_p?: number;
 }
 
+/**
+ * Translates Korean text to English using the DeepSeek API
+ * 
+ * @param req Translation request
+ * @param streaming Whether to use streaming
+ * @returns API response
+ */
 export async function translate(req: TranslationRequest, streaming = false): Promise<Response> {
   const { sourceText, examples, persistentPrompt, tempPrompt } = req;
+  
+  if (!sourceText || sourceText.trim() === '') {
+    throw new Error('Source text is required');
+  }
   
   // Build system prompt with persistent prompt
   const systemPrompt = `You are a professional Korean to English translator specializing in novels and web novels. 
@@ -29,15 +50,19 @@ Here are some guidelines:
 - Maintain the literary flow and style of the novel
 - Preserve character names and special terms consistently
 - Do not summarize or skip content
-- Translate idioms appropriately to maintain meaning`;
+- Translate idioms appropriately to maintain meaning
+- Keep paragraph breaks as in the original text
+- Translate sound effects and onomatopoeia appropriately
+- Preserve dialogue structure and speaker attribution
+- Maintain honorifics where appropriate or adapt them naturally to English`;
 
-  // Build user prompt with examples (few-shot learning)
+  // Build examples for few-shot learning
   let examplesText = '';
   if (examples && examples.length > 0) {
     examplesText = 'Here are examples of my preferred translation style:\n\n';
     
     examples.forEach((example, index) => {
-      examplesText += `Example ${index + 1}:\nKorean: ${example.source}\nEnglish: ${example.target}\n\n`;
+      examplesText += `Example ${index + 1}:\nKorean: ${example.source.trim()}\nEnglish: ${example.target.trim()}\n\n`;
     });
   }
 
@@ -46,32 +71,52 @@ Here are some guidelines:
 ${tempPrompt ? `For this specific chapter, please: ${tempPrompt}\n\n` : ''}
 Please translate the following Korean text into English:
 
-${sourceText}`;
+${sourceText.trim()}`;
 
   const messages: DeepseekMessage[] = [
     { role: 'system', content: systemPrompt },
     { role: 'user', content: userPrompt }
   ];
 
+  // Configure API request options
   const options: DeepseekOptions = {
-    model: 'deepseek-reasoner', // Using DeepSeek-R1
+    model: 'deepseek-reasoner',
     messages,
-    temperature: 0.3,
+    temperature: 0.3, // Lower temperature for more consistent translations
     max_tokens: 8000, // Maximum output tokens
-    stream: streaming
+    stream: streaming,
+    top_p: 0.95
   };
 
+  // Check for API key
   const apiKey = process.env.DEEPSEEK_API_KEY;
   if (!apiKey) {
     throw new Error('DEEPSEEK_API_KEY not configured');
   }
 
-  return fetch(DEEPSEEK_API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`
-    },
-    body: JSON.stringify(options)
-  });
+  // Make API request with error handling
+  try {
+    const response = await fetch(DEEPSEEK_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify(options)
+    });
+    
+    // Check for HTTP errors
+    if (!response.ok && !streaming) {
+      const errorData = await response.json();
+      throw new Error(
+        errorData.error?.message || 
+        `API request failed with status ${response.status}`
+      );
+    }
+    
+    return response;
+  } catch (error) {
+    console.error('DeepSeek API error:', error);
+    throw error;
+  }
 }

@@ -9,6 +9,9 @@ import { ChapterLink } from '@/types/translation';
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * POST handler for scraping chapter indexes
+ */
 export async function POST(req: NextRequest) {
   // Create a new cookie store for this request
   const cookieStore = cookies();
@@ -23,9 +26,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized - No session found' }, { status: 401 });
     }
     
-    console.log('Session user ID:', session.user.id);
-    
-    // Check if user is admin - with better error handling
+    // Check user authorization
     try {
       const { data: userProfile, error: profileError } = await supabase
         .from('profiles')
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest) {
       if (profileError) {
         console.error('Error fetching user profile:', profileError);
         return NextResponse.json({ 
-          error: 'Error fetching user profile: ' + profileError.message 
+          error: 'Error checking authorization: ' + profileError.message 
         }, { status: 500 });
       }
       
@@ -45,22 +46,16 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'User profile not found' }, { status: 404 });
       }
       
-      console.log('User role:', userProfile.role);
-      
-      // For temporary debugging: Allow all logged-in users to use this endpoint
-      // Remove this relaxed check later when authentication is working properly
-      /*
-      if (userProfile.role !== 'admin') {
+      // Check if user is authorized (admin or author)
+      if (userProfile.role !== 'admin' && userProfile.role !== 'author') {
         return NextResponse.json({ 
-          error: 'Admin access required. Your role: ' + userProfile.role 
+          error: 'Insufficient permissions. This feature is for admins and authors.'
         }, { status: 403 });
       }
-      */
-      
     } catch (profileError) {
       console.error('Exception checking profile:', profileError);
       return NextResponse.json({ 
-        error: 'Error checking admin status: ' + (profileError instanceof Error ? profileError.message : String(profileError))
+        error: 'Error checking authorization: ' + (profileError instanceof Error ? profileError.message : String(profileError))
       }, { status: 500 });
     }
 
@@ -76,21 +71,17 @@ export async function POST(req: NextRequest) {
     try {
       baseUrl = new URL(url);
     } catch {
-      // Empty catch clause without variable
       return NextResponse.json({ error: 'Invalid URL format' }, { status: 400 });
     }
 
-    // Debug log
-    console.log(`Scraping chapter index from: ${url}`);
-
-    // Fetch the webpage with timeout and proper headers
     try {
+      // Fetch the webpage with timeout and proper headers
       const response = await axios.get(url, {
         timeout: 15000, // 15 seconds timeout
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
           'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
-          'Accept-Language': 'en-US,en;q=0.9',
+          'Accept-Language': 'en-US,en;q=0.9,ko-KR;q=0.8,ko;q=0.7',
           'Cache-Control': 'no-cache',
           'Pragma': 'no-cache'
         }
@@ -98,8 +89,6 @@ export async function POST(req: NextRequest) {
 
       const html = response.data;
       const $ = cheerio.load(html);
-      
-      console.log(`HTML successfully fetched, length: ${html.length}`);
       
       const chapters: ChapterLink[] = [];
 
@@ -118,7 +107,8 @@ export async function POST(req: NextRequest) {
         const urlPatterns = [
           /chapter[_-]?\d+/i, /chap[_-]?\d+/i, /episode[_-]?\d+/i, 
           /ep[_-]?\d+/i, /\d+[_-]?[화장]/i, // Korean patterns
-          /\d+\.html/i, /c\d+/i // Common patterns
+          /\d+\.html/i, /c\d+/i, // Common patterns
+          /view\.php\?.*id=/i // Common PHP patterns
         ];
         
         if (urlPatterns.some(pattern => pattern.test(href))) return true;
@@ -136,21 +126,22 @@ export async function POST(req: NextRequest) {
         return false;
       };
       
-      // Rest of the code remains the same...
       // Look for common chapter list containers first
       const containerSelectors = [
         '.chapter-list', '.chapters', '.toc', 'ul.chapters', 
         '.table-of-contents', '.episode-list', '.novel-toc',
         '#novel-chapters', '.chapter-item', '.novel-content-list',
         '.chapter-items', '.volume-chapters', '.volume', '.chapter_list',
-        '.chapter-box', '.chapter-container', '.series-chapters'
+        '.chapter-box', '.chapter-container', '.series-chapters',
+        // Korean specific selectors
+        '.episode_list', '.list_box', '.novel_list', '.list_item',
+        '.chapter_box', '.chap_list', '.list-chapter'
       ];
       
       let foundInContainer = false;
       
       for (const selector of containerSelectors) {
         if ($(selector).length) {
-          console.log(`Found potential chapter container: ${selector}`);
           
           $(selector).find('a').each((i, el) => {
             const href = $(el).attr('href');
@@ -176,7 +167,7 @@ export async function POST(req: NextRequest) {
               chapters.push({
                 title: text,
                 url: fullUrl,
-                chapter: chapterMatch ? parseInt(chapterMatch[1]) : undefined
+                chapter: chapterMatch ? chapterMatch[1] : undefined
               });
             }
           });
@@ -188,10 +179,8 @@ export async function POST(req: NextRequest) {
         }
       }
       
-      // Rest of the code here...
       // If no chapters found in containers, look for other patterns
       if (!foundInContainer) {
-        console.log('No chapters found in standard containers, looking for other patterns');
         
         // Try to identify chapter tables
         $('table').each((i, table) => {
@@ -212,7 +201,6 @@ export async function POST(req: NextRequest) {
           
           // If this table has multiple links and some are chapter links
           if (hasChapterLinks && totalLinks > 3) {
-            console.log('Found potential chapter table');
             
             $(table).find('a').each((j, link) => {
               const href = $(link).attr('href');
@@ -235,7 +223,7 @@ export async function POST(req: NextRequest) {
                 chapters.push({
                   title: text,
                   url: fullUrl,
-                  chapter: chapterMatch ? parseInt(chapterMatch[1]) : undefined
+                  chapter: chapterMatch ? chapterMatch[1] : undefined
                 });
               }
             });
@@ -245,7 +233,6 @@ export async function POST(req: NextRequest) {
       
       // Look for generic list patterns
       if (chapters.length < 5) {
-        console.log('Trying list patterns');
         
         $('ul, ol').each((i, list) => {
           if (chapters.length > 10) return;
@@ -266,7 +253,6 @@ export async function POST(req: NextRequest) {
           
           // If this list has multiple items and some are chapter links
           if (hasChapterLinks && totalItems > 3) {
-            console.log('Found potential chapter list');
             
             $(list).find('li a').each((j, link) => {
               const href = $(link).attr('href');
@@ -292,7 +278,7 @@ export async function POST(req: NextRequest) {
                 chapters.push({
                   title: text,
                   url: fullUrl,
-                  chapter: chapterMatch ? parseInt(chapterMatch[1]) : undefined
+                  chapter: chapterMatch ? chapterMatch[1] : undefined
                 });
               }
             });
@@ -302,10 +288,8 @@ export async function POST(req: NextRequest) {
       
       // Fallback - look at all links if we still have few chapters
       if (chapters.length < 5) {
-        console.log('Using fallback link scanning');
         
         const links = $('a');
-        console.log(`Total links on page: ${links.length}`);
         
         links.each((i, el) => {
           const href = $(el).attr('href');
@@ -331,30 +315,38 @@ export async function POST(req: NextRequest) {
             chapters.push({
               title: text,
               url: fullUrl,
-              chapter: chapterMatch ? parseInt(chapterMatch[1]) : undefined
+              chapter: chapterMatch ? chapterMatch[1] : undefined
             });
           }
         });
       }
 
       // Sort chapters by number if possible
-      chapters.sort((a, b) => {
+      const sortedChapters = [...chapters].sort((a, b) => {
+        // If both have numeric chapters, sort by number
         if (typeof a.chapter === 'number' && typeof b.chapter === 'number') {
           return a.chapter - b.chapter;
         }
+        // If both have string chapters that can be converted to numbers
+        if (typeof a.chapter === 'string' && typeof b.chapter === 'string') {
+          const aNum = parseInt(a.chapter);
+          const bNum = parseInt(b.chapter);
+          if (!isNaN(aNum) && !isNaN(bNum)) {
+            return aNum - bNum;
+          }
+        }
+        // Otherwise, keep original order
         return 0;
       });
-
-      console.log(`Found ${chapters.length} possible chapters`);
       
-      if (chapters.length === 0) {
+      if (sortedChapters.length === 0) {
         return NextResponse.json({
           error: 'Could not find any chapter links on the page',
           chapters: []
         }, { status: 404 });
       }
 
-      return NextResponse.json({ chapters });
+      return NextResponse.json({ chapters: sortedChapters });
       
     } catch (axiosError) {
       // Handle axios-specific errors

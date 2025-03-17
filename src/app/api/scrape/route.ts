@@ -3,18 +3,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 import { Database } from '@/types/supabase';
+import { ScrapeResult } from '@/types/translation';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 
 export const dynamic = 'force-dynamic';
 
-// Define explicit types for our response data
-interface ScrapeResult {
-  title: string;
-  chapter: string | null;
-  text: string;
-}
-
+/**
+ * POST handler for scraping content
+ */
 export async function POST(req: NextRequest) {
   // Create a new cookie store for this request
   const cookieStore = cookies();
@@ -29,9 +26,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized - No session found' }, { status: 401 });
     }
     
-    console.log('Session user ID:', session.user.id);
-    
-    // Check if user is admin - with better error handling
+    // Check user authorization
     try {
       const { data: userProfile, error: profileError } = await supabase
         .from('profiles')
@@ -42,7 +37,7 @@ export async function POST(req: NextRequest) {
       if (profileError) {
         console.error('Error fetching user profile:', profileError);
         return NextResponse.json({ 
-          error: 'Error fetching user profile: ' + profileError.message 
+          error: 'Error checking authorization: ' + profileError.message 
         }, { status: 500 });
       }
       
@@ -51,22 +46,16 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'User profile not found' }, { status: 404 });
       }
       
-      console.log('User role:', userProfile.role);
-      
-      // For temporary debugging: Allow all logged-in users to use this endpoint
-      // Remove this relaxed check later when authentication is working properly
-      /*
-      if (userProfile.role !== 'admin') {
+      // Check if user is authorized (admin or author)
+      if (userProfile.role !== 'admin' && userProfile.role !== 'author') {
         return NextResponse.json({ 
-          error: 'Admin access required. Your role: ' + userProfile.role 
+          error: 'Insufficient permissions. This feature is for admins and authors.'
         }, { status: 403 });
       }
-      */
-      
     } catch (profileError) {
       console.error('Exception checking profile:', profileError);
       return NextResponse.json({ 
-        error: 'Error checking admin status: ' + (profileError instanceof Error ? profileError.message : String(profileError))
+        error: 'Error checking authorization: ' + (profileError instanceof Error ? profileError.message : String(profileError))
       }, { status: 500 });
     }
     
@@ -87,11 +76,11 @@ export async function POST(req: NextRequest) {
     try {
       // Fetch the webpage with increased timeout and proper headers
       const response = await axios.get(url, {
-        timeout: 10000, // 10 seconds timeout
+        timeout: 15000, // 15 seconds timeout
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
           'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
-          'Accept-Language': 'en-US,en;q=0.9',
+          'Accept-Language': 'en-US,en;q=0.9,ko-KR;q=0.8,ko;q=0.7',
           'Cache-Control': 'no-cache',
           'Pragma': 'no-cache'
         }
@@ -101,20 +90,14 @@ export async function POST(req: NextRequest) {
       // Load cheerio with the HTML
       const $ = cheerio.load(html);
 
-      // Debug info
-      console.log(`Successfully fetched URL: ${url}`);
-      console.log(`HTML length: ${html.length}`);
-
-      // Extract title - with proper type handling
+      // Extract title
       const title = $('title').text().trim();
-      console.log(`Extracted title: ${title}`);
       
       // Look for chapter number in title or URL
       const chapterMatch = title.match(/chapter\s+(\d+)/i) || 
                           url.match(/chapter[_-]?(\d+)/i) ||
                           title.match(/(\d+)\s*화/i);  // Korean chapter indicator
       const chapter = chapterMatch ? chapterMatch[1] : null;
-      console.log(`Identified chapter: ${chapter}`);
 
       // Try multiple strategies to find content
       let text = '';
@@ -126,12 +109,14 @@ export async function POST(req: NextRequest) {
         '.content', '#content', '.post-content',
         '.entry-content', '.chapter', '#novel', '.novel',
         '.article-content', '.article', '.body', '.main-content',
-        '.text-content', '.story-content', '.story', '#story'
+        '.text-content', '.story-content', '.story', '#story',
+        // Korean specific selectors
+        '.viewer_text', '.noticeViewer', '.textView', '.view-content',
+        '.content_txt', '.content_view', '.comic_view', '.novel_view'
       ];
       
       // First strategy: Try common content selectors
       for (const selector of contentSelectors) {
-        // Use a separate function to handle the text extraction to avoid TypeScript errors
         const extractedText = extractTextFromSelector($, selector);
         
         if (extractedText && extractedText.length > 100) {
@@ -144,7 +129,6 @@ export async function POST(req: NextRequest) {
 
       // Strategy 2: Look for large paragraph blocks
       if (!contentFound) {
-        console.log('Trying paragraph strategy');
         const paragraphs = $('p');
         
         if (paragraphs.length > 5) {
@@ -164,7 +148,6 @@ export async function POST(req: NextRequest) {
             if (combinedText.length > 100) {
               text = combinedText;
               contentFound = true;
-              console.log('Found content via paragraphs');
             }
           }
         }
@@ -172,7 +155,6 @@ export async function POST(req: NextRequest) {
 
       // Strategy 3: Find the div with the most substantial text
       if (!contentFound) {
-        console.log('Trying div strategy');
         let bestText = '';
         let maxTextLength = 0;
         
@@ -196,14 +178,11 @@ export async function POST(req: NextRequest) {
         if (bestText.length > 200) {
           text = bestText;
           contentFound = true;
-          console.log('Found content via best div strategy');
         }
       }
 
       // Strategy 4: Fallback - if no content found yet, get the body text with common elements removed
       if (!contentFound || text.length < 100) {
-        console.log('Using fallback strategy');
-        
         // Remove obvious non-content elements
         $('header, footer, nav, aside, .sidebar, .comments, .comment, .ad, .ads, script, style, iframe').remove();
         
@@ -259,7 +238,9 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// Helper function to safely extract text from a selector
+/**
+ * Helper function to safely extract text from a selector
+ */
 function extractTextFromSelector(
   $: cheerio.CheerioAPI, 
   selector: string
