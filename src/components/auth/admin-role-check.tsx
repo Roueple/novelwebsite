@@ -1,4 +1,3 @@
-// src/components/auth/admin-role-check.tsx
 "use client";
 
 import { useEffect, useState } from 'react';
@@ -21,26 +20,29 @@ export const AdminRoleCheck: React.FC<AdminRoleCheckProps> = ({
 }) => {
   const router = useRouter();
   const { user, role, loading } = useAuth();
-  const [isChecking, setIsChecking] = useState(true);
+  const [isAuthorized, setIsAuthorized] = useState(false);
 
   useEffect(() => {
+    // Only check authorization once auth loading is complete
     if (!loading) {
       if (!user) {
+        // No user, redirect to home page
         router.push('/');
       } else {
-        // Check if user has appropriate role
+        // Check roles
         const hasAccess = role === 'admin' || (allowAuthor && role === 'author');
         
         if (!hasAccess) {
           router.push('/');
         } else {
-          setIsChecking(false);
+          setIsAuthorized(true);
         }
       }
     }
   }, [user, role, loading, router, allowAuthor]);
 
-  if (isChecking || loading) {
+  // Show loading spinner while checking authorization
+  if (loading || !isAuthorized) {
     return (
       <div className="flex items-center justify-center h-screen bg-background">
         <div className="flex flex-col items-center space-y-4">
@@ -51,6 +53,7 @@ export const AdminRoleCheck: React.FC<AdminRoleCheckProps> = ({
     );
   }
 
+  // User is authorized, render children
   return <>{children}</>;
 };
 

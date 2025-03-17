@@ -13,50 +13,47 @@ export const dynamic = 'force-dynamic';
  * POST handler for scraping content
  */
 export async function POST(req: NextRequest) {
-  // Create a new cookie store for this request
-  const cookieStore = cookies();
-  const supabase = createRouteHandlerClient<Database>({ cookies: () => cookieStore });
-  
   try {
-    // Get session
-    const { data: { session } } = await supabase.auth.getSession();
+    // Create a new cookie store for this request
+    const cookieStore = cookies();
+    const supabase = createRouteHandlerClient<Database>({ cookies: () => cookieStore });
     
-    if (!session) {
-      console.error('No session found');
-      return NextResponse.json({ error: 'Unauthorized - No session found' }, { status: 401 });
+    // Get session - with more resilient error handling
+    const { data, error } = await supabase.auth.getSession();
+    
+    if (error) {
+      console.error('Auth session error:', error.message);
+      return NextResponse.json({ error: 'Authentication error: ' + error.message }, { status: 401 });
     }
     
-    // Check user authorization
-    try {
-      const { data: userProfile, error: profileError } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', session.user.id)
-        .single();
-      
-      if (profileError) {
-        console.error('Error fetching user profile:', profileError);
-        return NextResponse.json({ 
-          error: 'Error checking authorization: ' + profileError.message 
-        }, { status: 500 });
-      }
-      
-      if (!userProfile) {
-        console.error('No user profile found');
-        return NextResponse.json({ error: 'User profile not found' }, { status: 404 });
-      }
-      
-      // Check if user is authorized (admin or author)
-      if (userProfile.role !== 'admin' && userProfile.role !== 'author') {
-        return NextResponse.json({ 
-          error: 'Insufficient permissions. This feature is for admins and authors.'
-        }, { status: 403 });
-      }
-    } catch (profileError) {
-      console.error('Exception checking profile:', profileError);
+    if (!data?.session) {
+      console.error('No active session');
+      return NextResponse.json({ error: 'Unauthorized - Please login to continue' }, { status: 401 });
+    }
+    
+    // Check user authorization with better error handling
+    const { data: userProfile, error: profileError } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', data.session.user.id)
+      .single();
+    
+    if (profileError) {
+      console.error('Error fetching user profile:', profileError.message);
       return NextResponse.json({ 
-        error: 'Error checking authorization: ' + (profileError instanceof Error ? profileError.message : String(profileError))
+        error: 'Error checking authorization: ' + profileError.message 
       }, { status: 500 });
+    }
+    
+    if (!userProfile) {
+      return NextResponse.json({ error: 'User profile not found' }, { status: 404 });
+    }
+    
+    // Check if user is authorized (admin or author)
+    if (userProfile.role !== 'admin' && userProfile.role !== 'author') {
+      return NextResponse.json({ 
+        error: 'Insufficient permissions. This feature is for admins and authors.'
+      }, { status: 403 });
     }
     
     // Parse request body

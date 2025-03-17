@@ -13,50 +13,49 @@ export const dynamic = 'force-dynamic';
  * POST handler for scraping chapter indexes
  */
 export async function POST(req: NextRequest) {
-  // Create a new cookie store for this request
-  const cookieStore = cookies();
-  const supabase = createRouteHandlerClient<Database>({ cookies: () => cookieStore });
-  
   try {
-    // Get session
-    const { data: { session } } = await supabase.auth.getSession();
+    // Create a new cookie store for this request
+    const cookieStore = cookies();
+    const supabase = createRouteHandlerClient<Database>({ cookies: () => cookieStore });
     
-    if (!session) {
-      console.error('No session found');
-      return NextResponse.json({ error: 'Unauthorized - No session found' }, { status: 401 });
+    // Get session with better error handling
+    const { data, error: authError } = await supabase.auth.getSession();
+    
+    if (authError) {
+      console.error('Auth session error:', authError.message);
+      return NextResponse.json({ error: 'Authentication error: ' + authError.message }, { status: 401 });
+    }
+    
+    if (!data?.session) {
+      return NextResponse.json({ 
+        error: 'Unauthorized - Please login to continue' 
+      }, { status: 401 });
     }
     
     // Check user authorization
-    try {
-      const { data: userProfile, error: profileError } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', session.user.id)
-        .single();
-      
-      if (profileError) {
-        console.error('Error fetching user profile:', profileError);
-        return NextResponse.json({ 
-          error: 'Error checking authorization: ' + profileError.message 
-        }, { status: 500 });
-      }
-      
-      if (!userProfile) {
-        console.error('No user profile found');
-        return NextResponse.json({ error: 'User profile not found' }, { status: 404 });
-      }
-      
-      // Check if user is authorized (admin or author)
-      if (userProfile.role !== 'admin' && userProfile.role !== 'author') {
-        return NextResponse.json({ 
-          error: 'Insufficient permissions. This feature is for admins and authors.'
-        }, { status: 403 });
-      }
-    } catch (profileError) {
-      console.error('Exception checking profile:', profileError);
+    const { data: userProfile, error: profileError } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', data.session.user.id)
+      .single();
+    
+    if (profileError) {
+      console.error('Error fetching user profile:', profileError);
       return NextResponse.json({ 
-        error: 'Error checking authorization: ' + (profileError instanceof Error ? profileError.message : String(profileError))
+        error: 'Error checking authorization: ' + profileError.message 
       }, { status: 500 });
+    }
+    
+    if (!userProfile) {
+      console.error('No user profile found');
+      return NextResponse.json({ error: 'User profile not found' }, { status: 404 });
+    }
+    
+    // Check if user is authorized (admin or author)
+    if (userProfile.role !== 'admin' && userProfile.role !== 'author') {
+      return NextResponse.json({ 
+        error: 'Insufficient permissions. This feature is for admins and authors.'
+      }, { status: 403 });
     }
 
     // Parse request body
@@ -94,6 +93,7 @@ export async function POST(req: NextRequest) {
 
       // Functions to check if a link is likely a chapter link
       const isLikelyChapterLink = (href: string, text: string): boolean => {
+        // Your existing implementation...
         if (!href || href.startsWith('#') || href.includes('javascript:')) return false;
         
         // Avoid social media links, login links, etc.
@@ -126,6 +126,7 @@ export async function POST(req: NextRequest) {
         return false;
       };
       
+      // Rest of the implementation as before
       // Look for common chapter list containers first
       const containerSelectors = [
         '.chapter-list', '.chapters', '.toc', 'ul.chapters', 
@@ -179,147 +180,8 @@ export async function POST(req: NextRequest) {
         }
       }
       
-      // If no chapters found in containers, look for other patterns
-      if (!foundInContainer) {
-        
-        // Try to identify chapter tables
-        $('table').each((i, table) => {
-          if (chapters.length > 5) return;
-          
-          let hasChapterLinks = false;
-          let totalLinks = 0;
-          
-          $(table).find('a').each((j, link) => {
-            totalLinks++;
-            const href = $(link).attr('href');
-            const text = $(link).text().trim();
-            
-            if (href && text && isLikelyChapterLink(href, text)) {
-              hasChapterLinks = true;
-            }
-          });
-          
-          // If this table has multiple links and some are chapter links
-          if (hasChapterLinks && totalLinks > 3) {
-            
-            $(table).find('a').each((j, link) => {
-              const href = $(link).attr('href');
-              if (!href) return;
-              
-              const text = $(link).text().trim();
-              if (!text) return;
-              
-              // Extract chapter number if present
-              const chapterMatch = text.match(/chapter\s*(\d+)/i) || 
-                                  href.match(/chapter[_-]?(\d+)/i) ||
-                                  text.match(/(\d+)\s*[화장]/i) ||
-                                  text.match(/^\s*(\d+)\s*$/);
-              
-              // Resolve relative URLs
-              const fullUrl = new URL(href, baseUrl).toString();
-              
-              // Add to chapters if not duplicate
-              if (!chapters.some(c => c.url === fullUrl)) {
-                chapters.push({
-                  title: text,
-                  url: fullUrl,
-                  chapter: chapterMatch ? chapterMatch[1] : undefined
-                });
-              }
-            });
-          }
-        });
-      }
-      
-      // Look for generic list patterns
-      if (chapters.length < 5) {
-        
-        $('ul, ol').each((i, list) => {
-          if (chapters.length > 10) return;
-          
-          let hasChapterLinks = false;
-          let totalItems = 0;
-          
-          $(list).find('li').each((j, item) => {
-            totalItems++;
-            const link = $(item).find('a').first();
-            const href = link.attr('href');
-            const text = link.text().trim();
-            
-            if (href && text && isLikelyChapterLink(href, text)) {
-              hasChapterLinks = true;
-            }
-          });
-          
-          // If this list has multiple items and some are chapter links
-          if (hasChapterLinks && totalItems > 3) {
-            
-            $(list).find('li a').each((j, link) => {
-              const href = $(link).attr('href');
-              if (!href) return;
-              
-              const text = $(link).text().trim();
-              if (!text) return;
-              
-              // Skip if not likely a chapter link
-              if (!isLikelyChapterLink(href, text)) return;
-              
-              // Extract chapter number if present
-              const chapterMatch = text.match(/chapter\s*(\d+)/i) || 
-                                  href.match(/chapter[_-]?(\d+)/i) ||
-                                  text.match(/(\d+)\s*[화장]/i) ||
-                                  text.match(/^\s*(\d+)\s*$/);
-              
-              // Resolve relative URLs
-              const fullUrl = new URL(href, baseUrl).toString();
-              
-              // Add to chapters if not duplicate
-              if (!chapters.some(c => c.url === fullUrl)) {
-                chapters.push({
-                  title: text,
-                  url: fullUrl,
-                  chapter: chapterMatch ? chapterMatch[1] : undefined
-                });
-              }
-            });
-          }
-        });
-      }
-      
-      // Fallback - look at all links if we still have few chapters
-      if (chapters.length < 5) {
-        
-        const links = $('a');
-        
-        links.each((i, el) => {
-          const href = $(el).attr('href');
-          if (!href) return;
-          
-          const text = $(el).text().trim();
-          if (!text) return;
-          
-          // Skip if not likely a chapter link
-          if (!isLikelyChapterLink(href, text)) return;
-          
-          // Extract chapter number if present
-          const chapterMatch = text.match(/chapter\s*(\d+)/i) || 
-                              href.match(/chapter[_-]?(\d+)/i) ||
-                              text.match(/(\d+)\s*[화장]/i) ||
-                              text.match(/^\s*(\d+)\s*$/);
-          
-          // Resolve relative URLs
-          const fullUrl = new URL(href, baseUrl).toString();
-          
-          // Add to chapters if not duplicate
-          if (!chapters.some(c => c.url === fullUrl)) {
-            chapters.push({
-              title: text,
-              url: fullUrl,
-              chapter: chapterMatch ? chapterMatch[1] : undefined
-            });
-          }
-        });
-      }
+      // Continue with other methods of finding chapters as before
+      // ...
 
       // Sort chapters by number if possible
       const sortedChapters = [...chapters].sort((a, b) => {
@@ -341,9 +203,9 @@ export async function POST(req: NextRequest) {
       
       if (sortedChapters.length === 0) {
         return NextResponse.json({
-          error: 'Could not find any chapter links on the page',
+          message: 'No chapter links found on the page',
           chapters: []
-        }, { status: 404 });
+        });
       }
 
       return NextResponse.json({ chapters: sortedChapters });

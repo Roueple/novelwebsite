@@ -13,26 +13,33 @@ export const dynamic = 'force-dynamic';
  * POST handler for translation requests
  */
 export async function POST(req: NextRequest) {
-  const cookieStore = cookies();
-  const supabase = createRouteHandlerClient<Database>({ cookies: () => cookieStore });
-  
   try {
-    // Authentication check
-    const { data: { session } } = await supabase.auth.getSession();
+    const cookieStore = cookies();
+    const supabase = createRouteHandlerClient<Database>({ cookies: () => cookieStore });
+    
+    // Authentication check with better error handling
+    const { data, error: authError } = await supabase.auth.getSession();
 
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (authError) {
+      console.error('Auth session error:', authError.message);
+      return NextResponse.json({ error: 'Authentication error: ' + authError.message }, { status: 401 });
+    }
+
+    if (!data?.session) {
+      return NextResponse.json({ 
+        error: 'Unauthorized - Please login to continue' 
+      }, { status: 401 });
     }
     
     // Check user authorization
     const { data: userProfile, error: profileError } = await supabase
       .from('profiles')
       .select('role')
-      .eq('id', session.user.id)
+      .eq('id', data.session.user.id)
       .single();
 
     if (profileError) {
-      console.error('Error fetching user profile:', profileError);
+      console.error('Error fetching user profile:', profileError.message);
       return NextResponse.json({ 
         error: 'Error checking authorization: ' + profileError.message 
       }, { status: 500 });
