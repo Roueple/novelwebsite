@@ -36,7 +36,7 @@ export const translationService = {
       return data || [];
     } catch (error) {
       console.error('Error fetching projects:', error);
-      throw new Error('Failed to fetch translation projects');
+      return []; // Return empty array instead of throwing
     }
   },
 
@@ -73,11 +73,9 @@ export const translationService = {
       
       if (projectResult.error) {
         if (projectResult.error.code === 'PGRST116') return null; // Record not found
-        throw projectResult.error;
+        console.error(projectResult.error);
+        return null; // Return null instead of throwing
       }
-      
-      if (examplesResult.error) throw examplesResult.error;
-      if (chaptersResult.error) throw chaptersResult.error;
       
       // Combine the data
       const project = {
@@ -107,7 +105,9 @@ export const translationService = {
       const { data: userData } = await supabase.auth.getUser();
       const userId = userData.user?.id;
       
-      if (!userId) throw new Error('User not authenticated');
+      if (!userId) {
+        throw new Error('User not authenticated');
+      }
       
       const { data, error } = await supabase
         .from('translation_projects')
@@ -155,26 +155,6 @@ export const translationService = {
   },
 
   /**
-   * Deletes a translation project
-   */
-  async deleteProject(id: string): Promise<void> {
-    try {
-      const { error } = await supabase
-        .from('translation_projects')
-        .delete()
-        .eq('id', id);
-      
-      if (error) throw error;
-      
-      // Remove from cache
-      projectCache.delete(id);
-    } catch (error) {
-      console.error('Error deleting project:', error);
-      throw new Error('Failed to delete project');
-    }
-  },
-
-  /**
    * Gets all examples for a project
    */
   async getExamples(projectId: string): Promise<TranslationExample[]> {
@@ -189,7 +169,7 @@ export const translationService = {
       return data || [];
     } catch (error) {
       console.error('Error fetching examples:', error);
-      throw new Error('Failed to fetch examples');
+      return []; // Return empty array instead of throwing
     }
   },
 
@@ -217,62 +197,6 @@ export const translationService = {
     } catch (error) {
       console.error('Error adding example:', error);
       throw new Error('Failed to add example');
-    }
-  },
-
-  /**
-   * Updates an existing example
-   */
-  async updateExample(id: string, source: string, target: string): Promise<void> {
-    try {
-      const { error, data } = await supabase
-        .from('translation_examples')
-        .update({
-          source,
-          target
-        })
-        .eq('id', id)
-        .select('project_id')
-        .single();
-      
-      if (error) throw error;
-      
-      // Invalidate cache if we have project_id
-      if (data?.project_id) {
-        projectCache.delete(data.project_id);
-      }
-    } catch (error) {
-      console.error('Error updating example:', error);
-      throw new Error('Failed to update example');
-    }
-  },
-
-  /**
-   * Deletes an example
-   */
-  async deleteExample(id: string): Promise<void> {
-    try {
-      // Get project_id before deleting to invalidate cache
-      const { data: exampleData } = await supabase
-        .from('translation_examples')
-        .select('project_id')
-        .eq('id', id)
-        .single();
-      
-      const { error } = await supabase
-        .from('translation_examples')
-        .delete()
-        .eq('id', id);
-      
-      if (error) throw error;
-      
-      // Invalidate cache
-      if (exampleData?.project_id) {
-        projectCache.delete(exampleData.project_id);
-      }
-    } catch (error) {
-      console.error('Error deleting example:', error);
-      throw new Error('Failed to delete example');
     }
   },
 
@@ -313,25 +237,6 @@ export const translationService = {
   },
 
   /**
-   * Gets all chapters for a project
-   */
-  async getChapters(projectId: string): Promise<TranslationChapter[]> {
-    try {
-      const { data, error } = await supabase
-        .from('translation_chapters')
-        .select('*')
-        .eq('project_id', projectId)
-        .order('created_at', { ascending: true });
-      
-      if (error) throw error;
-      return data || [];
-    } catch (error) {
-      console.error('Error fetching chapters:', error);
-      throw new Error('Failed to fetch chapters');
-    }
-  },
-
-  /**
    * Gets a specific chapter by ID
    */
   async getChapter(id: string): Promise<TranslationChapter | null> {
@@ -350,7 +255,7 @@ export const translationService = {
       return data;
     } catch (error) {
       console.error('Error fetching chapter:', error);
-      throw new Error('Failed to fetch chapter');
+      return null;
     }
   },
 
@@ -435,36 +340,7 @@ export const translationService = {
   },
 
   /**
-   * Deletes a chapter
-   */
-  async deleteChapter(id: string): Promise<void> {
-    try {
-      // Get project_id before deleting to invalidate cache
-      const { data: chapterData } = await supabase
-        .from('translation_chapters')
-        .select('project_id')
-        .eq('id', id)
-        .single();
-      
-      const { error } = await supabase
-        .from('translation_chapters')
-        .delete()
-        .eq('id', id);
-      
-      if (error) throw error;
-      
-      // Invalidate cache
-      if (chapterData?.project_id) {
-        projectCache.delete(chapterData.project_id);
-      }
-    } catch (error) {
-      console.error('Error deleting chapter:', error);
-      throw new Error('Failed to delete chapter');
-    }
-  },
-
-  /**
-   * Translates text using the translation API
+   * Translates text using the translation API - No Authentication
    */
   async translateText(request: TranslationRequest, stream = false): Promise<Response> {
     try {
@@ -479,11 +355,6 @@ export const translationService = {
         })
       });
       
-      if (!response.ok && !stream) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Translation failed');
-      }
-      
       return response;
     } catch (error) {
       console.error('Translation API error:', error);
@@ -492,7 +363,7 @@ export const translationService = {
   },
 
   /**
-   * Scrapes content from a website
+   * Scrapes content from a website - No Authentication
    */
   async scrapeWebsite(url: string): Promise<ScrapeResult> {
     try {
@@ -528,7 +399,7 @@ export const translationService = {
   },
 
   /**
-   * Scrapes a chapter index to find multiple chapters
+   * Scrapes a chapter index to find multiple chapters - No Authentication
    */
   async scrapeChapterIndex(url: string): Promise<{ chapters: ChapterLink[] }> {
     try {

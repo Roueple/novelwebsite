@@ -91,7 +91,10 @@ ${sourceText.trim()}`;
   // Check for API key
   const apiKey = process.env.DEEPSEEK_API_KEY;
   if (!apiKey) {
-    throw new Error('DEEPSEEK_API_KEY not configured');
+    return new Response(JSON.stringify({ error: 'API key not configured' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 
   // Make API request with error handling
@@ -105,18 +108,12 @@ ${sourceText.trim()}`;
       body: JSON.stringify(options)
     });
     
-    // Check for HTTP errors
-    if (!response.ok && !streaming) {
-      const errorData = await response.json();
-      throw new Error(
-        errorData.error?.message || 
-        `API request failed with status ${response.status}`
-      );
-    }
-    
     return response;
   } catch (error) {
     console.error('DeepSeek API error:', error);
-    throw error;
+    return new Response(JSON.stringify({ error: 'Translation service error' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 }
