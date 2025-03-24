@@ -1,6 +1,6 @@
 // src/components/novel-translator/translation-editor.tsx
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Download, RefreshCw, Save } from 'lucide-react';
+import { X, Download, RefreshCw, Save, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -10,35 +10,53 @@ import { translationService } from '@/lib/translation-service';
 import { TranslationProject, TranslationChapter, TranslationExample } from '@/types/translation';
 import LoadingSpinner from '@/components/ui/loading-spinner';
 import ContentScraper from './content-scraper';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
-// Function to parse DeepSeek streaming response
+/**
+ * Parse DeepSeek streaming response
+ * This function extracts content from DeepSeek's streaming format
+ */
 function parseDeepSeekStream(chunk: string): string {
   try {
     // Check if chunk starts with "data: "
     if (chunk.startsWith('data: ')) {
+      // Skip empty events (heartbeats)
+      if (chunk === 'data: ') return '';
+      
+      // Skip event with [DONE] marker
+      if (chunk === 'data: [DONE]') return '';
+      
       // Remove the "data: " prefix
       const jsonStr = chunk.substring(6).trim();
-      
-      // Skip empty data
-      if (jsonStr === '') return '';
       
       // Parse the JSON
       const data = JSON.parse(jsonStr);
       
-      // Extract content from the right place - DeepSeek uses "reasoning_content" field
+      // Extract content from the DeepSeek response
       if (data.choices && data.choices.length > 0) {
         const delta = data.choices[0].delta;
         
-        // Check for content in multiple possible fields
-        if (delta.content !== null && delta.content !== undefined) {
-          return delta.content || '';
-        } else if (delta.reasoning_content) {
-          return delta.reasoning_content;
+        // Check for finish_reason (signals completion)
+        if (data.choices[0].finish_reason) {
+          return '';
+        }
+        
+        // DeepSeek API can output to content and/or reasoning_content
+        if (delta) {
+          // First check the regular content field
+          if (delta.content !== null && delta.content !== undefined) {
+            return delta.content || '';
+          }
+          
+          // Then check DeepSeek's reasoning_content field
+          if (delta.reasoning_content !== null && delta.reasoning_content !== undefined) {
+            return delta.reasoning_content || '';
+          }
         }
       }
     }
     
-    // Return empty string if couldn't parse a valid response
+    // Return empty string if couldn't extract content
     return '';
   } catch (e) {
     console.error('Error parsing stream chunk:', e, 'Raw chunk:', chunk);
@@ -69,12 +87,15 @@ const TranslationEditor: React.FC<TranslationEditorProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [translationProgress, setTranslationProgress] = useState(0);
   const [debugLastChunk, setDebugLastChunk] = useState<string>('');
+  const [truncatedWarning, setTruncatedWarning] = useState(false);
   
   // Refs
   const translatedTextRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const decoder = useRef(new TextDecoder());
   const estimatedCharCountRef = useRef(0);
+  const lastActivityRef = useRef<number>(0);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Update state when current chapter changes
   useEffect(() => {
@@ -84,12 +105,14 @@ const TranslationEditor: React.FC<TranslationEditorProps> = ({
       setStreamedTranslation(currentChapter.translated_text || '');
       setTempPrompt(currentChapter.temp_prompt || '');
       setError(null);
+      setTruncatedWarning(false);
     } else {
       setSourceText('');
       setTranslatedText('');
       setStreamedTranslation('');
       setTempPrompt('');
       setError(null);
+      setTruncatedWarning(false);
     }
   }, [currentChapter]);
 
@@ -99,14 +122,64 @@ const TranslationEditor: React.FC<TranslationEditorProps> = ({
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
     };
   }, []);
+
+  // Function to check for inactivity
+  const startInactivityCheck = () => {
+    lastActivityRef.current = Date.now();
+    
+    // Clear any existing timeout
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    
+    // Set a new timeout
+    timeoutRef.current = setTimeout(() => {
+      // If we haven't seen activity for more than 20 seconds
+      if (Date.now() - lastActivityRef.current > 20000 && isTranslating) {
+        console.log('Translation seems to have stalled or completed');
+        setTruncatedWarning(true);
+        
+        // Attempt to save partial result
+        if (currentChapter?.id && streamedTranslation) {
+          savePartialTranslation();
+        }
+      }
+    }, 20000); // 20 seconds
+  };
+
+  // Save partial translation if the stream gets truncated
+  const savePartialTranslation = async () => {
+    if (!currentChapter?.id || !streamedTranslation) return;
+    
+    try {
+      await onSaveChapter(currentChapter.id, {
+        translated_text: streamedTranslation,
+        temp_prompt: tempPrompt
+      });
+      
+      toast.success('Partial translation saved');
+      setIsTranslating(false);
+    } catch (error) {
+      console.error('Error saving partial translation:', error);
+    }
+  };
 
   const stopTranslation = () => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
       setIsTranslating(false);
+      
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+      
       toast.info('Translation stopped');
     }
   };
@@ -122,6 +195,7 @@ const TranslationEditor: React.FC<TranslationEditorProps> = ({
     setError(null);
     setTranslationProgress(0);
     setDebugLastChunk('');
+    setTruncatedWarning(false);
     
     // Create a new abort controller
     if (abortControllerRef.current) {
@@ -132,8 +206,11 @@ const TranslationEditor: React.FC<TranslationEditorProps> = ({
     // Estimate the total character count (English is usually longer than Korean)
     estimatedCharCountRef.current = sourceText.length * 1.5;
     
+    // Start inactivity check
+    startInactivityCheck();
+    
     try {
-      // Call the API directly with AbortController instead of using the service
+      // Call the API directly with AbortController
       const response = await fetch('/api/translate', {
         method: 'POST',
         headers: {
@@ -190,6 +267,9 @@ const TranslationEditor: React.FC<TranslationEditorProps> = ({
           break;
         }
         
+        // Update the last activity timestamp
+        lastActivityRef.current = Date.now();
+        
         // Decode the chunk
         const chunk = decoder.current.decode(value, { stream: true });
         buffer += chunk;
@@ -197,7 +277,7 @@ const TranslationEditor: React.FC<TranslationEditorProps> = ({
         // Debugging - save the last chunk received
         setDebugLastChunk(chunk);
         
-        // Split by newlines and process each complete chunk
+        // Process each line in the buffer
         const lines = buffer.split('\n');
         buffer = ''; // Reset buffer
         
@@ -234,6 +314,9 @@ const TranslationEditor: React.FC<TranslationEditorProps> = ({
         if (translatedTextRef.current) {
           translatedTextRef.current.scrollTop = translatedTextRef.current.scrollHeight;
         }
+        
+        // Restart the inactivity check
+        startInactivityCheck();
       }
       
       // Set final translated text
@@ -257,6 +340,12 @@ const TranslationEditor: React.FC<TranslationEditorProps> = ({
         toast.error(`Translation failed: ${error.message}`);
       }
     } finally {
+      // Clear the timeout
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+      
       abortControllerRef.current = null;
       setIsTranslating(false);
       setTranslationProgress(100);
@@ -360,6 +449,16 @@ const TranslationEditor: React.FC<TranslationEditorProps> = ({
                   </div>
                 )}
               </div>
+              
+              {truncatedWarning && (
+                <Alert className="mb-2 border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20">
+                  <AlertTriangle className="h-4 w-4 text-yellow-500 mr-2" />
+                  <AlertDescription className="text-yellow-700 dark:text-yellow-400 text-xs">
+                    The translation may have been truncated. The partial result has been saved.
+                  </AlertDescription>
+                </Alert>
+              )}
+              
               <div 
                 ref={translatedTextRef}
                 className="h-64 overflow-auto border rounded-md p-3 font-mono bg-background"
