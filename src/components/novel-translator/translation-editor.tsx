@@ -11,6 +11,41 @@ import { TranslationProject, TranslationChapter, TranslationExample } from '@/ty
 import LoadingSpinner from '@/components/ui/loading-spinner';
 import ContentScraper from './content-scraper';
 
+// Function to parse DeepSeek streaming response
+function parseDeepSeekStream(chunk: string): string {
+  try {
+    // Check if chunk starts with "data: "
+    if (chunk.startsWith('data: ')) {
+      // Remove the "data: " prefix
+      const jsonStr = chunk.substring(6).trim();
+      
+      // Skip empty data
+      if (jsonStr === '') return '';
+      
+      // Parse the JSON
+      const data = JSON.parse(jsonStr);
+      
+      // Extract content from the right place - DeepSeek uses "reasoning_content" field
+      if (data.choices && data.choices.length > 0) {
+        const delta = data.choices[0].delta;
+        
+        // Check for content in multiple possible fields
+        if (delta.content !== null && delta.content !== undefined) {
+          return delta.content || '';
+        } else if (delta.reasoning_content) {
+          return delta.reasoning_content;
+        }
+      }
+    }
+    
+    // Return empty string if couldn't parse a valid response
+    return '';
+  } catch (e) {
+    console.error('Error parsing stream chunk:', e, 'Raw chunk:', chunk);
+    return '';
+  }
+}
+
 interface TranslationEditorProps {
   currentProject: TranslationProject | null;
   currentChapter: TranslationChapter | null;
@@ -33,6 +68,7 @@ const TranslationEditor: React.FC<TranslationEditorProps> = ({
   const [streamedTranslation, setStreamedTranslation] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [translationProgress, setTranslationProgress] = useState(0);
+  const [debugLastChunk, setDebugLastChunk] = useState<string>('');
   
   // Refs
   const translatedTextRef = useRef<HTMLDivElement>(null);
@@ -85,6 +121,7 @@ const TranslationEditor: React.FC<TranslationEditorProps> = ({
     setStreamedTranslation('');
     setError(null);
     setTranslationProgress(0);
+    setDebugLastChunk('');
     
     // Create a new abort controller
     if (abortControllerRef.current) {
@@ -109,12 +146,17 @@ const TranslationEditor: React.FC<TranslationEditorProps> = ({
           tempPrompt,
           stream: true // Always use streaming for better UX
         }),
-        signal: abortControllerRef.current.signal // Explicitly pass the signal
+        signal: abortControllerRef.current.signal
       });
       
       if (!response.ok) {
         // Handle error response by parsing the JSON
-        const errorData = await response.json();
+        let errorData: { error?: string } = {};
+        try {
+          errorData = await response.json();
+        } catch (e) {
+          errorData = { error: `HTTP error: ${response.status} ${response.statusText}` };
+        }
         setError(errorData.error || 'Translation failed');
         setIsTranslating(false);
         return;
@@ -126,19 +168,59 @@ const TranslationEditor: React.FC<TranslationEditorProps> = ({
       }
       
       const reader = response.body.getReader();
-      
+      let buffer = ''; // Buffer to accumulate incomplete chunks
       let result = '';
       
       while (true) {
         const { done, value } = await reader.read();
         
         if (done) {
+          // Process any remaining data in buffer
+          if (buffer.trim()) {
+            try {
+              const content = parseDeepSeekStream(buffer);
+              if (content) {
+                result += content;
+                setStreamedTranslation(result);
+              }
+            } catch (e) {
+              console.error('Error processing final buffer:', e);
+            }
+          }
           break;
         }
         
-        // Decode the chunk and append to result
+        // Decode the chunk
         const chunk = decoder.current.decode(value, { stream: true });
-        result += chunk;
+        buffer += chunk;
+        
+        // Debugging - save the last chunk received
+        setDebugLastChunk(chunk);
+        
+        // Split by newlines and process each complete chunk
+        const lines = buffer.split('\n');
+        buffer = ''; // Reset buffer
+        
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i].trim();
+          
+          if (line.startsWith('data: ')) {
+            // This is a complete data line
+            try {
+              const content = parseDeepSeekStream(line);
+              if (content) {
+                result += content;
+              }
+            } catch (e) {
+              console.error('Error parsing line:', e, line);
+            }
+          } else if (line && i === lines.length - 1) {
+            // This might be an incomplete line, put it back in the buffer
+            buffer = line;
+          }
+        }
+        
+        // Update the UI with the current result
         setStreamedTranslation(result);
         
         // Update progress
@@ -158,7 +240,7 @@ const TranslationEditor: React.FC<TranslationEditorProps> = ({
       setTranslatedText(result);
       
       // Save the translation to the chapter
-      if (currentChapter.id) {
+      if (result && currentChapter.id) {
         await onSaveChapter(currentChapter.id, {
           translated_text: result,
           temp_prompt: tempPrompt
@@ -166,7 +248,7 @@ const TranslationEditor: React.FC<TranslationEditorProps> = ({
         
         toast.success('Translation completed and saved');
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error translating text:', error);
       
       // Don't show error for aborted requests
@@ -290,6 +372,14 @@ const TranslationEditor: React.FC<TranslationEditorProps> = ({
                   <span className="text-muted-foreground">Translation will appear here</span>
                 )}
               </div>
+              
+              {/* Debug info - only shown when there's an error and we were translating */}
+              {error && debugLastChunk && (
+                <div className="mt-2 p-2 bg-gray-100 border border-gray-300 rounded text-xs overflow-auto max-h-24">
+                  <div className="font-semibold">Last chunk received:</div>
+                  <pre className="whitespace-pre-wrap overflow-auto">{debugLastChunk}</pre>
+                </div>
+              )}
             </div>
           </div>
         </CardContent>
