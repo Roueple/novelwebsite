@@ -341,42 +341,56 @@ export const translationService = {
     }
   },
 
-  /**
-   * Translates text using the translation API - No Authentication required
-   */
-  async translateText(request: TranslationRequest, stream = false): Promise<Response> {
-    try {
-      // Direct API call with no auth
-      const response = await fetch('/api/translate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...request,
-          stream
-        })
-      });
-      
-      // If the response is not ok, handle it gracefully
-      if (!response.ok) {
-        console.error('Translation API error:', response.status);
-        // Don't throw, just return the response
-      }
-      
-      return response;
-    } catch (error) {
-      console.error('Translation API error:', error);
-      
-      // Return a formatted error instead of throwing
-      return new Response(JSON.stringify({
-        error: error instanceof Error ? error.message : 'Translation service error'
-      }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' }
-      });
+  // Update the translateText method in src/lib/translation-service.ts
+
+// Update the translateText method in src/lib/translation-service.ts
+
+/**
+ * Translates text using the translation API
+ */
+async translateText(
+  request: TranslationRequest, 
+  stream = false
+): Promise<Response> {
+  // Use AbortController from the component that creates the request
+  // The signal will be properly passed through fetch automatically
+  try {
+    // Direct API call
+    const response = await fetch('/api/translate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        ...request,
+        stream
+      })
+    });
+    
+    // If the response is not ok, handle it gracefully
+    if (!response.ok) {
+      console.error('Translation API error:', response.status);
+      // Don't throw, just return the response
     }
-  },
+    
+    return response;
+  } catch (error) {
+    console.error('Translation API error:', error);
+    
+    // Don't treat AbortError as an error that needs a response
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw error; // Re-throw AbortError to be handled by the caller
+    }
+    
+    // Return a formatted error instead of throwing
+    return new Response(JSON.stringify({
+      error: error instanceof Error ? error.message : 'Translation service error'
+    }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+},
 
   /**
    * Scrapes content from a website - No Authentication

@@ -1,3 +1,4 @@
+// src/app/api/test-deepseek/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
@@ -16,12 +17,11 @@ export async function POST(req: NextRequest) {
     }
 
     // Get API key
-    const apiKey = process.env.DEEPSEEK_API_KEY || 
-                  process.env.NEXT_PUBLIC_DEEPSEEK_API_KEY;
+    const apiKey = process.env.DEEPSEEK_API_KEY;
 
     // If no API key, return mock response
     if (!apiKey) {
-      console.log('No API key found, returning mock response');
+      console.log('No DeepSeek API key found, returning mock response');
       return NextResponse.json({ 
         result: 'MOCK RESPONSE: No API key configured',
         mockMode: true
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
 
     // Make simple request to DeepSeek API
     try {
-      console.log('Making DeepSeek API request');
+      console.log('Making test request to DeepSeek API');
       const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -43,8 +43,8 @@ export async function POST(req: NextRequest) {
             { role: 'system', content: 'You are a helpful assistant.' },
             { role: 'user', content: text }
           ],
-          temperature: 1.3,
-          max_tokens: 300
+          temperature: 1.0,
+          max_tokens: 150
         })
       });
 
@@ -63,7 +63,8 @@ export async function POST(req: NextRequest) {
       // Return success response
       return NextResponse.json({ 
         result: responseData.choices?.[0]?.message?.content || 'No content in response',
-        rawResponse: responseData
+        model: responseData.model || 'unknown',
+        success: true
       });
     } catch (apiError) {
       console.error('Error calling DeepSeek API:', apiError);

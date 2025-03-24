@@ -1,6 +1,6 @@
 // src/components/novel-translator/translation-editor.tsx
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Download, RefreshCw } from 'lucide-react';
+import { X, Download, RefreshCw, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -32,11 +32,13 @@ const TranslationEditor: React.FC<TranslationEditorProps> = ({
   const [isTranslating, setIsTranslating] = useState(false);
   const [streamedTranslation, setStreamedTranslation] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [translationProgress, setTranslationProgress] = useState(0);
   
   // Refs
   const translatedTextRef = useRef<HTMLDivElement>(null);
-  const reader = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const decoder = useRef(new TextDecoder());
+  const estimatedCharCountRef = useRef(0);
 
   // Update state when current chapter changes
   useEffect(() => {
@@ -58,17 +60,18 @@ const TranslationEditor: React.FC<TranslationEditorProps> = ({
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (reader.current) {
-        reader.current.cancel();
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
       }
     };
   }, []);
 
   const stopTranslation = () => {
-    if (reader.current) {
-      reader.current.cancel();
-      reader.current = null;
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
       setIsTranslating(false);
+      toast.info('Translation stopped');
     }
   };
   
@@ -81,18 +84,33 @@ const TranslationEditor: React.FC<TranslationEditorProps> = ({
     setIsTranslating(true);
     setStreamedTranslation('');
     setError(null);
+    setTranslationProgress(0);
+    
+    // Create a new abort controller
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
+    
+    // Estimate the total character count (English is usually longer than Korean)
+    estimatedCharCountRef.current = sourceText.length * 1.5;
     
     try {
-      // Use streaming translation
-      const response = await translationService.translateText(
-        {
+      // Call the API directly with AbortController instead of using the service
+      const response = await fetch('/api/translate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           sourceText,
           examples,
           persistentPrompt: currentProject.persistent_prompt || '',
-          tempPrompt
-        },
-        true
-      );
+          tempPrompt,
+          stream: true // Always use streaming for better UX
+        }),
+        signal: abortControllerRef.current.signal // Explicitly pass the signal
+      });
       
       if (!response.ok) {
         // Handle error response by parsing the JSON
@@ -107,15 +125,14 @@ const TranslationEditor: React.FC<TranslationEditorProps> = ({
         throw new Error('No response body received');
       }
       
-      reader.current = response.body.getReader();
+      const reader = response.body.getReader();
       
       let result = '';
       
       while (true) {
-        const { done, value } = await reader.current.read();
+        const { done, value } = await reader.read();
         
         if (done) {
-          reader.current = null;
           break;
         }
         
@@ -124,27 +141,25 @@ const TranslationEditor: React.FC<TranslationEditorProps> = ({
         result += chunk;
         setStreamedTranslation(result);
         
+        // Update progress
+        const progress = Math.min(
+          100, 
+          Math.round((result.length / estimatedCharCountRef.current) * 100)
+        );
+        setTranslationProgress(progress);
+        
         // Auto-scroll to bottom
         if (translatedTextRef.current) {
           translatedTextRef.current.scrollTop = translatedTextRef.current.scrollHeight;
         }
       }
       
-      // Check if response contains error JSON
-      try {
-        const resultJson = JSON.parse(result);
-        if (resultJson.error) {
-          setError(resultJson.error);
-          setIsTranslating(false);
-          return;
-        }
-      } catch (e) {
-        // If it's not JSON, continue normally
-      }
+      // Set final translated text
+      setTranslatedText(result);
       
       // Save the translation to the chapter
-      if (currentChapter) {
-        await onSaveChapter(currentChapter.id!, {
+      if (currentChapter.id) {
+        await onSaveChapter(currentChapter.id, {
           translated_text: result,
           temp_prompt: tempPrompt
         });
@@ -153,13 +168,16 @@ const TranslationEditor: React.FC<TranslationEditorProps> = ({
       }
     } catch (error) {
       console.error('Error translating text:', error);
-      if (error instanceof Error) {
+      
+      // Don't show error for aborted requests
+      if (error instanceof Error && error.name !== 'AbortError') {
         setError(error.message || 'Translation failed');
-      } else {
-        setError('Translation failed');
+        toast.error(`Translation failed: ${error.message}`);
       }
     } finally {
+      abortControllerRef.current = null;
       setIsTranslating(false);
+      setTranslationProgress(100);
     }
   };
 
@@ -200,6 +218,23 @@ const TranslationEditor: React.FC<TranslationEditorProps> = ({
     downloadTextFile(textToDownload, `translated_${currentChapter.title}.txt`);
   };
   
+  // Save translation manually
+  const saveTranslation = async () => {
+    if (!currentChapter?.id || !streamedTranslation) return;
+    
+    try {
+      await onSaveChapter(currentChapter.id, {
+        translated_text: streamedTranslation,
+        temp_prompt: tempPrompt
+      });
+      
+      toast.success('Translation saved');
+    } catch (error) {
+      console.error('Error saving translation:', error);
+      toast.error('Failed to save translation');
+    }
+  };
+  
   // Download text file helper
   const downloadTextFile = (content: string, filename: string) => {
     const element = document.createElement('a');
@@ -235,7 +270,14 @@ const TranslationEditor: React.FC<TranslationEditorProps> = ({
               />
             </div>
             <div>
-              <Label htmlFor="translated-text">Translated Text</Label>
+              <div className="flex justify-between items-center mb-1">
+                <Label htmlFor="translated-text">Translated Text</Label>
+                {isTranslating && (
+                  <div className="text-xs text-theme-muted">
+                    Translating... {translationProgress}%
+                  </div>
+                )}
+              </div>
               <div 
                 ref={translatedTextRef}
                 className="h-64 overflow-auto border rounded-md p-3 font-mono bg-background"
@@ -268,6 +310,15 @@ const TranslationEditor: React.FC<TranslationEditorProps> = ({
             >
               <Download className="mr-2 h-4 w-4" /> Download Translation
             </Button>
+            {streamedTranslation && (
+              <Button 
+                variant="outline" 
+                onClick={saveTranslation} 
+                className="ml-2"
+              >
+                <Save className="mr-2 h-4 w-4" /> Save Changes
+              </Button>
+            )}
           </div>
           <div className="flex space-x-2">
             {isTranslating && (
