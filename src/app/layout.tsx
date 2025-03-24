@@ -3,6 +3,7 @@ import { Merriweather, Roboto_Slab, Libre_Baskerville, Source_Sans_3, Open_Sans 
 import { AuthProvider } from '@/providers/auth-provider';
 import { ThemeProvider } from "@/providers/theme-provider";
 import Header from '@/components/header';
+import TestApiLink from '@/components/test-api-link';
 import "./globals.css";
 import { Toaster } from 'sonner';
 
@@ -44,6 +45,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <main className="min-h-screen">
               {children}
             </main>
+            {/* Add API Test link */}
+            <TestApiLink />
           </ThemeProvider>
         </AuthProvider>
         <Toaster />

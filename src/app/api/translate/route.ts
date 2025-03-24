@@ -1,63 +1,74 @@
 // src/app/api/translate/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { translate } from '@/lib/deepseek';
-import { TranslationRequest } from '@/types/translation';
 
 // Use dynamic rendering to avoid caching
 export const dynamic = 'force-dynamic';
 
+// Sample mock response for testing without API key
+const MOCK_TRANSLATION = `
+This is a mock translation response for testing purposes.
+
+[Translator's note: This appears to be part of a Korean web novel describing a character.]
+
+Zero Code, 1st experience begins.
+
+=====================================================
+1. Name: Kim Soo-Hyun (Kim Su-hyeon)
+2. Class: Regular User (Normal, Sword User, Master)
+3. Nation: Korea
+4. Clan: -
+5. Hometown: Seoul (Grew up in a peaceful environment, Origin: South Korea)
+6. Sex: Male (33)
+7. Height and Weight: 181.5cm · 75.5kg
+`;
+
 /**
- * POST handler for translation requests
+ * Simplified POST handler for translation requests
  */
 export async function POST(req: NextRequest) {
   try {
-    // Parse request body
-    const request = await req.json();
-    const { sourceText, examples, persistentPrompt, tempPrompt, stream = false } = request as TranslationRequest & { stream?: boolean };
+    // Parse request body with error handling
+    let sourceText: string;
+    let stream: boolean = false;
+    
+    try {
+      const body = await req.json();
+      sourceText = body.sourceText || '';
+      stream = body.stream === true;
+    } catch (parseError) {
+      console.error('Error parsing request body:', parseError);
+      return NextResponse.json({ error: 'Invalid request format' }, { status: 400 });
+    }
 
-    if (!sourceText) {
+    if (!sourceText.trim()) {
       return NextResponse.json({ error: 'Source text is required' }, { status: 400 });
     }
+
+    console.log('Translation request received. Length:', sourceText.length, 'Stream:', stream);
 
     // Support streaming response if requested
     if (stream) {
       try {
-        // Use ReadableStream for streaming
-        const translationResponse = await translate(
-          { sourceText, examples, persistentPrompt, tempPrompt },
-          true
-        );
-
-        // Check if response body exists
-        if (!translationResponse.body) {
-          return NextResponse.json({ 
-            error: 'No response body from translation service' 
-          }, { status: 500 });
-        }
-
-        // Create a transformer to process the streaming response
-        const reader = translationResponse.body.getReader();
+        // Create a mock streaming response
+        const encoder = new TextEncoder();
+        const chunks = MOCK_TRANSLATION.split('\n');
         
         const stream = new ReadableStream({
-          async start(controller) {
-            try {
-              while (true) {
-                const { done, value } = await reader.read();
-                if (done) {
-                  controller.close();
-                  break;
-                }
-                
-                // Forward the chunk
-                controller.enqueue(value);
+          start(controller) {
+            let i = 0;
+            
+            function sendChunk() {
+              if (i < chunks.length) {
+                const chunk = chunks[i] + '\n';
+                controller.enqueue(encoder.encode(chunk));
+                i++;
+                setTimeout(sendChunk, 100); // 100ms delay between chunks
+              } else {
+                controller.close();
               }
-            } catch (error) {
-              console.error('Stream reading error:', error);
-              controller.error(error);
             }
-          },
-          cancel() {
-            reader.cancel();
+            
+            sendChunk();
           }
         });
 
@@ -78,37 +89,14 @@ export async function POST(req: NextRequest) {
         }, { status: 500 });
       }
     } else {
-      // Regular non-streaming response
-      const translationResponse = await translate(
-        { sourceText, examples, persistentPrompt, tempPrompt },
-        false
-      );
-
-      // Parse the JSON response
-      let data;
-      try {
-        const responseText = await translationResponse.text();
-        data = JSON.parse(responseText);
-      } catch (parseError) {
-        console.error('Error parsing translation response:', parseError);
-        return NextResponse.json({ 
-          error: 'Failed to parse translation response' 
-        }, { status: 500 });
-      }
-
-      if (translationResponse.status !== 200) {
-        return NextResponse.json({ 
-          error: data.error?.message || data.error || 'Translation failed' 
-        }, { status: translationResponse.status });
-      }
-
+      // Return mock translation as JSON
       return NextResponse.json({ 
-        translation: data.choices?.[0]?.message?.content || data.translation || data
+        translation: MOCK_TRANSLATION 
       });
     }
   } catch (error: unknown) {
     console.error('Translation error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Translation error';
+    const errorMessage = error instanceof Error ? error.message : 'Unknown translation error';
     return NextResponse.json({ 
       error: errorMessage
     }, { status: 500 });
