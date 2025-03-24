@@ -26,9 +26,10 @@ interface DeepseekOptions {
   top_p?: number;
 }
 
-// Force a value for demo purposes if API key isn't configured
-// This is a fallback mechanism for development - should be removed in production
+// Sample mock response for testing without API key
 const MOCK_TRANSLATION = `
+[Translator's note: This appears to be part of a Korean web novel describing a character.]
+
 Zero Code, 1st experience begins.
 
 =====================================================
@@ -39,16 +40,13 @@ Zero Code, 1st experience begins.
 5. Hometown: Seoul (Grew up in a peaceful environment, Origin: South Korea)
 6. Sex: Male (33)
 7. Height and Weight: 181.5cm · 75.5kg
-
-[This appears to be character information for a Korean web novel or game, listing basic attributes of the protagonist. The "Zero Code" mentioned at the beginning might refer to either a system or starting point in the narrative.]
 `;
 
 /**
- * Translates Korean text to English using the DeepSeek API
- * No authentication checks
+ * Translates Korean text to English using the DeepSeek Reasoner API
  * 
  * @param req Translation request
- * @param streaming Whether to use streaming
+ * @param streaming Whether to use streaming response
  * @returns API response
  */
 export async function translate(req: TranslationRequest, streaming = false): Promise<Response> {
@@ -61,19 +59,16 @@ export async function translate(req: TranslationRequest, streaming = false): Pro
     });
   }
 
-  // Look for API keys in various environment variable names
+  // Get API key from environment
   const apiKey = process.env.DEEPSEEK_API_KEY || 
-                 process.env.NEXT_PUBLIC_DEEPSEEK_API_KEY || 
-                 process.env.OPENAI_API_KEY ||
-                 process.env.NEXT_PUBLIC_OPENAI_API_KEY;
+                 process.env.NEXT_PUBLIC_DEEPSEEK_API_KEY;
   
-  // For development/testing - create a mock response if no API key is found
+  // For testing - create a mock response if no API key
   if (!apiKey) {
     console.warn('⚠️ No API key found! Using mock translation response');
     
     // If streaming was requested, create a mock streaming response
     if (streaming) {
-      // Create a ReadableStream that delivers chunks of text
       const encoder = new TextEncoder();
       const stream = new ReadableStream({
         start(controller) {
@@ -152,11 +147,11 @@ ${sourceText.trim()}`;
     { role: 'user', content: userPrompt }
   ];
 
-  // Configure API request options
+  // Configure API request options with temperature 1.3 as specified
   const options: DeepseekOptions = {
     model: 'deepseek-reasoner',
     messages,
-    temperature: 0.3, // Lower temperature for more consistent translations
+    temperature: 1.3, // Using higher temperature as requested
     max_tokens: 8000, // Maximum output tokens
     stream: streaming,
     top_p: 0.95
@@ -173,10 +168,30 @@ ${sourceText.trim()}`;
       body: JSON.stringify(options)
     });
     
+    if (!response.ok) {
+      // Log error details for debugging
+      const errorData = await response.json().catch(() => null);
+      console.error('DeepSeek API error:', {
+        status: response.status,
+        statusText: response.statusText,
+        errorData
+      });
+      
+      return new Response(JSON.stringify({ 
+        error: `Translation API error: ${response.status} ${response.statusText}`,
+        details: errorData
+      }), {
+        status: response.status,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    
     return response;
   } catch (error) {
-    console.error('DeepSeek API error:', error);
-    return new Response(JSON.stringify({ error: 'Translation service error' }), {
+    console.error('DeepSeek API request error:', error);
+    return new Response(JSON.stringify({ 
+      error: error instanceof Error ? error.message : 'Translation service error' 
+    }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }
     });

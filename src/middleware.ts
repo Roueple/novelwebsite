@@ -4,11 +4,9 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export async function middleware(req: NextRequest) {
-  // For translation-related routes, don't do any auth checks
-  if (req.nextUrl.pathname.startsWith('/api/translate') ||
-      req.nextUrl.pathname.startsWith('/api/scrape') ||
-      req.nextUrl.pathname.startsWith('/api/scrape-index')) {
-    // Simply pass through with no auth check
+  // For translation API testing, don't enforce auth temporarily
+  if (req.nextUrl.pathname.startsWith('/api/translate')) {
+    // Allow translation API calls without auth checks for testing
     return NextResponse.next();
   }
   
@@ -19,7 +17,7 @@ export async function middleware(req: NextRequest) {
   return res;
 }
 
-// Make sure middleware runs on all routes except static files and translation API routes
+// Apply middleware to all routes except static files
 export const config = {
   matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 };

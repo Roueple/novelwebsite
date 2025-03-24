@@ -3,11 +3,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { translate } from '@/lib/deepseek';
 import { TranslationRequest } from '@/types/translation';
 
-// This is a streaming API route
+// Use dynamic rendering to avoid caching
 export const dynamic = 'force-dynamic';
 
 /**
- * POST handler for translation requests - No authentication whatsoever
+ * POST handler for translation requests
  */
 export async function POST(req: NextRequest) {
   try {
@@ -84,16 +84,26 @@ export async function POST(req: NextRequest) {
         false
       );
 
-      const data = await translationResponse.json();
+      // Parse the JSON response
+      let data;
+      try {
+        const responseText = await translationResponse.text();
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('Error parsing translation response:', parseError);
+        return NextResponse.json({ 
+          error: 'Failed to parse translation response' 
+        }, { status: 500 });
+      }
 
       if (translationResponse.status !== 200) {
         return NextResponse.json({ 
-          error: data.error?.message || 'Translation failed' 
+          error: data.error?.message || data.error || 'Translation failed' 
         }, { status: translationResponse.status });
       }
 
       return NextResponse.json({ 
-        translation: data.choices[0].message.content 
+        translation: data.choices?.[0]?.message?.content || data.translation || data
       });
     }
   } catch (error: unknown) {
