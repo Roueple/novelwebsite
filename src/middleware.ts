@@ -4,9 +4,10 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export async function middleware(req: NextRequest) {
-  // For translation API testing, don't enforce auth temporarily
-  if (req.nextUrl.pathname.startsWith('/api/translate')) {
-    // Allow translation API calls without auth checks for testing
+  // Allow test pages and APIs to pass through without auth checks
+  if (req.nextUrl.pathname.startsWith('/api/translate') || 
+      req.nextUrl.pathname.startsWith('/test-translation')) {
+    console.log('Skipping auth check for test route:', req.nextUrl.pathname);
     return NextResponse.next();
   }
   
@@ -17,7 +18,9 @@ export async function middleware(req: NextRequest) {
   return res;
 }
 
-// Apply middleware to all routes except static files
+// Apply middleware to all routes except static files and test routes
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico).*)',
+  ],
 };
