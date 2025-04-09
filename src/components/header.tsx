@@ -7,7 +7,7 @@ import { useAuth } from '@/providers/auth-provider';
 import { useTheme } from '@/providers/theme-provider';
 import { usePathname } from 'next/navigation';
 import LoginForm from './login-form';
-import { Moon, Sun, BookOpen, Search, Plus, ChevronUp } from 'lucide-react';
+import { Moon, Sun, BookOpen, Search, Plus, ChevronLeft, ChevronDown, X } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -21,9 +21,12 @@ export default function Header() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [headerVisible, setHeaderVisible] = useState(true);
-
-  // Check if current page is a reading page
-  const isReadingPage = pathname?.includes('/novels/') && pathname?.includes('/chapter/');
+  
+  // Check if current page is a reading page (chapter)
+  const isChapterPage = pathname?.includes('/novels/') && pathname?.includes('/chapter/');
+  
+  // Extract novel ID from pathname if on chapter page
+  const novelId = isChapterPage ? pathname.split('/')[2] : null;
 
   const themeIcons = {
     light: <Sun size={20} />,
@@ -63,132 +66,152 @@ export default function Header() {
     setHeaderVisible(!headerVisible);
   };
 
-  // Apply different classes based on whether the header should be visible
-  const headerClasses = isReadingPage
-    ? `bg-theme-background text-theme-foreground fixed top-0 w-full z-50 transition-transform duration-300 ${
-        headerVisible ? 'translate-y-0' : '-translate-y-full'
-      }`
-    : 'bg-theme-background text-theme-foreground sticky top-0 z-50';
+  // Don't render anything when header is hidden on chapter page
+  if (isChapterPage && !headerVisible) {
+    return (
+      <button
+        onClick={toggleHeader}
+        className="fixed top-4 right-4 z-50 p-2 bg-theme-card/80 backdrop-blur-sm border border-theme-border rounded-full shadow-lg hover:bg-theme-hover"
+        aria-label="Show header"
+      >
+        <ChevronDown size={20} className="text-theme-foreground" />
+      </button>
+    );
+  }
 
-  return (
-    <>
-      <div className={headerClasses}>
-        <header className="container mx-auto px-4">
-          <div className="flex items-center justify-between space-x-4 py-3">
-            {/* Logo */}
-            <Link href="/" className="flex-shrink-0">
-              <Image 
-                src={theme === 'dark' ? "/logo-dark.png" : "/logo-light.png"}
-                alt="Your Brand"
-                width={144}
-                height={144}
-                className="rounded-lg"
-              />
+  // Render chapter-specific minimalist header on chapter pages
+  if (isChapterPage) {
+    return (
+      <div className="bg-theme-background/90 backdrop-blur-sm text-theme-foreground border-b border-theme-border z-50 sticky top-0">
+        <div className="max-w-screen-xl mx-auto px-4 py-3">
+          <div className="flex justify-between items-center">
+            <Link 
+              href={novelId ? `/novels/${novelId}` : '/'}
+              className="flex items-center gap-2 text-theme-foreground hover:opacity-80"
+            >
+              <ChevronLeft size={20} />
+              <span className="line-clamp-1">Back to novel</span>
             </Link>
 
-            {/* Search Bar */}
-            <form 
-              onSubmit={handleSearch} 
-              className={`flex-grow max-w-xl mx-4 relative transition-all duration-300 ${
-                isSearchFocused ? 'w-full' : 'w-64'
-              }`}
-            >
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Search novels..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onFocus={() => setIsSearchFocused(true)}
-                  onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
-                  className="w-full px-3 py-2 pl-10 rounded-lg border bg-theme-input border-theme-border text-theme-foreground placeholder-theme-muted focus:outline-none focus:border-red-500 transition-all duration-300"
-                />
-                <Search 
-                  size={20} 
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-theme-muted"
-                />
-              </div>
-            </form>
-
-            {/* Action Buttons */}
-            <div className="flex items-center space-x-2">
-              {user && (
-                <div className="flex items-center gap-2 text-theme-foreground mr-2">
-                  <span>{username || 'Loading...'}</span>
-                  {role && (
-                    <span 
-                      className={`px-2 py-1 text-sm rounded-full text-white ${
-                        role === 'admin' 
-                          ? 'bg-red-800' 
-                          : role === 'author' 
-                          ? 'bg-blue-800' 
-                          : 'bg-green-800'
-                      }`}
-                    >
-                      {role}
-                    </span>
-                  )}
-                </div>
-              )}
-
-              {/* Novel Translator (Admin and Author Only) */}
-              {user && (role === 'admin' || role === 'author') && (
-                <Link
-                  href="/admin/translator"
-                  className="p-2 rounded-lg border border-theme-border hover:bg-theme-hover flex items-center gap-2"
-                  aria-label="Novel Translator"
-                >
-                  <BookOpen size={20} className="text-theme-foreground" />
-                  <span className="hidden md:inline">Translator</span>
-                </Link>
-              )}
-
-              {/* Add Novel Button (Admin and Author Only) */}
-              {(role === 'admin' || role === 'author') && (
-                <Link
-                  href="/novels/create"
-                  className="p-2 rounded-lg border border-theme-border hover:bg-theme-hover flex items-center"
-                  aria-label="Add Novel"
-                >
-                  <Plus size={20} className="text-theme-foreground" />
-                </Link>
-              )}
-
+            <div className="flex items-center gap-2">
               <button
                 onClick={cycleTheme}
-                className="p-2 rounded-lg border border-theme-border hover:bg-theme-hover"
+                className="p-2 rounded-lg hover:bg-theme-hover"
                 aria-label="Toggle theme"
               >
                 {themeIcons[theme]}
               </button>
-
-              <LoginForm />
               
-              {/* Toggle button on reading pages */}
-              {isReadingPage && (
-                <button
-                  onClick={toggleHeader}
-                  className="p-2 rounded-lg border border-theme-border hover:bg-theme-hover"
-                  aria-label="Toggle header"
-                >
-                  {headerVisible ? 'Hide' : 'Show'}
-                </button>
-              )}
+              <button
+                onClick={toggleHeader}
+                className="p-2 rounded-lg hover:bg-theme-hover ml-2"
+                aria-label="Hide header"
+              >
+                <X size={20} />
+              </button>
             </div>
           </div>
-        </header>
+        </div>
       </div>
+    );
+  }
 
-      {/* Floating button to show header when it's hidden (only on reading pages) */}
-      {isReadingPage && !headerVisible && (
-        <button
-          onClick={toggleHeader}
-          className="fixed top-4 right-4 z-50 p-2 bg-theme-card border border-theme-border rounded-full shadow-lg hover:bg-theme-hover"
-          aria-label="Show header"
-        >
-          <ChevronUp size={20} className="text-theme-foreground" />
-        </button>
-      )}
-    </>
+  // Render normal header for all other pages
+  return (
+    <div className="bg-theme-background text-theme-foreground sticky top-0 z-50">
+      <header className="container mx-auto px-4">
+        <div className="flex items-center justify-between space-x-4 py-3">
+          {/* Logo */}
+          <Link href="/" className="flex-shrink-0">
+            <Image 
+              src={theme === 'dark' ? "/logo-dark.png" : "/logo-light.png"}
+              alt="Your Brand"
+              width={144}
+              height={144}
+              className="rounded-lg"
+            />
+          </Link>
+
+          {/* Search Bar */}
+          <form 
+            onSubmit={handleSearch} 
+            className={`flex-grow max-w-xl mx-4 relative transition-all duration-300 ${
+              isSearchFocused ? 'w-full' : 'w-64'
+            }`}
+          >
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search novels..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onFocus={() => setIsSearchFocused(true)}
+                onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
+                className="w-full px-3 py-2 pl-10 rounded-lg border bg-theme-input border-theme-border text-theme-foreground placeholder-theme-muted focus:outline-none focus:border-red-500 transition-all duration-300"
+              />
+              <Search 
+                size={20} 
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-theme-muted"
+              />
+            </div>
+          </form>
+
+          {/* Action Buttons */}
+          <div className="flex items-center space-x-2">
+            {user && (
+              <div className="flex items-center gap-2 text-theme-foreground mr-2">
+                <span>{username || 'Loading...'}</span>
+                {role && (
+                  <span 
+                    className={`px-2 py-1 text-sm rounded-full text-white ${
+                      role === 'admin' 
+                        ? 'bg-red-800' 
+                        : role === 'author' 
+                        ? 'bg-blue-800' 
+                        : 'bg-green-800'
+                    }`}
+                  >
+                    {role}
+                  </span>
+                )}
+              </div>
+            )}
+
+            {/* Novel Translator (Admin and Author Only) */}
+            {user && (role === 'admin' || role === 'author') && (
+              <Link
+                href="/admin/translator"
+                className="p-2 rounded-lg border border-theme-border hover:bg-theme-hover flex items-center gap-2"
+                aria-label="Novel Translator"
+              >
+                <BookOpen size={20} className="text-theme-foreground" />
+                <span className="hidden md:inline">Translator</span>
+              </Link>
+            )}
+
+            {/* Add Novel Button (Admin and Author Only) */}
+            {(role === 'admin' || role === 'author') && (
+              <Link
+                href="/novels/create"
+                className="p-2 rounded-lg border border-theme-border hover:bg-theme-hover flex items-center"
+                aria-label="Add Novel"
+              >
+                <Plus size={20} className="text-theme-foreground" />
+              </Link>
+            )}
+
+            <button
+              onClick={cycleTheme}
+              className="p-2 rounded-lg border border-theme-border hover:bg-theme-hover"
+              aria-label="Toggle theme"
+            >
+              {themeIcons[theme]}
+            </button>
+
+            <LoginForm />
+          </div>
+        </div>
+      </header>
+    </div>
   );
 }
