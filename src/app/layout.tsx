@@ -33,3 +33,21 @@ const openSans = Open_Sans({
   subsets: ['latin'],
   variable: '--font-open-sans',
 });
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body className={`${merriweather.variable} ${robotoSlab.variable} ${libreBaskerville.variable} ${sourceSans.variable} ${openSans.variable}`}>
+        <AuthProvider>
+          <ThemeProvider>
+            <Header />
+            <main className="min-h-screen">
+              {children}
+            </main>
+          </ThemeProvider>
+        </AuthProvider>
+        <Toaster />
+      </body>
+    </html>
+  );
+}
