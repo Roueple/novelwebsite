@@ -3,7 +3,6 @@ import { Merriweather, Roboto_Slab, Libre_Baskerville, Source_Sans_3, Open_Sans 
 import { AuthProvider } from '@/providers/auth-provider';
 import { ThemeProvider } from "@/providers/theme-provider";
 import Header from '@/components/header';
-import TestApiLink from '@/components/test-api-link';
 import "./globals.css";
 import { Toaster } from 'sonner';
 
@@ -34,23 +33,3 @@ const openSans = Open_Sans({
   subsets: ['latin'],
   variable: '--font-open-sans',
 });
-
-export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <html lang="en">
-      <body className={`${merriweather.variable} ${robotoSlab.variable} ${libreBaskerville.variable} ${sourceSans.variable} ${openSans.variable}`}>
-        <AuthProvider>
-          <ThemeProvider>
-            <Header />
-            <main className="min-h-screen">
-              {children}
-            </main>
-            {/* Add API Test link */}
-            <TestApiLink />
-          </ThemeProvider>
-        </AuthProvider>
-        <Toaster />
-      </body>
-    </html>
-  );
-}
