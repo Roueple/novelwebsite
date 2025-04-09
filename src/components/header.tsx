@@ -1,4 +1,3 @@
-// src/components/header.tsx
 "use client";
 
 import Link from 'next/link';
@@ -7,7 +6,7 @@ import { useAuth } from '@/providers/auth-provider';
 import { useTheme } from '@/providers/theme-provider';
 import { usePathname } from 'next/navigation';
 import LoginForm from './login-form';
-import { Moon, Sun, BookOpen, Search, Plus, ChevronLeft, ChevronDown, X } from 'lucide-react';
+import { Moon, Sun, BookOpen, Search, Plus } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -20,13 +19,14 @@ export default function Header() {
   const [username, setUsername] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
-  const [headerVisible, setHeaderVisible] = useState(true);
-  
+
   // Check if current page is a reading page (chapter)
   const isChapterPage = pathname?.includes('/novels/') && pathname?.includes('/chapter/');
   
-  // Extract novel ID from pathname if on chapter page
-  const novelId = isChapterPage ? pathname.split('/')[2] : null;
+  // Don't render header on chapter pages
+  if (isChapterPage) {
+    return null;
+  }
 
   const themeIcons = {
     light: <Sun size={20} />,
@@ -50,10 +50,7 @@ export default function Header() {
     }
 
     fetchUsername();
-    
-    // Reset header visibility when navigating between pages
-    setHeaderVisible(true);
-  }, [user, pathname]);
+  }, [user]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,61 +59,6 @@ export default function Header() {
     }
   };
 
-  const toggleHeader = () => {
-    setHeaderVisible(!headerVisible);
-  };
-
-  // Don't render anything when header is hidden on chapter page
-  if (isChapterPage && !headerVisible) {
-    return (
-      <button
-        onClick={toggleHeader}
-        className="fixed top-4 right-4 z-50 p-2 bg-theme-card/80 backdrop-blur-sm border border-theme-border rounded-full shadow-lg hover:bg-theme-hover"
-        aria-label="Show header"
-      >
-        <ChevronDown size={20} className="text-theme-foreground" />
-      </button>
-    );
-  }
-
-  // Render chapter-specific minimalist header on chapter pages
-  if (isChapterPage) {
-    return (
-      <div className="bg-theme-background/90 backdrop-blur-sm text-theme-foreground border-b border-theme-border z-50 sticky top-0">
-        <div className="max-w-screen-xl mx-auto px-4 py-3">
-          <div className="flex justify-between items-center">
-            <Link 
-              href={novelId ? `/novels/${novelId}` : '/'}
-              className="flex items-center gap-2 text-theme-foreground hover:opacity-80"
-            >
-              <ChevronLeft size={20} />
-              <span className="line-clamp-1">Back to novel</span>
-            </Link>
-
-            <div className="flex items-center gap-2">
-              <button
-                onClick={cycleTheme}
-                className="p-2 rounded-lg hover:bg-theme-hover"
-                aria-label="Toggle theme"
-              >
-                {themeIcons[theme]}
-              </button>
-              
-              <button
-                onClick={toggleHeader}
-                className="p-2 rounded-lg hover:bg-theme-hover ml-2"
-                aria-label="Hide header"
-              >
-                <X size={20} />
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Render normal header for all other pages
   return (
     <div className="bg-theme-background text-theme-foreground sticky top-0 z-50">
       <header className="container mx-auto px-4">

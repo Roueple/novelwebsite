@@ -1,22 +1,78 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Edit, Save, Lock, Unlock, ChevronDown } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { ChevronLeft, ChevronRight, Edit, Save, Lock, Unlock, ChevronDown, X, Sun, Moon, BookOpen, Settings, Type } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { getChapter, getNovel } from '@/lib/api';
 import { ChapterType, NovelType } from '@/types/supabase';
 import { useAuth } from '@/providers/auth-provider';
+import { useTheme } from '@/providers/theme-provider';
 import { supabase } from '@/lib/supabase';
-import ReadingView from '@/components/reading/reading-view';
+import { cn } from '@/lib/utils';
 
+// Component to render text with dynamic typography effects
+const DynamicText = ({ content, isEnabled }: { content: string; isEnabled: boolean }) => {
+  if (!isEnabled || !content) {
+    // Return regular text without processing if effects are disabled
+    return <div className="whitespace-pre-wrap">{content}</div>;
+  }
+
+  // Process text for dynamic typography effects
+  // This is a simple implementation that looks for markers like [shout], [whisper], etc.
+  // A more sophisticated version would use proper HTML parsing
+
+  // Map of effect markers and their corresponding classes
+  const effectMarkers = {
+    '[shout]': 'effect-shout',
+    '[whisper]': 'effect-whisper',
+    '[tremble]': 'effect-tremble',
+    '[hesitate]': 'effect-hesitation',
+    '[emphasis]': 'effect-emphasis',
+    '[fade]': 'effect-fade',
+  };
+
+  // Split by paragraphs to maintain proper paragraph structure
+  const paragraphs = content.split(/\n+/);
+
+  // Process each paragraph for effects
+  const processedParagraphs = paragraphs.map((paragraph, index) => {
+    let processedText = paragraph;
+    
+    // Replace each marker with a styled span
+    Object.entries(effectMarkers).forEach(([marker, className]) => {
+      // Create a regex that matches the marker followed by any text until the closing marker
+      const regex = new RegExp(`${marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(.*?)${marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'g');
+      
+      // Replace all instances of this marker with a span of the appropriate class
+      processedText = processedText.replace(regex, `<span class="${className}">$1</span>`);
+    });
+
+    // Check if paragraph is dialogue (starts with a quotation mark)
+    if (processedText.trim().startsWith('"')) {
+      processedText = `<span class="dialogue">${processedText}</span>`;
+    }
+
+    // Return the processed paragraph
+    return (
+      <p key={index} className="mb-6 leading-relaxed" 
+         dangerouslySetInnerHTML={{ __html: processedText }} />
+    );
+  });
+
+  return <>{processedParagraphs}</>;
+};
+
+// Main Chapter Page Component
 export default function ChapterPage() {
   const { user, role } = useAuth();
+  const { theme, cycleTheme } = useTheme();
   const params = useParams();
   
   const novelId = Number(params.id);
   const chapterNumber = Number(params.chapterId);
   
+  // State management
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [isAuthor, setIsAuthor] = useState(false);
@@ -27,7 +83,15 @@ export default function ChapterPage() {
   const [editedContent, setEditedContent] = useState('');
   const [isLocked, setIsLocked] = useState(false);
   const [textSize, setTextSize] = useState<'sm' | 'md' | 'lg' | 'xl'>('md');
-  const [isTextSizeDropdownOpen, setIsTextSizeDropdownOpen] = useState(false);
+  const [headerVisible, setHeaderVisible] = useState(true);
+  
+  // New state for dynamic text effects
+  const [effectsEnabled, setEffectsEnabled] = useState(true);
+  const [showSettingsMenu, setShowSettingsMenu] = useState(false);
+  
+  // Refs
+  const contentRef = useRef<HTMLDivElement>(null);
+  const settingsMenuRef = useRef<HTMLDivElement>(null);
 
   // Text size label
   const textSizeLabel = {
@@ -37,6 +101,22 @@ export default function ChapterPage() {
     xl: 'Extra Large'
   };
 
+  // Get size classes based on text size setting
+  const sizeClasses = {
+    sm: 'text-base',
+    md: 'text-lg',
+    lg: 'text-xl',
+    xl: 'text-2xl'
+  };
+  
+  // Theme icon mapping
+  const themeIcons = {
+    light: <Sun size={20} />,
+    dark: <Moon size={20} />,
+    reading: <BookOpen size={20} />
+  };
+
+  // Load chapter data on mount
   useEffect(() => {
     async function loadChapter() {
       try {
@@ -72,20 +152,48 @@ export default function ChapterPage() {
     loadChapter();
   }, [novelId, chapterNumber, user, role]);
 
-  // Handle text size change
-  const changeTextSize = (size: 'sm' | 'md' | 'lg' | 'xl') => {
-    setTextSize(size);
-    localStorage.setItem('readingTextSize', size);
-    setIsTextSizeDropdownOpen(false);
-  };
-
+  // Load saved text size preference
   useEffect(() => {
     const savedTextSize = localStorage.getItem('readingTextSize') as 'sm' | 'md' | 'lg' | 'xl';
     if (savedTextSize) {
       setTextSize(savedTextSize);
     }
+
+    // Also load effects preference
+    const effectsPref = localStorage.getItem('textEffectsEnabled');
+    if (effectsPref !== null) {
+      setEffectsEnabled(effectsPref === 'true');
+    }
   }, []);
 
+  // Close settings menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (settingsMenuRef.current && !settingsMenuRef.current.contains(event.target as Node)) {
+        setShowSettingsMenu(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  // Handle text size change
+  const changeTextSize = (size: 'sm' | 'md' | 'lg' | 'xl') => {
+    setTextSize(size);
+    localStorage.setItem('readingTextSize', size);
+  };
+
+  // Toggle text effects
+  const toggleEffects = () => {
+    const newValue = !effectsEnabled;
+    setEffectsEnabled(newValue);
+    localStorage.setItem('textEffectsEnabled', String(newValue));
+  };
+
+  // Toggle chapter lock state
   const handleLockToggle = async () => {
     if (!chapter) return;
     
@@ -112,6 +220,7 @@ export default function ChapterPage() {
     }
   };
 
+  // Save chapter
   const handleSave = async () => {
     if (!chapter) return;
     setSaving(true);
@@ -145,6 +254,7 @@ export default function ChapterPage() {
     }
   };
 
+  // Render loading state
   if (loading) {
     return (
       <div className="min-h-screen bg-theme-background flex items-center justify-center px-4">
@@ -155,6 +265,7 @@ export default function ChapterPage() {
     );
   }
 
+  // Render 404 state
   if (!chapter || !novel) {
     return (
       <div className="min-h-screen bg-theme-background flex items-center justify-center px-4">
@@ -171,6 +282,7 @@ export default function ChapterPage() {
     );
   }
 
+  // Get chapter navigation data
   const chapterList = novel.chapters.sort((a, b) => a.chapter_number - b.chapter_number);
   const currentIndex = chapterList.findIndex(ch => ch.chapter_number === chapter.chapter_number);
   const prevChapter = currentIndex > 0 ? chapterList[currentIndex - 1] : null;
@@ -178,102 +290,171 @@ export default function ChapterPage() {
 
   return (
     <main className="min-h-screen bg-theme-background">
-      {/* Fixed Header */}
-      <header className="sticky top-0 z-10 bg-theme-background/95 backdrop-blur-sm border-b border-theme-border">
-        <div className="max-w-screen-xl mx-auto px-4 py-3">
-          <div className="flex justify-between items-center">
-            <Link 
-              href={`/novels/${novelId}`}
-              className="flex items-center gap-2 text-theme-foreground hover:opacity-80"
-            >
-              <ChevronLeft size={20} />
-              <span className="line-clamp-1">{novel?.title}</span>
-            </Link>
-
-            <div className="flex items-center gap-2">
-              {/* Text Size Dropdown */}
-              <div className="relative">
-                <button
-                  onClick={() => setIsTextSizeDropdownOpen(!isTextSizeDropdownOpen)}
-                  className="flex items-center gap-1 text-sm text-theme-foreground px-2 py-1 rounded hover:bg-theme-hover"
+      {/* Unified Header for Chapter Pages */}
+      {headerVisible ? (
+        <header className="sticky top-0 z-10 bg-theme-background/95 backdrop-blur-sm border-b border-theme-border">
+          <div className="max-w-screen-xl mx-auto px-4 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              {/* Left side */}
+              <div className="flex items-center gap-4">
+                <Link 
+                  href={`/novels/${novelId}`}
+                  className="flex items-center gap-1 text-theme-foreground hover:opacity-80"
                 >
-                  <span className="hidden sm:inline">Text Size:</span> {textSizeLabel[textSize]} <ChevronDown size={16} />
-                </button>
-                {isTextSizeDropdownOpen && (
-                  <div className="absolute right-0 mt-1 w-36 bg-theme-background border border-theme-border rounded-lg shadow-lg">
-                    {(['sm', 'md', 'lg', 'xl'] as const).map((size) => (
-                      <button
-                        key={size}
-                        onClick={() => changeTextSize(size)}
-                        className={`
-                          w-full 
-                          text-left 
-                          px-3 
-                          py-2 
-                          text-sm
-                          hover:bg-theme-hover
-                          ${textSize === size 
-                            ? 'bg-red-600 text-white' 
-                            : 'text-theme-foreground'
-                          }
-                        `}
-                      >
-                        {textSizeLabel[size]}
-                      </button>
-                    ))}
-                  </div>
-                )}
+                  <ChevronLeft size={18} />
+                  <span className="text-sm">Back</span>
+                </Link>
+                
+                <h2 className="text-sm font-medium text-theme-foreground line-clamp-1">
+                  {novel?.title}
+                </h2>
               </div>
-
-{isAuthor && (
-  <>
-    {/* Editing Mode Indicator */}
-    {isEditing && (
-  <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-orange-50 text-orange-600 border border-orange-200 shadow-sm">
-    <div className="h-2 w-2 rounded-full bg-orange-500 animate-pulse" />
-    <span className="text-sm font-medium tracking-wide">
-      Editing
-    </span>
-  </div>
-)}
-    
-    <button
-  onClick={handleLockToggle}  // Change this line
-  className="p-2 rounded hover:bg-theme-hover text-theme-foreground"
-  title={isLocked ? 'Unlock Chapter' : 'Lock Chapter'}
->
-  {isLocked ? <Lock size={20} /> : <Unlock size={20} />}
-</button>
-   
-    {isEditing ? (
-      <button
-        onClick={handleSave}
-        disabled={saving}
-        className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
-      >
-        <Save size={18} />
-        <span className="hidden sm:inline">{saving ? 'Saving...' : 'Save'}</span>
-      </button>
-    ) : (
-      <button
-        onClick={() => setIsEditing(true)}
-        className="flex items-center gap-2 px-4 py-2 rounded hover:bg-theme-hover text-theme-foreground"
-      >
-        <Edit size={18} />
-        <span className="hidden sm:inline">Edit</span>
-      </button>
-    )}
-  </>
-)}
+              
+              {/* Right side */}
+              <div className="flex items-center gap-2">
+                {/* Settings Button */}
+                <div className="relative">
+                  <button
+                    onClick={() => setShowSettingsMenu(!showSettingsMenu)}
+                    className="p-1.5 rounded hover:bg-theme-hover"
+                    aria-label="Reading settings"
+                  >
+                    <Settings size={16} />
+                  </button>
+                  
+                  {/* Settings Menu */}
+                  {showSettingsMenu && (
+                    <div 
+                      ref={settingsMenuRef}
+                      className="absolute right-0 mt-1 w-48 py-2 bg-theme-card border border-theme-border rounded-lg shadow-lg z-50"
+                    >
+                      <div className="px-3 py-2 border-b border-theme-border">
+                        <p className="font-medium text-sm text-theme-foreground">Reading Settings</p>
+                      </div>
+                      
+                      {/* Text Size Controls */}
+                      <div className="px-3 py-2">
+                        <p className="text-xs text-theme-muted mb-1">Text Size</p>
+                        <div className="flex flex-col gap-1">
+                          {(['sm', 'md', 'lg', 'xl'] as const).map((size) => (
+                            <button
+                              key={size}
+                              onClick={() => changeTextSize(size)}
+                              className={`
+                                w-full text-left px-2 py-1 text-xs rounded
+                                ${textSize === size 
+                                  ? 'bg-theme-hover font-medium' 
+                                  : 'hover:bg-theme-hover/50'
+                                }
+                              `}
+                            >
+                              {textSizeLabel[size]}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      
+                      {/* Text Effects Toggle */}
+                      <div className="px-3 py-2 border-t border-theme-border">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-theme-foreground">Dynamic Text Effects</span>
+                          <button 
+                            onClick={toggleEffects}
+                            className={`w-10 h-5 rounded-full relative ${
+                              effectsEnabled ? 'bg-green-500' : 'bg-gray-400'
+                            }`}
+                          >
+                            <span 
+                              className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform ${
+                                effectsEnabled ? 'translate-x-5' : ''
+                              }`}
+                            />
+                          </button>
+                        </div>
+                      </div>
+                      
+                      {/* Theme Controls */}
+                      <div className="px-3 py-2 border-t border-theme-border">
+                        <p className="text-xs text-theme-muted mb-1">Theme</p>
+                        <button 
+                          onClick={cycleTheme}
+                          className="flex items-center gap-2 w-full text-left px-2 py-1 text-xs rounded hover:bg-theme-hover/50"
+                        >
+                          <span className="w-4 h-4 flex items-center justify-center">
+                            {themeIcons[theme]}
+                          </span>
+                          <span>
+                            {theme === 'light' 
+                              ? 'Light Mode' 
+                              : theme === 'dark' 
+                              ? 'Dark Mode' 
+                              : 'Reading Mode'}
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Edit Button (if author) */}
+                {isAuthor && !isEditing && (
+                  <button
+                    onClick={() => setIsEditing(true)}
+                    className="p-1.5 rounded hover:bg-theme-hover"
+                    aria-label="Edit chapter"
+                  >
+                    <Edit size={16} />
+                  </button>
+                )}
+                
+                {/* Save Button (if editing) */}
+                {isEditing && (
+                  <button
+                    onClick={handleSave}
+                    className="p-1.5 rounded hover:bg-theme-hover"
+                    aria-label="Save changes"
+                  >
+                    <Save size={16} />
+                  </button>
+                )}
+                
+                {/* Lock Toggle (if author) */}
+                {isAuthor && (
+                  <button
+                    onClick={handleLockToggle}
+                    className="p-1.5 rounded hover:bg-theme-hover"
+                    aria-label={isLocked ? 'Unlock chapter' : 'Lock chapter'}
+                  >
+                    {isLocked ? <Lock size={16} /> : <Unlock size={16} />}
+                  </button>
+                )}
+                
+                {/* Close/Hide Button */}
+                <button
+                  onClick={() => setHeaderVisible(false)}
+                  className="p-1.5 rounded hover:bg-theme-hover"
+                  aria-label="Hide header"
+                >
+                  <X size={16} />
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      </header>
+        </header>
+      ) : (
+        <button
+          onClick={() => setHeaderVisible(true)}
+          className="fixed top-4 right-4 z-50 p-2 bg-theme-card/80 backdrop-blur-sm border border-theme-border rounded-full shadow-lg hover:bg-theme-hover"
+          aria-label="Show header"
+        >
+          <ChevronDown size={20} className="text-theme-foreground" />
+        </button>
+      )}
 
       {/* Main Content */}
       <div className="py-8">
         {/* Chapter Title */}
-        <div className="max-w-prose mx-auto px-4 mb-8">
+        <div className="max-w-4xl mx-auto px-4 md:px-8 mb-8">
           {isEditing ? (
             <input
               type="text"
@@ -294,18 +475,68 @@ export default function ChapterPage() {
           )}
         </div>
 
-        {/* Reading View */}
-        <ReadingView
-    content={isEditing ? editedContent : chapter.content || ''}
-    isLocked={isLocked}
-    isAuthor={isAuthor}
-    isEditing={isEditing}
-    textSize={textSize}  // Changed from initialTextSize to textSize
-    onContentChange={setEditedContent}
-  />
+        {/* Content Section */}
+        {isLocked && !isAuthor ? (
+          <div className="max-w-4xl mx-auto px-4 md:px-8 text-center py-16">
+            <Lock 
+              size={48} 
+              className={`mx-auto mb-4 ${
+                theme === 'reading' 
+                  ? 'text-[#8B4513]' 
+                  : theme === 'dark'
+                    ? 'text-gray-300' 
+                    : 'text-gray-500'
+              }`} 
+            />
+            <h2 className="text-2xl font-bold mb-2 text-theme-foreground">
+              Premium Chapter
+            </h2>
+            <p className="mb-8 text-theme-muted">
+              This chapter is locked. Please subscribe to continue reading.
+            </p>
+            <button
+              className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              onClick={() => alert('Subscription feature coming soon!')}
+            >
+              Subscribe to Unlock
+            </button>
+          </div>
+        ) : (
+          <div className="max-w-4xl mx-auto px-4 md:px-8">
+            {isEditing ? (
+              <div className="border-2 border-dashed border-red-500 p-4 rounded-lg">
+                <textarea
+                  value={editedContent}
+                  onChange={(e) => setEditedContent(e.target.value)}
+                  className={`
+                    w-full min-h-[300px] p-4
+                    outline-none focus:ring-0
+                    bg-theme-background text-theme-foreground
+                    ${sizeClasses[textSize]}
+                    whitespace-pre-wrap
+                  `}
+                  placeholder="Write your chapter content here..."
+                />
+              </div>
+            ) : (
+              <div 
+                ref={contentRef} 
+                className={`
+                  prose max-w-none
+                  ${sizeClasses[textSize]}
+                `}
+              >
+                <DynamicText 
+                  content={chapter.content || ''} 
+                  isEnabled={effectsEnabled}
+                />
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Chapter Navigation */}
-        <div className="max-w-prose mx-auto px-4 mt-12 flex justify-between items-center">
+        <div className="max-w-4xl mx-auto px-4 md:px-8 mt-12 flex justify-between items-center">
           {prevChapter ? (
             <Link 
               href={`/novels/${novelId}/chapter/${prevChapter.chapter_number}`}
