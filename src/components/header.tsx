@@ -22,18 +22,15 @@ export default function Header() {
 
   // Check if current page is a reading page (chapter)
   const isChapterPage = pathname?.includes('/novels/') && pathname?.includes('/chapter/');
-  
-  // Don't render header on chapter pages
-  if (isChapterPage) {
-    return null;
-  }
 
+  // Theme icons mapping - defined before any conditional returns
   const themeIcons = {
     light: <Sun size={20} />,
     dark: <Moon size={20} />,
     reading: <BookOpen size={20} />
   };
-  
+
+  // Fetch username when user changes
   useEffect(() => {
     async function fetchUsername() {
       if (user) {
@@ -59,6 +56,12 @@ export default function Header() {
     }
   };
 
+  // Don't render anything on chapter pages, but make sure all hooks are called first
+  if (isChapterPage) {
+    return null;
+  }
+
+  // For all other pages, render the normal header
   return (
     <div className="bg-theme-background text-theme-foreground sticky top-0 z-50">
       <header className="container mx-auto px-4">
