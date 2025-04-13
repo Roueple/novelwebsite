@@ -177,7 +177,8 @@ export async function updateChapter(
     if (error) throw error;
     return true;
   } catch (error) {
-    handleSupabaseError(error as SupabaseError, 'updateChapter');
+    console.error('Error in updateChapter:', error);
     return false;
   }
 }
+

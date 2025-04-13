@@ -1,5 +1,5 @@
 // src/hooks/use-reading-preferences.ts
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, RefObject } from 'react';
 
 type TextSize = 'sm' | 'md' | 'lg' | 'xl';
 type ThemeOption = 'default' | 'sepia' | 'dark' | 'night' | 'forest' | 'ocean';
@@ -30,7 +30,8 @@ export function useReadingPreferences() {
   
   // UI state
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
-  const settingsMenuRef = useRef<HTMLDivElement>(null);
+  // Use explicit type assertion to fix the RefObject issue
+  const settingsMenuRef = useRef<HTMLDivElement>(null) as RefObject<HTMLDivElement>;
 
   // Load preferences from localStorage on mount
   useEffect(() => {

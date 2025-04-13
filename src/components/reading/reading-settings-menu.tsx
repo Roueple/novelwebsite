@@ -1,5 +1,5 @@
 // src/components/reading/reading-settings-menu.tsx
-import React from 'react';
+import React, { RefObject } from 'react';
 import { useTheme } from '@/providers/theme-provider';
 import { 
   Settings, 
@@ -17,7 +17,8 @@ import {
 interface ReadingSettingsMenuProps {
   isOpen: boolean;
   onClose: () => void;
-  menuRef: React.RefObject<HTMLDivElement>;
+  // Accept the correct type of ref
+  menuRef: RefObject<HTMLDivElement>;
   textSize: 'sm' | 'md' | 'lg' | 'xl';
   onChangeTextSize: (size: 'sm' | 'md' | 'lg' | 'xl') => void;
   effectsEnabled: boolean;
@@ -113,6 +114,7 @@ export default function ReadingSettingsMenu({
           </div>
         </div>
 
+        {/* Rest of the component remains unchanged */}
         {/* Font Family Settings */}
         <div className="px-4 py-3 border-b border-theme-border">
           <div className="flex items-center gap-2 mb-2">

@@ -7,7 +7,7 @@ import { useAuth } from '@/providers/auth-provider';
 import { useTheme } from '@/providers/theme-provider';
 import { getChapter, getNovel } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
-import Header from '@/components/header';
+import ReadingHeader from '@/components/reading/reading-header';
 import ReadingView from '@/components/reading/reading-view';
 import ChapterNavigation from '@/components/reading/chapter-navigation';
 import ReadingSettingsMenu from '@/components/reading/reading-settings-menu';
@@ -202,7 +202,7 @@ export default function ChapterPage() {
         }}
       >
         {/* Header with chapter info and controls */}
-        <Header 
+        <ReadingHeader 
           novel={novel}
           chapter={chapter}
           isAuthor={isAuthor}
