@@ -2,6 +2,7 @@
 import React from 'react';
 import { Lock } from 'lucide-react';
 import { useTheme } from '@/providers/theme-provider';
+import DynamicText from './dynamic-text';
 
 interface ReadingViewProps {
   content: string;
@@ -9,6 +10,7 @@ interface ReadingViewProps {
   isAuthor: boolean;
   isEditing: boolean;
   textSize: 'sm' | 'md' | 'lg' | 'xl';
+  effectsEnabled: boolean;
   onContentChange?: (content: string) => void;
 }
 
@@ -18,6 +20,7 @@ export default function ReadingView({
   isAuthor,
   isEditing,
   textSize,
+  effectsEnabled,
   onContentChange
 }: ReadingViewProps) {
   const { theme } = useTheme();
@@ -55,32 +58,6 @@ export default function ReadingView({
     xl: 'text-2xl'
   };
 
-  const renderContent = (text: string) => {
-    const styles = getThemeStyles();
-    const lines = text.split('\n');
-
-    return lines.map((line, index) => {
-      const isBracketed = line.startsWith('[') && line.endsWith(']');
-      const isDialogue = line.startsWith('"') && line.endsWith('"');
-      
-      return (
-        <p 
-          key={index} 
-          className={`
-            mb-6 
-            leading-relaxed
-            ${sizeClasses[textSize]}
-            ${isBracketed ? styles.bracketed : ''}
-            ${isDialogue ? styles.dialogue : ''}
-            ${styles.text}
-          `}
-        >
-          {line}
-        </p>
-      );
-    });
-  };
-
   if (isLocked && !isAuthor) {
     const styles = getThemeStyles();
     return (
@@ -115,34 +92,32 @@ export default function ReadingView({
   return (
     <div className="w-full">
       <div className="max-w-4xl mx-auto px-4 md:px-8">
-      {isEditing ? (
-  <div 
-    className="border-2 border-dashed border-red-500 p-4 rounded-lg"
-  >
-    <div
-      contentEditable
-      suppressContentEditableWarning
-      onBlur={(e) => {
-        const content = e.currentTarget.innerText;
-        onContentChange?.(content);
-      }}
-      className={`
-        outline-none
-        focus:ring-0
-        min-h-[300px]
-        ${styles.text}
-        ${sizeClasses[textSize]}
-        whitespace-pre-wrap
-      `}
-    >
-      {renderContent(content)}
-    </div>
-  </div>
-) : (
-  <div>
-    {renderContent(content)}
-  </div>
-)}
+        {isEditing ? (
+          <div className="border-2 border-dashed border-red-500 p-4 rounded-lg">
+            <div
+              contentEditable
+              suppressContentEditableWarning
+              onBlur={(e) => {
+                const content = e.currentTarget.innerText;
+                onContentChange?.(content);
+              }}
+              className={`
+                outline-none
+                focus:ring-0
+                min-h-[300px]
+                ${styles.text}
+                ${sizeClasses[textSize]}
+                whitespace-pre-wrap
+              `}
+            >
+              {content}
+            </div>
+          </div>
+        ) : (
+          <div className={`prose max-w-none ${sizeClasses[textSize]}`}>
+            <DynamicText content={content} isEnabled={effectsEnabled} />
+          </div>
+        )}
       </div>
     </div>
   );

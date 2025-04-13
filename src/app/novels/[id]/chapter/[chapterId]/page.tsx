@@ -1,124 +1,71 @@
+// src/app/novels/[id]/chapter/[chapterId]/page.tsx
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight, Edit, Save, Lock, Unlock, ChevronDown, X, Sun, Moon, BookOpen, Settings, Type } from 'lucide-react';
-import Link from 'next/link';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'next/navigation';
-import { getChapter, getNovel } from '@/lib/api';
-import { ChapterType, NovelType } from '@/types/supabase';
 import { useAuth } from '@/providers/auth-provider';
 import { useTheme } from '@/providers/theme-provider';
+import { getChapter, getNovel } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
-import { cn } from '@/lib/utils';
+import Header from '@/components/header';
+import ReadingView from '@/components/reading/reading-view';
+import ChapterNavigation from '@/components/reading/chapter-navigation';
+import ReadingSettingsMenu from '@/components/reading/reading-settings-menu';
+import LoadingScreen from '@/components/ui/loading-screen';
+import NotFoundScreen from '@/components/ui/not-found-screen';
+import { useReadingPreferences } from '@/hooks/use-reading-preferences';
+import { useChapterActions } from '@/hooks/use-chapter-actions';
+import type { ChapterType, NovelType } from '@/types/supabase';
 
-// Component to render text with dynamic typography effects
-const DynamicText = ({ content, isEnabled }: { content: string; isEnabled: boolean }) => {
-  if (!isEnabled || !content) {
-    // Return regular text without processing if effects are disabled
-    return <div className="whitespace-pre-wrap">{content}</div>;
-  }
-
-  // Process text for dynamic typography effects
-  // This is a simple implementation that looks for markers like [shout], [whisper], etc.
-  // A more sophisticated version would use proper HTML parsing
-
-  // Map of effect markers and their corresponding classes
-  const effectMarkers = {
-    '[shout]': 'effect-shout',
-    '[whisper]': 'effect-whisper',
-    '[tremble]': 'effect-tremble',
-    '[hesitate]': 'effect-hesitation',
-    '[emphasis]': 'effect-emphasis',
-    '[fade]': 'effect-fade',
-  };
-
-  // Split by paragraphs to maintain proper paragraph structure
-  const paragraphs = content.split(/\n+/);
-
-  // Process each paragraph for effects
-  const processedParagraphs = paragraphs.map((paragraph, index) => {
-    let processedText = paragraph;
-    
-    // Replace each marker with a styled span
-    Object.entries(effectMarkers).forEach(([marker, className]) => {
-      // Create a regex that matches the marker followed by any text until the closing marker
-      const regex = new RegExp(`${marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(.*?)${marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'g');
-      
-      // Replace all instances of this marker with a span of the appropriate class
-      processedText = processedText.replace(regex, `<span class="${className}">$1</span>`);
-    });
-
-    // Check if paragraph is dialogue (starts with a quotation mark)
-    if (processedText.trim().startsWith('"')) {
-      processedText = `<span class="dialogue">${processedText}</span>`;
-    }
-
-    // Return the processed paragraph
-    return (
-      <p key={index} className="mb-6 leading-relaxed" 
-         dangerouslySetInnerHTML={{ __html: processedText }} />
-    );
-  });
-
-  return <>{processedParagraphs}</>;
-};
-
-// Main Chapter Page Component
 export default function ChapterPage() {
   const { user, role } = useAuth();
-  const { theme, cycleTheme } = useTheme();
+  const { theme } = useTheme();
   const params = useParams();
-  
   const novelId = Number(params.id);
   const chapterNumber = Number(params.chapterId);
   
   // State management
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [isAuthor, setIsAuthor] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
   const [chapter, setChapter] = useState<ChapterType | null>(null);
   const [novel, setNovel] = useState<NovelType | null>(null);
-  const [editedTitle, setEditedTitle] = useState('');
-  const [editedContent, setEditedContent] = useState('');
-  const [isLocked, setIsLocked] = useState(false);
-  const [textSize, setTextSize] = useState<'sm' | 'md' | 'lg' | 'xl'>('md');
   const [headerVisible, setHeaderVisible] = useState(true);
   
-  // New state for dynamic text effects
-  const [effectsEnabled, setEffectsEnabled] = useState(true);
-  const [showSettingsMenu, setShowSettingsMenu] = useState(false);
-  
-  // Refs
-  const contentRef = useRef<HTMLDivElement>(null);
-  const settingsMenuRef = useRef<HTMLDivElement>(null);
+  // Custom hooks for preferences and actions
+  const { 
+    textSize, 
+    effectsEnabled,
+    animationsEnabled,
+    fontFamily,
+    lineSpacing,
+    showSettingsMenu, 
+    settingsMenuRef,
+    setShowSettingsMenu,
+    changeTextSize,
+    toggleEffects,
+    toggleAnimations,
+    changeFontFamily,
+    changeLineSpacing,
+    resetPreferences
+  } = useReadingPreferences();
 
-  // Text size label
-  const textSizeLabel = {
-    sm: 'Small',
-    md: 'Medium',
-    lg: 'Large',
-    xl: 'Extra Large'
-  };
-
-  // Get size classes based on text size setting
-  const sizeClasses = {
-    sm: 'text-base',
-    md: 'text-lg',
-    lg: 'text-xl',
-    xl: 'text-2xl'
-  };
-  
-  // Theme icon mapping
-  const themeIcons = {
-    light: <Sun size={20} />,
-    dark: <Moon size={20} />,
-    reading: <BookOpen size={20} />
-  };
+  const {
+    isAuthor,
+    isEditing,
+    setIsEditing,
+    isLocked,
+    setIsLocked,
+    editedTitle,
+    setEditedTitle,
+    editedContent,
+    setEditedContent,
+    saving,
+    handleSave,
+    handleLockToggle
+  } = useChapterActions(chapter, user, role, setChapter, novel);
 
   // Load chapter data on mount
   useEffect(() => {
-    async function loadChapter() {
+    async function loadData() {
       try {
         const [chapterData, novelData] = await Promise.all([
           getChapter(novelId, chapterNumber),
@@ -134,13 +81,10 @@ export default function ChapterPage() {
   
           const isAdmin = role === 'admin';
           const isNovelAuthor = novelData.author_id === user?.id;
-          setIsAuthor(isAdmin || isNovelAuthor);
-  
-          // Show editing UI only if first view is not completed and user is author/admin
+          
+          // Show editing UI for new chapters created by author
           if (chapterData.newly_created && (isAdmin || isNovelAuthor)) {
             setIsEditing(true);
-          } else {
-            setIsEditing(false);
           }
         }
       } catch (error) {
@@ -149,417 +93,208 @@ export default function ChapterPage() {
         setLoading(false);
       }
     }
-    loadChapter();
-  }, [novelId, chapterNumber, user, role]);
+    loadData();
+  }, [novelId, chapterNumber, user, role, setEditedTitle, setEditedContent, setIsLocked, setIsEditing]);
 
-  // Load saved text size preference
+  // Apply reading preferences to document
   useEffect(() => {
-    const savedTextSize = localStorage.getItem('readingTextSize') as 'sm' | 'md' | 'lg' | 'xl';
-    if (savedTextSize) {
-      setTextSize(savedTextSize);
+    // Apply animation preferences
+    if (!animationsEnabled) {
+      document.documentElement.classList.add('disable-animations');
+    } else {
+      document.documentElement.classList.remove('disable-animations');
     }
 
-    // Also load effects preference
-    const effectsPref = localStorage.getItem('textEffectsEnabled');
-    if (effectsPref !== null) {
-      setEffectsEnabled(effectsPref === 'true');
-    }
-  }, []);
+    // Apply line spacing
+    document.documentElement.style.setProperty('--reading-line-height', lineSpacing.toString());
 
-  // Close settings menu when clicking outside
+    // Apply font family
+    if (fontFamily) {
+      document.documentElement.style.setProperty('--reading-font-family', fontFamily);
+    }
+
+    return () => {
+      // Clean up when component unmounts
+      document.documentElement.classList.remove('disable-animations');
+      document.documentElement.style.removeProperty('--reading-line-height');
+      document.documentElement.style.removeProperty('--reading-font-family');
+    };
+  }, [animationsEnabled, lineSpacing, fontFamily]);
+
+  // Create page class based on preferences
+  const pageClasses = useMemo(() => {
+    const classes = ['reading-page'];
+    
+    if (!animationsEnabled) {
+      classes.push('disable-animations');
+    }
+    
+    return classes.join(' ');
+  }, [animationsEnabled]);
+
+  // Handle keyboard shortcuts
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (settingsMenuRef.current && !settingsMenuRef.current.contains(event.target as Node)) {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // ESC to close settings menu
+      if (e.key === 'Escape' && showSettingsMenu) {
         setShowSettingsMenu(false);
+        return;
+      }
+
+      // Settings menu toggle (S key)
+      if (e.key === 's' && !isEditing && !e.ctrlKey && !e.metaKey) {
+        setShowSettingsMenu(prev => !prev);
+        return;
+      }
+
+      // Text size shortcuts
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key === '+' || e.key === '=') {
+          e.preventDefault();
+          if (textSize === 'sm') changeTextSize('md');
+          else if (textSize === 'md') changeTextSize('lg');
+          else if (textSize === 'lg') changeTextSize('xl');
+        } else if (e.key === '-') {
+          e.preventDefault();
+          if (textSize === 'xl') changeTextSize('lg');
+          else if (textSize === 'lg') changeTextSize('md');
+          else if (textSize === 'md') changeTextSize('sm');
+        }
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
+    window.addEventListener('keydown', handleKeyDown);
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('keydown', handleKeyDown);
     };
-  }, []);
+  }, [showSettingsMenu, isEditing, textSize, setShowSettingsMenu, changeTextSize]);
 
-  // Handle text size change
-  const changeTextSize = (size: 'sm' | 'md' | 'lg' | 'xl') => {
-    setTextSize(size);
-    localStorage.setItem('readingTextSize', size);
-  };
-
-  // Toggle text effects
-  const toggleEffects = () => {
-    const newValue = !effectsEnabled;
-    setEffectsEnabled(newValue);
-    localStorage.setItem('textEffectsEnabled', String(newValue));
-  };
-
-  // Toggle chapter lock state
-  const handleLockToggle = async () => {
-    if (!chapter) return;
+  // Memoize chapter navigation to prevent recalculation
+  const { prevChapter, nextChapter } = useMemo(() => {
+    if (!novel) return { prevChapter: null, nextChapter: null };
     
-    try {
-      const newLockedState = !isLocked;
-      const { error } = await supabase
-        .from('chapters')
-        .update({
-          is_locked: newLockedState
-        })
-        .eq('id', chapter.id);
-  
-      if (error) throw error;
-  
-      // Update local state
-      setIsLocked(newLockedState);
-      setChapter(prev => prev ? {
-        ...prev,
-        is_locked: newLockedState
-      } : null);
-    } catch (error) {
-      console.error('Error toggling chapter lock:', error);
-      alert('Failed to update chapter lock status. Please try again.');
-    }
-  };
+    const chapterList = novel.chapters.sort((a, b) => a.chapter_number - b.chapter_number);
+    const currentIndex = chapterList.findIndex(ch => ch.chapter_number === chapterNumber);
+    
+    return {
+      prevChapter: currentIndex > 0 ? chapterList[currentIndex - 1] : null,
+      nextChapter: currentIndex < chapterList.length - 1 ? chapterList[currentIndex + 1] : null
+    };
+  }, [novel, chapterNumber]);
 
-  // Save chapter
-  const handleSave = async () => {
-    if (!chapter) return;
-    setSaving(true);
-
-    try {
-      const { error } = await supabase
-        .from('chapters')
-        .update({
-          title: editedTitle,
-          content: editedContent,
-          is_locked: isLocked,
-          newly_created: false  // Mark as viewed when saving
-        })
-        .eq('id', chapter.id);
-
-      if (error) throw error;
-
-      setChapter(prev => prev ? {
-        ...prev,
-        title: editedTitle,
-        content: editedContent,
-        is_locked: isLocked
-      } : null);
-
-      setIsEditing(false);
-    } catch (error) {
-      console.error('Error saving chapter:', error);
-      alert('Failed to save changes. Please try again.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // Render loading state
+  // Loading state
   if (loading) {
-    return (
-      <div className="min-h-screen bg-theme-background flex items-center justify-center px-4">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4 text-theme-foreground">Loading...</h1>
-        </div>
-      </div>
-    );
+    return <LoadingScreen message="Loading chapter..." />;
   }
 
-  // Render 404 state
+  // Error/Not found state
   if (!chapter || !novel) {
-    return (
-      <div className="min-h-screen bg-theme-background flex items-center justify-center px-4">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4 text-theme-foreground">Chapter not found</h1>
-          <Link 
-            href={`/novels/${novelId}`}
-            className="px-4 py-2 rounded-lg bg-theme-background border border-theme-border text-theme-foreground hover:bg-theme-hover shadow"
-          >
-            Return to Novel
-          </Link>
-        </div>
-      </div>
-    );
+    return <NotFoundScreen message="Chapter not found" returnUrl={`/novels/${novelId}`} />;
   }
-
-  // Get chapter navigation data
-  const chapterList = novel.chapters.sort((a, b) => a.chapter_number - b.chapter_number);
-  const currentIndex = chapterList.findIndex(ch => ch.chapter_number === chapter.chapter_number);
-  const prevChapter = currentIndex > 0 ? chapterList[currentIndex - 1] : null;
-  const nextChapter = currentIndex < chapterList.length - 1 ? chapterList[currentIndex + 1] : null;
 
   return (
-    <main className="min-h-screen bg-theme-background">
-      {/* Unified Header for Chapter Pages */}
-      {headerVisible ? (
-        <header className="sticky top-0 z-10 bg-theme-background/95 backdrop-blur-sm border-b border-theme-border">
-          <div className="max-w-screen-xl mx-auto px-4 py-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              {/* Left side */}
-              <div className="flex items-center gap-4">
-                <Link 
-                  href={`/novels/${novelId}`}
-                  className="flex items-center gap-1 text-theme-foreground hover:opacity-80"
-                >
-                  <ChevronLeft size={18} />
-                  <span className="text-sm">Back</span>
-                </Link>
-                
-                <h2 className="text-sm font-medium text-theme-foreground line-clamp-1">
-                  {novel?.title}
-                </h2>
-              </div>
-              
-              {/* Right side */}
-              <div className="flex items-center gap-2">
-                {/* Settings Button */}
-                <div className="relative">
-                  <button
-                    onClick={() => setShowSettingsMenu(!showSettingsMenu)}
-                    className="p-1.5 rounded hover:bg-theme-hover"
-                    aria-label="Reading settings"
-                  >
-                    <Settings size={16} />
-                  </button>
-                  
-                  {/* Settings Menu */}
-                  {showSettingsMenu && (
-                    <div 
-                      ref={settingsMenuRef}
-                      className="absolute right-0 mt-1 w-48 py-2 bg-theme-card border border-theme-border rounded-lg shadow-lg z-50"
-                    >
-                      <div className="px-3 py-2 border-b border-theme-border">
-                        <p className="font-medium text-sm text-theme-foreground">Reading Settings</p>
-                      </div>
-                      
-                      {/* Text Size Controls */}
-                      <div className="px-3 py-2">
-                        <p className="text-xs text-theme-muted mb-1">Text Size</p>
-                        <div className="flex flex-col gap-1">
-                          {(['sm', 'md', 'lg', 'xl'] as const).map((size) => (
-                            <button
-                              key={size}
-                              onClick={() => changeTextSize(size)}
-                              className={`
-                                w-full text-left px-2 py-1 text-xs rounded
-                                ${textSize === size 
-                                  ? 'bg-theme-hover font-medium' 
-                                  : 'hover:bg-theme-hover/50'
-                                }
-                              `}
-                            >
-                              {textSizeLabel[size]}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                      
-                      {/* Text Effects Toggle */}
-                      <div className="px-3 py-2 border-t border-theme-border">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-theme-foreground">Dynamic Text Effects</span>
-                          <button 
-                            onClick={toggleEffects}
-                            className={`w-10 h-5 rounded-full relative ${
-                              effectsEnabled ? 'bg-green-500' : 'bg-gray-400'
-                            }`}
-                          >
-                            <span 
-                              className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform ${
-                                effectsEnabled ? 'translate-x-5' : ''
-                              }`}
-                            />
-                          </button>
-                        </div>
-                      </div>
-                      
-                      {/* Theme Controls */}
-                      <div className="px-3 py-2 border-t border-theme-border">
-                        <p className="text-xs text-theme-muted mb-1">Theme</p>
-                        <button 
-                          onClick={cycleTheme}
-                          className="flex items-center gap-2 w-full text-left px-2 py-1 text-xs rounded hover:bg-theme-hover/50"
-                        >
-                          <span className="w-4 h-4 flex items-center justify-center">
-                            {themeIcons[theme]}
-                          </span>
-                          <span>
-                            {theme === 'light' 
-                              ? 'Light Mode' 
-                              : theme === 'dark' 
-                              ? 'Dark Mode' 
-                              : 'Reading Mode'}
-                          </span>
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-                
-                {/* Edit Button (if author) */}
-                {isAuthor && !isEditing && (
-                  <button
-                    onClick={() => setIsEditing(true)}
-                    className="p-1.5 rounded hover:bg-theme-hover"
-                    aria-label="Edit chapter"
-                  >
-                    <Edit size={16} />
-                  </button>
-                )}
-                
-                {/* Save Button (if editing) */}
-                {isEditing && (
-                  <button
-                    onClick={handleSave}
-                    className="p-1.5 rounded hover:bg-theme-hover"
-                    aria-label="Save changes"
-                  >
-                    <Save size={16} />
-                  </button>
-                )}
-                
-                {/* Lock Toggle (if author) */}
-                {isAuthor && (
-                  <button
-                    onClick={handleLockToggle}
-                    className="p-1.5 rounded hover:bg-theme-hover"
-                    aria-label={isLocked ? 'Unlock chapter' : 'Lock chapter'}
-                  >
-                    {isLocked ? <Lock size={16} /> : <Unlock size={16} />}
-                  </button>
-                )}
-                
-                {/* Close/Hide Button */}
-                <button
-                  onClick={() => setHeaderVisible(false)}
-                  className="p-1.5 rounded hover:bg-theme-hover"
-                  aria-label="Hide header"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-            </div>
-          </div>
-        </header>
-      ) : (
-        <button
-          onClick={() => setHeaderVisible(true)}
-          className="fixed top-4 right-4 z-50 p-2 bg-theme-card/80 backdrop-blur-sm border border-theme-border rounded-full shadow-lg hover:bg-theme-hover"
-          aria-label="Show header"
-        >
-          <ChevronDown size={20} className="text-theme-foreground" />
-        </button>
-      )}
+    <div className={pageClasses}>
+      <main 
+        className="min-h-screen bg-theme-background"
+        style={{ 
+          fontFamily: `var(--reading-font-family, ${fontFamily})`,
+          lineHeight: `${lineSpacing}` 
+        }}
+      >
+        {/* Header with chapter info and controls */}
+        <Header 
+          novel={novel}
+          chapter={chapter}
+          isAuthor={isAuthor}
+          isEditing={isEditing}
+          isLocked={isLocked}
+          visible={headerVisible}
+          setVisible={setHeaderVisible}
+          textSize={textSize}
+          effectsEnabled={effectsEnabled}
+          showSettingsMenu={showSettingsMenu}
+          setShowSettingsMenu={setShowSettingsMenu}
+          onEdit={() => setIsEditing(true)}
+          onSave={handleSave}
+          onLockToggle={handleLockToggle}
+        />
 
-      {/* Main Content */}
-      <div className="py-8">
-        {/* Chapter Title */}
-        <div className="max-w-4xl mx-auto px-4 md:px-8 mb-8">
-          {isEditing ? (
-            <input
-              type="text"
-              value={editedTitle}
-              onChange={(e) => setEditedTitle(e.target.value)}
-              className="w-full text-2xl font-bold px-4 py-2 rounded-lg border bg-theme-background border-theme-border text-theme-foreground focus:border-red-500 focus:outline-none"
-            />
-          ) : (
-            <h1 className="text-2xl sm:text-3xl font-bold text-theme-foreground">
-              Chapter {chapter.chapter_number}: {chapter.title}
-              {isLocked && (
-                <span className="ml-3 inline-flex items-center px-2 py-1 text-sm rounded-full bg-theme-background border border-theme-border text-theme-muted">
-                  <Lock size={14} className="mr-1" />
-                  Premium
-                </span>
-              )}
-            </h1>
-          )}
-        </div>
+        {/* Reading Settings Menu */}
+        <ReadingSettingsMenu 
+          isOpen={showSettingsMenu}
+          onClose={() => setShowSettingsMenu(false)}
+          menuRef={settingsMenuRef}
+          textSize={textSize}
+          onChangeTextSize={changeTextSize}
+          effectsEnabled={effectsEnabled}
+          onToggleEffects={toggleEffects}
+          animationsEnabled={animationsEnabled}
+          onToggleAnimations={toggleAnimations}
+          fontFamily={fontFamily}
+          onChangeFontFamily={changeFontFamily}
+          lineSpacing={lineSpacing}
+          onChangeLineSpacing={changeLineSpacing}
+          onResetPreferences={resetPreferences}
+        />
 
-        {/* Content Section */}
-        {isLocked && !isAuthor ? (
-          <div className="max-w-4xl mx-auto px-4 md:px-8 text-center py-16">
-            <Lock 
-              size={48} 
-              className={`mx-auto mb-4 ${
-                theme === 'reading' 
-                  ? 'text-[#8B4513]' 
-                  : theme === 'dark'
-                    ? 'text-gray-300' 
-                    : 'text-gray-500'
-              }`} 
-            />
-            <h2 className="text-2xl font-bold mb-2 text-theme-foreground">
-              Premium Chapter
-            </h2>
-            <p className="mb-8 text-theme-muted">
-              This chapter is locked. Please subscribe to continue reading.
-            </p>
-            <button
-              className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-              onClick={() => alert('Subscription feature coming soon!')}
-            >
-              Subscribe to Unlock
-            </button>
-          </div>
-        ) : (
-          <div className="max-w-4xl mx-auto px-4 md:px-8">
+        {/* Chapter Content */}
+        <div className="py-8">
+          {/* Chapter title section */}
+          <div className="max-w-4xl mx-auto px-4 md:px-8 mb-8">
             {isEditing ? (
-              <div className="border-2 border-dashed border-red-500 p-4 rounded-lg">
-                <textarea
-                  value={editedContent}
-                  onChange={(e) => setEditedContent(e.target.value)}
-                  className={`
-                    w-full min-h-[300px] p-4
-                    outline-none focus:ring-0
-                    bg-theme-background text-theme-foreground
-                    ${sizeClasses[textSize]}
-                    whitespace-pre-wrap
-                  `}
-                  placeholder="Write your chapter content here..."
-                />
-              </div>
+              <input
+                type="text"
+                value={editedTitle}
+                onChange={(e) => setEditedTitle(e.target.value)}
+                className="w-full text-2xl font-bold px-4 py-2 rounded-lg border bg-theme-background border-theme-border text-theme-foreground focus:border-red-500 focus:outline-none"
+                aria-label="Chapter title"
+              />
             ) : (
-              <div 
-                ref={contentRef} 
-                className={`
-                  prose max-w-none
-                  ${sizeClasses[textSize]}
-                `}
-              >
-                <DynamicText 
-                  content={chapter.content || ''} 
-                  isEnabled={effectsEnabled}
-                />
-              </div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-theme-foreground">
+                Chapter {chapter.chapter_number}: {chapter.title}
+                {isLocked && (
+                  <span className="ml-3 inline-flex items-center px-2 py-1 text-sm rounded-full bg-theme-background border border-theme-border text-theme-muted">
+                    <svg 
+                      xmlns="http://www.w3.org/2000/svg" 
+                      width="14" 
+                      height="14" 
+                      viewBox="0 0 24 24" 
+                      fill="none" 
+                      stroke="currentColor" 
+                      strokeWidth="2" 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round" 
+                      className="mr-1"
+                    >
+                      <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                    </svg>
+                    Premium
+                  </span>
+                )}
+              </h1>
             )}
           </div>
-        )}
 
-        {/* Chapter Navigation */}
-        <div className="max-w-4xl mx-auto px-4 md:px-8 mt-12 flex justify-between items-center">
-          {prevChapter ? (
-            <Link 
-              href={`/novels/${novelId}/chapter/${prevChapter.chapter_number}`}
-              className="flex items-center gap-2 px-4 py-2 rounded hover:bg-theme-hover text-theme-foreground"
-            >
-              <ChevronLeft size={20} />
-              <span className="hidden sm:inline">Previous Chapter</span>
-              <span className="inline sm:hidden">Prev</span>
-            </Link>
-          ) : <div />}
+          {/* Reading View Component */}
+          <ReadingView 
+            content={isEditing ? editedContent : chapter.content || ''}
+            isLocked={isLocked}
+            isAuthor={isAuthor}
+            isEditing={isEditing}
+            textSize={textSize}
+            effectsEnabled={effectsEnabled}
+            onContentChange={setEditedContent}
+          />
 
-          {nextChapter && (
-            <Link 
-              href={`/novels/${novelId}/chapter/${nextChapter.chapter_number}`}
-              className="flex items-center gap-2 px-4 py-2 rounded hover:bg-theme-hover text-theme-foreground"
-            >
-              <span className="hidden sm:inline">Next Chapter</span>
-              <span className="inline sm:hidden">Next</span>
-              <ChevronRight size={20} />
-            </Link>
-          )}
+          {/* Chapter Navigation */}
+          <ChapterNavigation 
+            novelId={novelId}
+            prevChapter={prevChapter}
+            nextChapter={nextChapter}
+          />
         </div>
-      </div>
-    </main>
+      </main>
+    </div>
   );
 }

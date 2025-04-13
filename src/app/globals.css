@@ -314,3 +314,403 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+/* Dynamic Text Effects - Add to globals.css */
+
+/* Volume/Intensity Effects */
+.effect-shout {
+  font-weight: 700;
+  font-size: 1.15em;
+  text-transform: uppercase;
+  text-shadow: 0 0.5px 0 rgba(0, 0, 0, 0.2);
+  letter-spacing: 0.05em;
+}
+
+.effect-whisper {
+  font-style: italic;
+  font-size: 0.95em;
+  opacity: 0.8;
+  font-weight: 300;
+  letter-spacing: 0.02em;
+}
+
+.effect-loud {
+  font-weight: 700;
+  font-size: 1.1em;
+  letter-spacing: 0.03em;
+}
+
+.effect-quiet {
+  font-size: 0.9em;
+  opacity: 0.75;
+}
+
+/* Emotion Effects */
+@keyframes tremble {
+  0%, 100% { transform: translate(0, 0); }
+  10% { transform: translate(-1px, 0); }
+  20% { transform: translate(1px, 0); }
+  30% { transform: translate(-1px, 0); }
+  40% { transform: translate(1px, -1px); }
+  50% { transform: translate(0, 1px); }
+  60% { transform: translate(-1px, 0); }
+  70% { transform: translate(1px, 0); }
+  80% { transform: translate(-1px, 1px); }
+  90% { transform: translate(1px, 0); }
+}
+
+.effect-tremble {
+  display: inline-block;
+  animation: tremble 0.5s ease infinite;
+  transform-origin: center;
+}
+
+@keyframes fear {
+  0%, 100% { transform: translate(0, 0); }
+  10% { transform: translate(-1px, -1px); }
+  20% { transform: translate(1px, 1px); }
+  30% { transform: translate(-1px, 1px); }
+  40% { transform: translate(1px, -1px); }
+  50% { transform: translate(-1px, 0); }
+  60% { transform: translate(1px, 1px); }
+  70% { transform: translate(-1px, -1px); }
+  80% { transform: translate(0, 1px); }
+  90% { transform: translate(-1px, 0); }
+}
+
+.effect-fear {
+  display: inline-block;
+  animation: fear 0.4s ease infinite;
+  font-style: italic;
+  color: var(--text-fear, currentColor);
+}
+
+@keyframes joy {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+.effect-joy {
+  display: inline-block;
+  animation: joy 1s ease-in-out infinite;
+  color: var(--text-joy, currentColor);
+  font-weight: 500;
+}
+
+@keyframes anger {
+  0%, 100% { transform: skewX(0); }
+  25% { transform: skewX(3deg); }
+  75% { transform: skewX(-3deg); }
+}
+
+.effect-anger {
+  display: inline-block;
+  animation: anger 0.3s ease-in-out infinite;
+  color: var(--text-anger, currentColor);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.effect-sadness {
+  font-style: italic;
+  color: var(--text-sadness, currentColor);
+  opacity: 0.85;
+  letter-spacing: 0.01em;
+}
+
+/* Timing/Pacing Effects */
+.effect-fast {
+  letter-spacing: -0.01em;
+  font-style: italic;
+}
+
+.effect-slow {
+  letter-spacing: 0.05em;
+  font-weight: 300;
+}
+
+@keyframes stutter {
+  0%, 100% { opacity: 1; }
+  20% { opacity: 0.7; }
+  40% { opacity: 1; }
+  60% { opacity: 0.7; }
+  80% { opacity: 1; }
+}
+
+.effect-stutter {
+  animation: stutter 1s ease-in-out;
+  letter-spacing: 0.02em;
+}
+
+.effect-pause::after {
+  content: "...";
+  animation: ellipsis 1.5s infinite;
+  display: inline-block;
+  width: 1em;
+  text-align: left;
+}
+
+@keyframes ellipsis {
+  0% { content: "."; }
+  33% { content: ".."; }
+  66% { content: "..."; }
+}
+
+/* Mental State/Voice Effects */
+.effect-thought {
+  font-style: italic;
+  color: var(--text-thought, currentColor);
+  opacity: 0.9;
+}
+
+.effect-dream {
+  font-style: italic;
+  letter-spacing: 0.02em;
+  opacity: 0.85;
+  text-shadow: 0 0 3px var(--text-dream-shadow, rgba(100, 100, 255, 0.3));
+}
+
+@keyframes robotic {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.9; }
+}
+
+.effect-robotic {
+  font-family: var(--font-monospace, monospace);
+  animation: robotic 0.5s linear infinite;
+  letter-spacing: 0.02em;
+}
+
+.effect-weak {
+  font-weight: 300;
+  opacity: 0.75;
+  font-style: italic;
+}
+
+.effect-ghostly {
+  opacity: 0.7;
+  text-shadow: 0 0 5px var(--text-ghostly-shadow, rgba(255, 255, 255, 0.5));
+  font-style: italic;
+}
+
+/* Stylistic Effects */
+.effect-emphasis {
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-decoration-style: solid;
+  text-underline-offset: 3px;
+}
+
+@keyframes fadeEffect {
+  0% { opacity: 1; }
+  100% { opacity: 0.3; }
+}
+
+.effect-fade {
+  animation: fadeEffect 3s forwards;
+  display: inline-block;
+}
+
+@keyframes fadeInEffect {
+  0% { opacity: 0.3; }
+  100% { opacity: 1; }
+}
+
+.effect-fadein {
+  animation: fadeInEffect 2s forwards;
+  display: inline-block;
+}
+
+@keyframes fadeOutEffect {
+  0% { opacity: 1; }
+  100% { opacity: 0.1; }
+}
+
+.effect-fadeout {
+  animation: fadeOutEffect 2s forwards;
+  display: inline-block;
+}
+
+@keyframes echoEffect {
+  0%, 100% { opacity: 1; text-shadow: 0 0 0 transparent; }
+  50% { opacity: 0.8; text-shadow: 0.05em 0.05em 0.1em var(--text-echo-shadow, rgba(0, 0, 0, 0.3)); }
+}
+
+.effect-echo {
+  animation: echoEffect 2s ease-in-out infinite;
+  display: inline-block;
+  letter-spacing: 0.05em;
+}
+
+.effect-distant {
+  opacity: 0.7;
+  font-size: 0.9em;
+  letter-spacing: 0.05em;
+}
+
+/* Additional Effects */
+.effect-hesitation {
+  letter-spacing: 0.05em;
+  opacity: 0.85;
+  font-style: italic;
+}
+
+@keyframes impact {
+  0% { transform: scale(1); }
+  10% { transform: scale(1.2); }
+  20% { transform: scale(1); }
+}
+
+.effect-impact {
+  display: inline-block;
+  animation: impact 0.5s ease-out;
+  font-weight: 700;
+}
+
+@keyframes underwater {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(2px); }
+}
+
+.effect-underwater {
+  display: inline-block;
+  animation: underwater 2s ease-in-out infinite;
+  color: var(--text-underwater, currentColor);
+  opacity: 0.9;
+  letter-spacing: 0.02em;
+}
+
+@keyframes radio {
+  0%, 100% { opacity: 1; }
+  10% { opacity: 0.7; }
+  20% { opacity: 0.9; }
+  30% { opacity: 0.6; }
+  40% { opacity: 1; }
+  50% { opacity: 0.8; }
+  60% { opacity: 0.9; }
+  70% { opacity: 0.7; }
+  80% { opacity: 1; }
+}
+
+.effect-radio {
+  animation: radio 0.5s linear infinite;
+  font-family: var(--font-monospace, monospace);
+  letter-spacing: -0.01em;
+}
+
+/* Animation Control CSS - Add to globals.css */
+
+/* CSS Variables for reading preferences */
+:root {
+  --reading-line-height: 1.6;
+  --reading-font-family: var(--font-merriweather, serif);
+  --reading-transition-speed: 0.3s;
+}
+
+/* Reading page styles */
+.reading-page {
+  transition: background-color var(--reading-transition-speed) ease,
+              color var(--reading-transition-speed) ease;
+}
+
+/* Animation disabling */
+.disable-animations * {
+  animation: none !important;
+  transition: none !important;
+}
+
+/* Reading content container */
+.reading-content {
+  line-height: var(--reading-line-height);
+  font-family: var(--reading-font-family);
+  max-width: 72ch;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+/* Reading environment theme colors */
+.reading {
+  --background-color: var(--reading-background, #F5E6D3);
+  --text-color: var(--reading-foreground, #2C3E50);
+  --muted-color: var(--reading-muted, #8B4513);
+  --accent-color: var(--reading-accent, #A0522D);
+  
+  /* Emotional text colors */
+  --text-fear: #7c2d12;
+  --text-joy: #15803d;
+  --text-anger: #b91c1c;
+  --text-sadness: #1e40af;
+  --text-thought: #4b5563;
+  --text-dream: #6d28d9;
+  --text-ghostly-shadow: rgba(255, 255, 255, 0.5);
+  --text-echo-shadow: rgba(0, 0, 0, 0.3);
+  --text-underwater: #0ea5e9;
+}
+
+.dark {
+  /* Override emotional text colors for dark mode */
+  --text-fear: #fdba74;
+  --text-joy: #86efac;
+  --text-anger: #fca5a5;
+  --text-sadness: #93c5fd;
+  --text-thought: #d1d5db;
+  --text-dream: #c4b5fd;
+  --text-ghostly-shadow: rgba(255, 255, 255, 0.4);
+  --text-echo-shadow: rgba(255, 255, 255, 0.3);
+  --text-underwater: #7dd3fc;
+}
+
+/* Page transition effects */
+.page-transition-enter {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.page-transition-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.3s, transform 0.3s;
+}
+
+.page-transition-exit {
+  opacity: 1;
+}
+
+.page-transition-exit-active {
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+/* Custom scrollbar for the reading experience */
+.reading ::-webkit-scrollbar {
+  width: 8px;
+}
+
+.reading ::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 4px;
+}
+
+.reading ::-webkit-scrollbar-thumb {
+  background: var(--muted-color, #8B4513);
+  border-radius: 4px;
+}
+
+.reading ::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-color, #A0522D);
+}
+
+/* Focus mode - hides UI elements */
+.focus-mode header,
+.focus-mode footer,
+.focus-mode .chapter-navigation {
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+.focus-mode:hover header,
+.focus-mode:hover footer,
+.focus-mode:hover .chapter-navigation {
+  opacity: 1;
+}
