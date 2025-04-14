@@ -1,24 +1,26 @@
 // src/app/layout.tsx
-"use client"; // <--- ADD THIS LINE
+"use client";
 
 import { Merriweather, Roboto_Slab, Libre_Baskerville, Source_Sans_3, Open_Sans } from "next/font/google";
 import { AuthProvider } from '@/providers/auth-provider';
 import { ThemeProvider } from "@/providers/theme-provider";
 import Header from '@/components/header';
 import "./globals.css";
-import { Toaster } from 'sonner';
-import { useState, useEffect } from "react"; // <--- IMPORT useState, useEffect
+import { Toaster } from '@/components/ui/sonner'; // Corrected import path
+import { useState, useEffect } from "react";
 
 // --- Font definitions remain the same ---
 const merriweather = Merriweather({
   subsets: ['latin'],
   weight: ['300', '400', '700', '900'],
   variable: '--font-merriweather',
+  display: 'swap', // Added for performance
 });
 
 const robotoSlab = Roboto_Slab({
   subsets: ['latin'],
   variable: '--font-roboto-slab',
+  display: 'swap', // Added for performance
 });
 
 const libreBaskerville = Libre_Baskerville({
@@ -26,43 +28,56 @@ const libreBaskerville = Libre_Baskerville({
   style: ['normal', 'italic'],
   subsets: ['latin'],
   variable: '--font-libre-baskerville',
+  display: 'swap', // Added for performance
 });
 
 const sourceSans = Source_Sans_3({
   subsets: ['latin'],
   variable: '--font-source-sans',
+  display: 'swap', // Added for performance
 });
 
 const openSans = Open_Sans({
   subsets: ['latin'],
   variable: '--font-open-sans',
+  display: 'swap', // Added for performance
 });
 // --- End Font definitions ---
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  const [isMounted, setIsMounted] = useState(false); // <--- ADD MOUNT STATE
+  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
-    setIsMounted(true); // Set to true only on the client-side after mount
+    setIsMounted(true);
   }, []);
 
+  // Combine font variables for the body class
+  const fontClasses = [
+    merriweather.variable,
+    robotoSlab.variable,
+    libreBaskerville.variable,
+    sourceSans.variable,
+    openSans.variable,
+    // Add default font family class here if needed, e.g., 'font-sans' or 'font-serif'
+    'font-sans' // Assuming Open Sans is the default sans-serif
+  ].join(' ');
+
   return (
-    // Add suppressHydrationWarning to the html tag if you see hydration warnings after this change
+    // Add suppressHydrationWarning to the html tag
     <html lang="en" suppressHydrationWarning>
-      <body className={`${merriweather.variable} ${robotoSlab.variable} ${libreBaskerville.variable} ${sourceSans.variable} ${openSans.variable}`}>
-        {/* AuthProvider might need "use client" if it internally uses client hooks */}
+      <body className={fontClasses}>
         <AuthProvider>
-          {/* ThemeProvider handles its own mount logic correctly */}
+          {/* ThemeProvider now handles its mount logic internally */}
           <ThemeProvider>
-            {/* Conditionally render Header */}
+            {/* Conditionally render Header based on mount state */}
             {isMounted && <Header />}
             <main className="min-h-screen">
               {children}
             </main>
+            {/* Conditionally render Toaster */}
+            {isMounted && <Toaster />}
           </ThemeProvider>
         </AuthProvider>
-        {/* Conditionally render Toaster as well */}
-        {isMounted && <Toaster />}
       </body>
     </html>
   );

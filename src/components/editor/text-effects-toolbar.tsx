@@ -2,35 +2,57 @@
 import React, { RefObject } from 'react';
 import { Button } from '@/components/ui/button';
 import { Bold, Italic, Strikethrough, Code, Type, Quote, Heading2, List, ListOrdered } from 'lucide-react';
+import { toast } from 'sonner'; // Import toast for feedback
 
 const EFFECT_BUTTONS = [
-  // ... (keep your effect buttons array)
+  // Volume/Intensity
   { tag: 'shout', label: 'Shout', icon: '📣' },
   { tag: 'whisper', label: 'Whisper', icon: '🤫' },
+  { tag: 'loud', label: 'Loud', icon: '🔊' },
+  { tag: 'quiet', label: 'Quiet', icon: '🔈' },
+  // Emotion
   { tag: 'tremble', label: 'Tremble', icon: '🥶' },
   { tag: 'fear', label: 'Fear', icon: '😨' },
   { tag: 'joy', label: 'Joy', icon: '😊' },
   { tag: 'anger', label: 'Anger', icon: '😠' },
-  { tag: 'thought', label: 'Thought', icon: '🤔' },
-  { tag: 'emphasis', label: 'Emphasis', icon: <Bold size={16}/> },
-  { tag: 'impact', label: 'Impact', icon: '💥' },
+  { tag: 'sadness', label: 'Sadness', icon: '😢' },
+  // Timing/Pacing
+  { tag: 'fast', label: 'Fast', icon: '⏩' },
+  { tag: 'slow', label: 'Slow', icon: '🐌' },
+  { tag: 'stutter', label: 'Stutter', icon: '🗣️' },
   { tag: 'pause', label: 'Pause', icon: '…' },
+  // Mental State/Voice
+  { tag: 'thought', label: 'Thought', icon: '🤔' },
+  { tag: 'dream', label: 'Dream', icon: '몽' }, // Example unique icon
+  { tag: 'robotic', label: 'Robotic', icon: '🤖' },
+  { tag: 'weak', label: 'Weak', icon: '📉' },
+  { tag: 'ghostly', label: 'Ghostly', icon: '👻' },
+  // Stylistic
+  { tag: 'emphasis', label: 'Emphasis', icon: <Bold size={16}/> }, // Use Lucide icon
+  { tag: 'fade', label: 'Fade', icon: '🌫️' },
+  { tag: 'fadein', label: 'Fade In', icon: '📈' },
+  { tag: 'fadeout', label: 'Fade Out', icon: '📉' },
+  { tag: 'echo', label: 'Echo', icon: '(((o)))' }, // Example icon
+  { tag: 'distant', label: 'Distant', icon: '🗺️' },
+  // Special
+  { tag: 'hesitate', label: 'Hesitate', icon: '❓' },
+  { tag: 'impact', label: 'Impact', icon: '💥' },
+  { tag: 'underwater', label: 'Underwater', icon: '🌊' },
+  { tag: 'radio', label: 'Radio', icon: '📻' },
 ];
 
-// --- CORRECTED INTERFACE - Allow null in the generic type ---
 interface TextEffectsToolbarProps {
-  // Explicitly state that the element the ref points to might be null initially
   editorRef: RefObject<HTMLTextAreaElement | null>;
   setContent: (value: string | ((prev: string) => string)) => void;
   disabled?: boolean;
 }
-// --- END CORRECTION ---
 
 export default function TextEffectsToolbar({ editorRef, setContent, disabled = false }: TextEffectsToolbarProps) {
 
   const applyTag = (tag: string) => {
-    const textarea = editorRef.current; // Still HTMLTextAreaElement | null
+    const textarea = editorRef.current;
     if (!textarea) {
+        toast.error("Editor is not ready.");
         console.warn("Textarea ref not available yet.");
         return;
     }
@@ -39,28 +61,36 @@ export default function TextEffectsToolbar({ editorRef, setContent, disabled = f
     const end = textarea.selectionEnd;
     const selectedText = textarea.value.substring(start, end);
     const tagStart = `[${tag}]`;
-    const tagEnd = `[${tag}]`;
+    const tagEnd = `[${tag}]`; // Using same tag for start/end based on examples
 
-    const newText = selectedText
-      ? `${tagStart}${selectedText}${tagEnd}`
-      : `${tagStart}${tagEnd}`;
+    let newText = '';
+    let finalCursorPos = start;
 
-    const before = textarea.value.substring(0, start);
-    const after = textarea.value.substring(end);
+    if (selectedText) {
+      // Wrap selected text
+      newText = `${tagStart}${selectedText}${tagEnd}`;
+      finalCursorPos = start + newText.length; // Position cursor after the inserted tags+text
+    } else {
+      // Insert tags with cursor in the middle
+      newText = `${tagStart}${tagEnd}`;
+      finalCursorPos = start + tagStart.length; // Position cursor between tags
+    }
 
-    setContent(currentContent => before + newText + after);
+    // Update content using the callback function for safety with state updates
+    setContent(currentContent => {
+        const before = currentContent.substring(0, start);
+        const after = currentContent.substring(end);
+        return before + newText + after;
+    });
 
-    setTimeout(() => {
-      // Null check remains important before accessing methods/properties
+
+    // Use requestAnimationFrame to ensure state update has likely processed
+    requestAnimationFrame(() => {
       if (editorRef.current) {
           editorRef.current.focus();
-          if (selectedText) {
-            editorRef.current.setSelectionRange(start, start + newText.length);
-          } else {
-            editorRef.current.setSelectionRange(start + tagStart.length, start + tagStart.length);
-          }
+          editorRef.current.setSelectionRange(finalCursorPos, finalCursorPos);
       }
-    }, 0);
+    });
   };
 
   return (
@@ -74,8 +104,9 @@ export default function TextEffectsToolbar({ editorRef, setContent, disabled = f
           title={label}
           disabled={disabled}
           className="px-2 py-1 h-auto text-muted-foreground hover:bg-background hover:text-foreground"
+          aria-label={`Apply ${label} effect`} // Add aria-label for accessibility
         >
-          {typeof icon === 'string' ? <span className="text-base">{icon}</span> : icon}
+          {typeof icon === 'string' ? <span className="text-base leading-none align-middle">{icon}</span> : icon}
         </Button>
       ))}
     </div>

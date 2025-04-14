@@ -10,30 +10,28 @@ const DEFAULT_THEME: Theme = 'light';
 
 interface ThemeContextType {
   theme: Theme;
-  setTheme: (theme: Theme) => void; // Allow direct setting
+  setTheme: (theme: Theme) => void;
   cycleTheme: () => void;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>(DEFAULT_THEME);
-  const [isMounted, setIsMounted] = useState(false); // Prevent hydration mismatch
-
-  // Load theme from storage on mount
-  useEffect(() => {
-    let initialTheme = DEFAULT_THEME;
-    try {
-      const savedTheme = localStorage.getItem(THEME_STORAGE_KEY) as Theme | null;
-      if (savedTheme && THEME_ORDER.includes(savedTheme)) {
-        initialTheme = savedTheme;
-      }
-    } catch (error) {
-      console.error("Error reading theme from localStorage:", error);
-    }
-    setThemeState(initialTheme);
-    setIsMounted(true); // Indicate component has mounted
-  }, []);
+  // Initialize state with a function to read from localStorage immediately
+  const [theme, setThemeState] = useState<Theme>(() => {
+     // Guard against SSR environment where localStorage is not available
+     if (typeof window === 'undefined') {
+         return DEFAULT_THEME;
+     }
+     try {
+       const savedTheme = localStorage.getItem(THEME_STORAGE_KEY) as Theme | null;
+       return savedTheme && THEME_ORDER.includes(savedTheme) ? savedTheme : DEFAULT_THEME;
+     } catch (error) {
+       console.error("Error reading theme from localStorage during init:", error);
+       return DEFAULT_THEME;
+     }
+  });
+  const [isMounted, setIsMounted] = useState(false);
 
   // Apply theme class to documentElement and save to storage
   const applyTheme = useCallback((newTheme: Theme) => {
@@ -41,10 +39,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       console.warn(`Invalid theme value: ${newTheme}. Falling back to default.`);
       newTheme = DEFAULT_THEME;
     }
+    const root = document.documentElement;
     // Remove old themes, add new one
-    document.documentElement.classList.remove(...THEME_ORDER);
-    document.documentElement.classList.add(newTheme);
-    setThemeState(newTheme);
+    root.classList.remove(...THEME_ORDER);
+    root.classList.add(newTheme);
+    // Update state only if it's different
+    setThemeState(current => current === newTheme ? current : newTheme);
     try {
       localStorage.setItem(THEME_STORAGE_KEY, newTheme);
     } catch (error) {
@@ -52,36 +52,37 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Apply theme on initial load and when theme state changes
-  useEffect(() => {
-     if (isMounted) { // Only apply after initial state is set from storage
-        applyTheme(theme);
-     }
-  }, [theme, applyTheme, isMounted]);
+  // Effect to apply the theme class on initial mount and subsequent changes
+   useEffect(() => {
+     setIsMounted(true);
+     // Apply the initial theme (read in useState) to the document
+     applyTheme(theme);
+   }, []); // Runs only once on mount
 
-
+  // Cycle theme logic
   const cycleTheme = useCallback(() => {
-    const currentIndex = THEME_ORDER.indexOf(theme);
-    const newTheme = THEME_ORDER[(currentIndex + 1) % THEME_ORDER.length];
-    applyTheme(newTheme);
-  }, [theme, applyTheme]);
+    setThemeState(currentTheme => {
+        const currentIndex = THEME_ORDER.indexOf(currentTheme);
+        const nextTheme = THEME_ORDER[(currentIndex + 1) % THEME_ORDER.length];
+        applyTheme(nextTheme); // Apply the theme immediately
+        return nextTheme; // Update the state
+    });
+  }, [applyTheme]);
 
-  // Provide direct setTheme function
+  // Direct set theme logic
   const setTheme = useCallback((newTheme: Theme) => {
       applyTheme(newTheme);
   }, [applyTheme]);
 
-
-  // Return skeleton or null during server render / hydration phase
-  if (!isMounted) {
-    // Render children directly without context during SSR/initial mount
-    // Or return a loader if preferred
-    return <>{children}</>;
-  }
+   // Only render children after mount to ensure theme is applied correctly
+   // and avoid hydration mismatches related to theme classes.
+   if (!isMounted) {
+     // You can return null or a simple loader during this brief phase
+     return null; // Or <>{children}</> if flashes are acceptable
+   }
 
   return (
     <ThemeContext.Provider value={{ theme, setTheme, cycleTheme }}>
-      {/* No wrapper div needed as class is applied to documentElement */}
       {children}
     </ThemeContext.Provider>
   );

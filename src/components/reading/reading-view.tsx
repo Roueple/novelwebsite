@@ -3,6 +3,7 @@ import React from 'react';
 import { Lock } from 'lucide-react';
 import DynamicText from './dynamic-text';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner'; // <--- ADD THIS IMPORT
 
 interface ReadingViewProps {
   content: string;
@@ -21,11 +22,17 @@ export default function ReadingView({
   effectsEnabled,
 }: ReadingViewProps) {
 
+  // Correct mapping of textSize state to Tailwind classes
   const sizeClasses = {
-    sm: 'text-base',
-    md: 'text-lg',
-    lg: 'text-xl',
-    xl: 'text-2xl'
+    sm: 'prose-sm', // Use Tailwind Typography size modifiers if configured, or fallback
+    md: 'prose-base', // Base prose size
+    lg: 'prose-lg',
+    xl: 'prose-xl'
+    // If prose modifiers aren't sufficient, use direct text sizes:
+    // sm: 'text-sm md:text-base', // Example fallback
+    // md: 'text-base md:text-lg',
+    // lg: 'text-lg md:text-xl',
+    // xl: 'text-xl md:text-2xl',
   };
 
   // Render locked view if applicable (and user is not the author)
@@ -44,7 +51,7 @@ export default function ReadingView({
         </p>
         <button
           className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-          onClick={() => alert('Subscription feature coming soon!')}
+          onClick={() => toast.info('Subscription feature coming soon!')} // toast is now defined
         >
           Subscribe to Unlock
         </button>
@@ -56,13 +63,11 @@ export default function ReadingView({
   return (
     <div className="w-full">
       <div className="max-w-4xl mx-auto px-4 md:px-8">
-        <div className={cn(
-          "prose max-w-none text-foreground", // Apply base prose styles and theme text color
-          sizeClasses[textSize]
-          // Theme background is handled by the parent layout/page
-          // Text colors for effects are handled by CSS variables in globals.css
-          )}>
-          {/* Render dynamic text using the dedicated component */}
+         {/* Apply text size class directly to the prose container */}
+         <div className={cn(
+          "prose max-w-none text-foreground", // Base prose styles
+          sizeClasses[textSize] // Apply dynamic size class here
+        )}>
           <DynamicText content={content} isEnabled={effectsEnabled} />
         </div>
       </div>
