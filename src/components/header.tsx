@@ -4,25 +4,25 @@
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/providers/auth-provider';
-import { useTheme } from '@/providers/theme-provider';
+import { useTheme } from '@/providers/theme-provider'; // Keep useTheme here for logo path logic if needed
 import { usePathname, useRouter } from 'next/navigation';
 import LoginForm from './login-form';
 import { Moon, Sun, BookOpen, Search, Plus } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import Image from 'next/image';
+import Image from 'next/image'; // Make sure Image is imported
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button'; // <-- ADD THIS LINE
+import { Button } from '@/components/ui/button';
 
 export default function Header() {
   const router = useRouter();
   const pathname = usePathname();
-  const { theme, cycleTheme } = useTheme();
+  const { theme, cycleTheme } = useTheme(); // Keep theme access if logo depends on it
   const { user, role } = useAuth();
   const [username, setUsername] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
 
-  // Determine if the current route is any chapter-related page (read or edit)
+  // Determine if the current route is any chapter-related page
   const isChapterRoute = pathname?.includes('/chapter/');
 
   // Theme icons mapping
@@ -36,15 +36,20 @@ export default function Header() {
   useEffect(() => {
     async function fetchUsername() {
       if (user) {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('username')
-          .eq('id', user.id)
-          .single();
-        if (!error && data) setUsername(data.username);
-        else if (error) console.error("Error fetching username:", error.message);
+        try { // Add try-catch for robustness
+            const { data, error } = await supabase
+            .from('profiles')
+            .select('username')
+            .eq('id', user.id)
+            .single();
+            if (error && error.code !== 'PGRST116') throw error; // Ignore not found, throw others
+            setUsername(data?.username ?? null);
+        } catch (error: any) {
+             console.error("Error fetching username:", error.message);
+             setUsername(null); // Reset on error
+        }
       } else {
-        setUsername(null); // Reset username if user logs out
+        setUsername(null);
       }
     }
     fetchUsername();
@@ -52,8 +57,9 @@ export default function Header() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (searchQuery.trim()) {
-      router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+    const trimmedQuery = searchQuery.trim();
+    if (trimmedQuery) {
+      router.push(`/search?q=${encodeURIComponent(trimmedQuery)}`);
       setSearchQuery(''); // Clear search input after navigation
     }
   };
@@ -63,23 +69,30 @@ export default function Header() {
     return null;
   }
 
-  // Render the normal header for all other pages
+  // ----> REMOVE sticky top-0 z-50 from the main container div <----
   return (
-    <div className="bg-background text-foreground border-b border-border sticky top-0 z-50">
+    <div className="bg-background text-foreground border-b border-border"> {/* Removed sticky classes */}
       <header className="container mx-auto px-4">
         <div className="flex items-center justify-between space-x-2 md:space-x-4 py-2 md:py-3">
           {/* Logo */}
           <Link href="/" className="flex-shrink-0">
-             {/* Simple Text Logo - Replace with Image if preferred */}
-             <span className="text-xl font-bold text-primary">NovelSite</span>
-            {/* <Image
+             {/* ----> RESTORED/ADJUSTED LOGO <---- */}
+             {/* Option 1: Simple Text Logo (Uncomment if preferred) */}
+             {/* <span className="text-xl font-bold text-primary">NovelSite</span> */}
+
+             {/* Option 2: Image Logo (Adjust path/theme logic as needed) */}
+             {/* Example: Assumes you have logo-light.png and logo-dark.png in public folder */}
+            <Image
+              // Dynamically set the src based on the theme if your logos are theme-specific
               src={theme === 'dark' ? "/logo-dark.png" : "/logo-light.png"}
-              alt="Your Brand"
-              width={120} // Adjust size as needed
-              height={30} // Adjust size as needed
-              className="h-auto" // Maintain aspect ratio
-              priority
-            /> */}
+              // Fallback if theme isn't ready or logo is theme-independent:
+              // src="/logo.png"
+              alt="NovelWebsite Logo" // Descriptive alt text
+              width={120} // Adjust desired width
+              height={30} // Adjust desired height
+              className="h-auto object-contain" // Maintain aspect ratio, ensure it fits
+              priority // Load logo quickly
+            />
           </Link>
 
           {/* Search Bar */}
@@ -94,18 +107,19 @@ export default function Header() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onFocus={() => setIsSearchFocused(true)}
-                onBlur={() => setTimeout(() => setIsSearchFocused(false), 150)} // Delay allows clicking search button
+                onBlur={() => setTimeout(() => setIsSearchFocused(false), 150)}
                 className={cn(
                   "w-full h-9 pl-10 pr-4 py-2 rounded-lg border text-sm",
                   "bg-input border-border text-foreground placeholder-muted-foreground",
-                  "focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary" // Use primary color for focus ring
+                  "focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
                 )}
+                aria-label="Search novels" // Added aria-label
               />
               <Search
                 size={18}
                 className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+                aria-hidden="true" // Hide decorative icon from screen readers
               />
-               {/* Consider adding a clear button inside the input when focused/has text */}
             </div>
           </form>
 
@@ -114,18 +128,18 @@ export default function Header() {
             {/* Add Novel Button (Admin/Author) */}
             {(role === 'admin' || role === 'author') && (
               <Link href="/novels/create" passHref legacyBehavior>
-                <Button variant="ghost" size="icon" aria-label="Add Novel"> {/* Now Button is defined */}
+                <Button variant="ghost" size="icon" aria-label="Add New Novel">
                   <Plus size={20} />
                 </Button>
               </Link>
             )}
 
             {/* Theme Toggle */}
-            <Button // Using Button here
+            <Button
               variant="ghost"
               size="icon"
               onClick={cycleTheme}
-              aria-label="Toggle theme"
+              aria-label={`Toggle theme to ${theme === 'light' ? 'dark' : theme === 'dark' ? 'reading' : 'light'}`} // More descriptive aria-label
             >
               {themeIcons[theme]}
             </Button>
@@ -134,8 +148,7 @@ export default function Header() {
             {user ? (
                  <div className="flex items-center gap-2 text-sm">
                     <span className="hidden sm:inline font-medium truncate max-w-[100px]">{username || user.email?.split('@')[0]}</span>
-                     {/* Simple Logout Button - Consider a Dropdown Menu for Profile/Settings */}
-                     <LoginForm />
+                     <LoginForm /> {/* LoginForm handles logout */}
                  </div>
             ) : (
                 <LoginForm />
