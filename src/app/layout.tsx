@@ -1,4 +1,6 @@
 // src/app/layout.tsx
+"use client";
+
 import { Merriweather, Roboto_Slab, Libre_Baskerville, Source_Sans_3, Open_Sans } from "next/font/google";
 import { AuthProvider } from '@/providers/auth-provider';
 import { ThemeProvider } from "@/providers/theme-provider";
