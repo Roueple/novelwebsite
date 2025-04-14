@@ -6,7 +6,7 @@ import {
   Settings,
   Edit, // Keep for linking to edit page
   Sparkles,
-  EyeOff, // This isn't used here anymore, can be removed if desired
+  EyeOff,
   Moon,
   Sun,
   BookOpen,
@@ -18,18 +18,16 @@ import { NovelType, ChapterType } from '@/types/supabase';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
-// --- CORRECTED INTERFACE ---
 interface ReadingHeaderProps {
   novel: NovelType;
   chapter: ChapterType;
-  isAuthor: boolean; // Still needed to show the 'Edit' link/button
+  isAuthor: boolean; // To show edit button link
   visible: boolean;
   setVisible: (visible: boolean) => void;
   showSettingsMenu: boolean;
   setShowSettingsMenu: (show: boolean) => void;
-  effectsEnabled: boolean; // Still needed for the Sparkles icon state
+  effectsEnabled: boolean; // For icon display
 }
-// --- END CORRECTED INTERFACE ---
 
 export default function ReadingHeader({
   novel,

@@ -1,18 +1,19 @@
+// src/components/header.tsx
 "use client";
 
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/providers/auth-provider';
 import { useTheme } from '@/providers/theme-provider';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation'; // Import useRouter
 import LoginForm from './login-form';
 import { Moon, Sun, BookOpen, Search, Plus } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import { cn } from '@/lib/utils'; // Import cn
 
 export default function Header() {
-  const router = useRouter();
+  const router = useRouter(); // Use router for navigation
   const pathname = usePathname();
   const { theme, cycleTheme } = useTheme();
   const { user, role } = useAuth();
@@ -20,17 +21,17 @@ export default function Header() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
 
-  // Check if current page is a reading page (chapter)
-  const isChapterPage = pathname?.includes('/novels/') && pathname?.includes('/chapter/');
+  // Determine if the current route is any chapter-related page (read or edit)
+  const isChapterRoute = pathname?.includes('/chapter/');
 
-  // Theme icons mapping - defined before any conditional returns
+  // Theme icons mapping
   const themeIcons = {
     light: <Sun size={20} />,
     dark: <Moon size={20} />,
     reading: <BookOpen size={20} />
   };
 
-  // Fetch username when user changes
+  // Fetch username
   useEffect(() => {
     async function fetchUsername() {
       if (user) {
@@ -39,13 +40,12 @@ export default function Header() {
           .select('username')
           .eq('id', user.id)
           .single();
-
-        if (!error && data) {
-          setUsername(data.username);
-        }
+        if (!error && data) setUsername(data.username);
+        else if (error) console.error("Error fetching username:", error.message);
+      } else {
+        setUsername(null); // Reset username if user logs out
       }
     }
-
     fetchUsername();
   }, [user]);
 
@@ -53,36 +53,38 @@ export default function Header() {
     e.preventDefault();
     if (searchQuery.trim()) {
       router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+      setSearchQuery(''); // Clear search input after navigation
     }
   };
 
-  // Don't render anything on chapter pages, but make sure all hooks are called first
-  if (isChapterPage) {
+  // ----> Conditional Rendering: Do not render header on chapter routes <----
+  if (isChapterRoute) {
     return null;
   }
 
-  // For all other pages, render the normal header
+  // Render the normal header for all other pages
   return (
-    <div className="bg-theme-background text-theme-foreground sticky top-0 z-50">
+    <div className="bg-background text-foreground border-b border-border sticky top-0 z-50">
       <header className="container mx-auto px-4">
-        <div className="flex items-center justify-between space-x-4 py-3">
+        <div className="flex items-center justify-between space-x-2 md:space-x-4 py-2 md:py-3">
           {/* Logo */}
           <Link href="/" className="flex-shrink-0">
-            <Image 
+             {/* Simple Text Logo - Replace with Image if preferred */}
+             <span className="text-xl font-bold text-primary">NovelSite</span>
+            {/* <Image
               src={theme === 'dark' ? "/logo-dark.png" : "/logo-light.png"}
               alt="Your Brand"
-              width={144}
-              height={144}
-              className="rounded-lg"
-            />
+              width={120} // Adjust size as needed
+              height={30} // Adjust size as needed
+              className="h-auto" // Maintain aspect ratio
+              priority
+            /> */}
           </Link>
 
           {/* Search Bar */}
-          <form 
-            onSubmit={handleSearch} 
-            className={`flex-grow max-w-xl mx-4 relative transition-all duration-300 ${
-              isSearchFocused ? 'w-full' : 'w-64'
-            }`}
+          <form
+            onSubmit={handleSearch}
+            className="flex-grow max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg mx-2 relative"
           >
             <div className="relative">
               <input
@@ -91,69 +93,52 @@ export default function Header() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onFocus={() => setIsSearchFocused(true)}
-                onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
-                className="w-full px-3 py-2 pl-10 rounded-lg border bg-theme-input border-theme-border text-theme-foreground placeholder-theme-muted focus:outline-none focus:border-red-500 transition-all duration-300"
+                onBlur={() => setTimeout(() => setIsSearchFocused(false), 150)} // Delay allows clicking search button
+                className={cn(
+                  "w-full h-9 pl-10 pr-4 py-2 rounded-lg border text-sm",
+                  "bg-input border-border text-foreground placeholder-muted-foreground",
+                  "focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary" // Use primary color for focus ring
+                )}
               />
-              <Search 
-                size={20} 
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-theme-muted"
+              <Search
+                size={18}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
               />
+               {/* Consider adding a clear button inside the input when focused/has text */}
             </div>
           </form>
 
           {/* Action Buttons */}
-          <div className="flex items-center space-x-2">
-            {user && (
-              <div className="flex items-center gap-2 text-theme-foreground mr-2">
-                <span>{username || 'Loading...'}</span>
-                {role && (
-                  <span 
-                    className={`px-2 py-1 text-sm rounded-full text-white ${
-                      role === 'admin' 
-                        ? 'bg-red-800' 
-                        : role === 'author' 
-                        ? 'bg-blue-800' 
-                        : 'bg-green-800'
-                    }`}
-                  >
-                    {role}
-                  </span>
-                )}
-              </div>
-            )}
-
-            {/* Novel Translator (Admin and Author Only) */}
-            {user && (role === 'admin' || role === 'author') && (
-              <Link
-                href="/admin/translator"
-                className="p-2 rounded-lg border border-theme-border hover:bg-theme-hover flex items-center gap-2"
-                aria-label="Novel Translator"
-              >
-                <BookOpen size={20} className="text-theme-foreground" />
-                <span className="hidden md:inline">Translator</span>
-              </Link>
-            )}
-
-            {/* Add Novel Button (Admin and Author Only) */}
+          <div className="flex items-center flex-shrink-0 space-x-1 md:space-x-2">
+            {/* Add Novel Button (Admin/Author) */}
             {(role === 'admin' || role === 'author') && (
-              <Link
-                href="/novels/create"
-                className="p-2 rounded-lg border border-theme-border hover:bg-theme-hover flex items-center"
-                aria-label="Add Novel"
-              >
-                <Plus size={20} className="text-theme-foreground" />
+              <Link href="/novels/create" passHref legacyBehavior>
+                <Button variant="ghost" size="icon" aria-label="Add Novel">
+                  <Plus size={20} />
+                </Button>
               </Link>
             )}
 
-            <button
+            {/* Theme Toggle */}
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={cycleTheme}
-              className="p-2 rounded-lg border border-theme-border hover:bg-theme-hover"
               aria-label="Toggle theme"
             >
               {themeIcons[theme]}
-            </button>
+            </Button>
 
-            <LoginForm />
+            {/* Login/User Info */}
+            {user ? (
+                 <div className="flex items-center gap-2 text-sm">
+                    <span className="hidden sm:inline font-medium truncate max-w-[100px]">{username || user.email?.split('@')[0]}</span>
+                     {/* Simple Logout Button - Consider a Dropdown Menu for Profile/Settings */}
+                     <LoginForm />
+                 </div>
+            ) : (
+                <LoginForm />
+            )}
           </div>
         </div>
       </header>
