@@ -216,18 +216,18 @@ const EditChapterPage = () => {
               </span>
             )}
             {/* Help Dialog Trigger */}
-             <Dialog>
-                <DialogTrigger asChild>
+            <Dialog>
+              <DialogTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-1">
-                    <HelpCircle size={16} /> Help
+                  <HelpCircle size={16} /> Help
                 </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+              </DialogTrigger>
+              <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto bg-background border-border">
                 <DialogHeader>
-                    <DialogTitle>Text Effects Guide</DialogTitle>
+                  <DialogTitle className="text-foreground">Text Effects Guide</DialogTitle>
                 </DialogHeader>
                 <TextEffectsExample />
-                </DialogContent>
+              </DialogContent>
             </Dialog>
             {/* Preview Toggle */}
             <Button
