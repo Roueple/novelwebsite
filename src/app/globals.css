@@ -189,28 +189,28 @@
 
   /* --- Reading Theme --- */
   .reading {
-     /* Apply Reading Semantic Overrides */
-    --background: var(--reading-background);
-    --foreground: var(--reading-foreground);
+     /* Apply Reading Semantic Overrides using the correct variables */
+    --background: hsl(var(--reading-background-raw));
+    --foreground: hsl(var(--reading-foreground-raw));
     /* Card/Popover matches reading background for seamless feel */
-    --card: var(--reading-background);
-    --card-foreground: var(--reading-foreground);
-    --popover: var(--reading-background);
-    --popover-foreground: var(--reading-foreground);
+    --card: hsl(var(--reading-background-raw));
+    --card-foreground: hsl(var(--reading-foreground-raw));
+    --popover: hsl(var(--reading-background-raw));
+    --popover-foreground: hsl(var(--reading-foreground-raw));
     /* Define other semantic colors based on reading palette */
-    --primary: var(--reading-accent);
-    --primary-foreground: var(--reading-background); /* High contrast */
-    --secondary: color-mix(in srgb, var(--reading-accent) 20%, var(--reading-background));
-    --secondary-foreground: var(--reading-foreground);
-    --muted: var(--reading-muted);
-    --muted-foreground: color-mix(in srgb, var(--reading-foreground) 65%, var(--reading-background)); /* Ensure readability */
-    --accent: var(--reading-accent);
-    --accent-foreground: var(--reading-background);
+    --primary: hsl(var(--reading-accent-raw));
+    --primary-foreground: hsl(var(--reading-background-raw)); /* High contrast */
+    --secondary: color-mix(in srgb, hsl(var(--reading-accent-raw)) 20%, hsl(var(--reading-background-raw)));
+    --secondary-foreground: hsl(var(--reading-foreground-raw));
+    --muted: hsl(var(--reading-muted-raw));
+    --muted-foreground: color-mix(in srgb, hsl(var(--reading-foreground-raw)) 65%, hsl(var(--reading-background-raw))); /* Ensure readability */
+    --accent: hsl(var(--reading-accent-raw));
+    --accent-foreground: hsl(var(--reading-background-raw));
     --destructive: hsl(var(--destructive-raw)); /* Keep base destructive */
     --destructive-foreground: hsl(var(--destructive-foreground-raw));
-    --border: color-mix(in srgb, var(--reading-foreground) 15%, var(--reading-background));
-    --input: color-mix(in srgb, var(--reading-foreground) 5%, var(--reading-background));
-    --ring: var(--reading-accent);
+    --border: color-mix(in srgb, hsl(var(--reading-foreground-raw)) 15%, hsl(var(--reading-background-raw)));
+    --input: color-mix(in srgb, hsl(var(--reading-foreground-raw)) 5%, hsl(var(--reading-background-raw)));
+    --ring: hsl(var(--reading-accent-raw));
   }
 
   /* Base body styles */

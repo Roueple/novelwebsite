@@ -68,46 +68,55 @@ export default function TextEffectsExample() {
   };
 
   return (
-    // --- MODIFICATION START ---
-    // Explicitly add theme classes to ensure contrast within the dialog
-    <Card className={cn(
-        "mb-8", // Keep existing margin if needed
-        "bg-card text-card-foreground border-border" // Add explicit theme classes
-    )}>
-    {/* --- MODIFICATION END --- */}
-      <CardHeader className="flex flex-row items-center justify-between pb-4"> {/* Adjusted padding */}
-        <CardTitle className="flex items-center gap-2 text-lg"> {/* Adjusted size */}
+    // Explicitly add theme classes to ensure proper background and text colors
+    <Card className="mb-8 bg-card text-card-foreground border-border">
+      <CardHeader className="flex flex-row items-center justify-between pb-4 bg-card">
+        <CardTitle className="flex items-center gap-2 text-lg text-foreground">
           <Sparkles size={18} className="text-yellow-500" />
           <span>Dynamic Text Effects Guide</span>
         </CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="bg-card">
         {/* Ensure paragraph text uses foreground color */}
         <p className="mb-4 text-sm text-foreground">
           Enhance your writing with dynamic text effects by using special tags.
-          Wrap your text in tags like <code className="bg-muted px-1 py-0.5 rounded text-muted-foreground">[effect]your text[effect]</code> to apply visual styles.
+          Wrap your text in tags like <code className="bg-muted px-1 py-0.5 rounded text-foreground">
+            [effect]your text[effect]</code> to apply visual styles.
         </p>
 
         <Tabs defaultValue="volume" className="mt-6">
-          {/* Ensure TabsList uses theme colors */}
           <TabsList className="mb-4 bg-muted text-muted-foreground">
-            <TabsTrigger value="volume" className="data-[state=active]:bg-background data-[state=active]:text-foreground">Volume</TabsTrigger>
-            <TabsTrigger value="emotion" className="data-[state=active]:bg-background data-[state=active]:text-foreground">Emotion</TabsTrigger>
-            <TabsTrigger value="timing" className="data-[state=active]:bg-background data-[state=active]:text-foreground">Timing</TabsTrigger>
-            <TabsTrigger value="mental" className="data-[state=active]:bg-background data-[state=active]:text-foreground">Mental</TabsTrigger>
-            <TabsTrigger value="stylistic" className="data-[state=active]:bg-background data-[state=active]:text-foreground">Stylistic</TabsTrigger>
-            <TabsTrigger value="special" className="data-[state=active]:bg-background data-[state=active]:text-foreground">Special</TabsTrigger>
+            <TabsTrigger value="volume" className="data-[state=active]:bg-background data-[state=active]:text-foreground">
+              Volume
+            </TabsTrigger>
+            <TabsTrigger value="emotion" className="data-[state=active]:bg-background data-[state=active]:text-foreground">
+              Emotion
+            </TabsTrigger>
+            <TabsTrigger value="timing" className="data-[state=active]:bg-background data-[state=active]:text-foreground">
+              Timing
+            </TabsTrigger>
+            <TabsTrigger value="mental" className="data-[state=active]:bg-background data-[state=active]:text-foreground">
+              Mental
+            </TabsTrigger>
+            <TabsTrigger value="stylistic" className="data-[state=active]:bg-background data-[state=active]:text-foreground">
+              Stylistic
+            </TabsTrigger>
+            <TabsTrigger value="special" className="data-[state=active]:bg-background data-[state=active]:text-foreground">
+              Special
+            </TabsTrigger>
           </TabsList>
 
           {Object.entries(EFFECT_EXAMPLES).map(([category, effects]) => (
             <TabsContent key={category} value={category} className="space-y-4">
               {effects.map((effect) => (
-                // Ensure inner borders and text use theme colors
-                <div key={effect.tag} className="border border-border rounded-lg p-4 bg-background">
+                <div 
+                  key={effect.tag} 
+                  className="border border-border rounded-lg p-4 bg-background text-foreground"
+                >
                   <div className="flex items-center justify-between mb-2">
                     <h3 className="font-medium text-foreground">{effect.name}</h3>
                     <Button
-                      variant="outline" // Uses theme outline style
+                      variant="outline"
                       size="sm"
                       onClick={() => copyToClipboard(effect.example)}
                       className="flex items-center gap-1 text-xs"
@@ -117,11 +126,9 @@ export default function TextEffectsExample() {
                     </Button>
                   </div>
                   <p className="text-sm text-muted-foreground mb-2">
-                    Tag: <code className="bg-muted px-1 py-0.5 rounded text-muted-foreground">{effect.tag}</code>
+                    Tag: <code className="bg-muted px-1 py-0.5 rounded text-foreground">{effect.tag}</code>
                   </p>
-                  {/* Ensure preview area uses theme colors */}
                   <div className="bg-muted/50 p-3 rounded-md mt-3 border border-border/50">
-                     {/* DynamicText itself should inherit foreground color */}
                     <DynamicText content={effect.example} isEnabled={true} />
                   </div>
                 </div>
@@ -130,7 +137,6 @@ export default function TextEffectsExample() {
           ))}
         </Tabs>
 
-        {/* Ensure Tips section uses theme colors */}
         <div className="mt-6 border-t border-border pt-4">
           <h3 className="font-medium mb-2 text-foreground">Tips for Using Text Effects</h3>
           <ul className="text-sm space-y-2 list-disc pl-5 text-muted-foreground">
