@@ -1,5 +1,5 @@
 // src/components/reading/text-effects-example.tsx
-"use client"; // <-- ADD THIS LINE
+"use client";
 
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,7 +7,10 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Sparkles, Copy } from 'lucide-react';
 import DynamicText from './dynamic-text';
+import { toast } from 'sonner'; // Import toast for copy feedback
+import { cn } from '@/lib/utils'; // Import cn
 
+// EFFECT_EXAMPLES definition remains the same
 const EFFECT_EXAMPLES = {
   volume: [
     { name: 'Shout', tag: '[shout]', example: '[shout]WATCH OUT![shout]' },
@@ -51,57 +54,74 @@ const EFFECT_EXAMPLES = {
   ]
 };
 
+
 export default function TextEffectsExample() {
   // Function to copy text to clipboard
   const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    // Could add a toast notification here
+     try {
+        navigator.clipboard.writeText(text);
+        toast.success("Copied to clipboard!"); // Provide user feedback
+     } catch (err) {
+         console.error("Failed to copy text: ", err);
+         toast.error("Failed to copy text.");
+     }
   };
 
   return (
-    <Card className="mb-8">
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle className="flex items-center gap-2">
-          <Sparkles size={20} className="text-yellow-500" />
+    // --- MODIFICATION START ---
+    // Explicitly add theme classes to ensure contrast within the dialog
+    <Card className={cn(
+        "mb-8", // Keep existing margin if needed
+        "bg-card text-card-foreground border-border" // Add explicit theme classes
+    )}>
+    {/* --- MODIFICATION END --- */}
+      <CardHeader className="flex flex-row items-center justify-between pb-4"> {/* Adjusted padding */}
+        <CardTitle className="flex items-center gap-2 text-lg"> {/* Adjusted size */}
+          <Sparkles size={18} className="text-yellow-500" />
           <span>Dynamic Text Effects Guide</span>
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <p className="mb-4">
-          Enhance your writing with dynamic text effects by using special tags. 
-          Wrap your text in tags like <code className="bg-muted px-1 py-0.5 rounded">[effect]your text[effect]</code> to apply visual styles.
+        {/* Ensure paragraph text uses foreground color */}
+        <p className="mb-4 text-sm text-foreground">
+          Enhance your writing with dynamic text effects by using special tags.
+          Wrap your text in tags like <code className="bg-muted px-1 py-0.5 rounded text-muted-foreground">[effect]your text[effect]</code> to apply visual styles.
         </p>
-        
+
         <Tabs defaultValue="volume" className="mt-6">
-          <TabsList className="mb-4">
-            <TabsTrigger value="volume">Volume</TabsTrigger>
-            <TabsTrigger value="emotion">Emotion</TabsTrigger>
-            <TabsTrigger value="timing">Timing</TabsTrigger>
-            <TabsTrigger value="mental">Mental</TabsTrigger>
-            <TabsTrigger value="stylistic">Stylistic</TabsTrigger>
-            <TabsTrigger value="special">Special</TabsTrigger>
+          {/* Ensure TabsList uses theme colors */}
+          <TabsList className="mb-4 bg-muted text-muted-foreground">
+            <TabsTrigger value="volume" className="data-[state=active]:bg-background data-[state=active]:text-foreground">Volume</TabsTrigger>
+            <TabsTrigger value="emotion" className="data-[state=active]:bg-background data-[state=active]:text-foreground">Emotion</TabsTrigger>
+            <TabsTrigger value="timing" className="data-[state=active]:bg-background data-[state=active]:text-foreground">Timing</TabsTrigger>
+            <TabsTrigger value="mental" className="data-[state=active]:bg-background data-[state=active]:text-foreground">Mental</TabsTrigger>
+            <TabsTrigger value="stylistic" className="data-[state=active]:bg-background data-[state=active]:text-foreground">Stylistic</TabsTrigger>
+            <TabsTrigger value="special" className="data-[state=active]:bg-background data-[state=active]:text-foreground">Special</TabsTrigger>
           </TabsList>
-          
+
           {Object.entries(EFFECT_EXAMPLES).map(([category, effects]) => (
             <TabsContent key={category} value={category} className="space-y-4">
               {effects.map((effect) => (
-                <div key={effect.tag} className="border rounded-lg p-4">
+                // Ensure inner borders and text use theme colors
+                <div key={effect.tag} className="border border-border rounded-lg p-4">
                   <div className="flex items-center justify-between mb-2">
-                    <h3 className="font-medium">{effect.name}</h3>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
+                    <h3 className="font-medium text-foreground">{effect.name}</h3>
+                    <Button
+                      variant="outline" // Uses theme outline style
+                      size="sm"
                       onClick={() => copyToClipboard(effect.example)}
                       className="flex items-center gap-1 text-xs"
                     >
                       <Copy size={14} />
-                      <span>Copy</span>
+                      <span>Copy Example</span>
                     </Button>
                   </div>
                   <p className="text-sm text-muted-foreground mb-2">
-                    Tag: <code className="bg-muted px-1 py-0.5 rounded">{effect.tag}</code>
+                    Tag: <code className="bg-muted px-1 py-0.5 rounded text-muted-foreground">{effect.tag}</code>
                   </p>
-                  <div className="bg-muted/20 p-3 rounded-md mt-3">
+                  {/* Ensure preview area uses theme colors */}
+                  <div className="bg-muted/50 p-3 rounded-md mt-3 border border-border/50">
+                     {/* DynamicText itself should inherit foreground color */}
                     <DynamicText content={effect.example} isEnabled={true} />
                   </div>
                 </div>
@@ -109,15 +129,16 @@ export default function TextEffectsExample() {
             </TabsContent>
           ))}
         </Tabs>
-        
-        <div className="mt-6 border-t pt-4">
-          <h3 className="font-medium mb-2">Tips for Using Text Effects</h3>
-          <ul className="text-sm space-y-2 list-disc pl-5">
-            <li>Use effects sparingly for maximum impact</li>
-            <li>Combine different effects to create unique expressions</li>
-            <li>Effects can be nested, but avoid overdoing it</li>
-            <li>Dynamic text will be rendered for readers who have effects enabled</li>
-            <li>Readers can toggle effects on/off in their reading settings</li>
+
+        {/* Ensure Tips section uses theme colors */}
+        <div className="mt-6 border-t border-border pt-4">
+          <h3 className="font-medium mb-2 text-foreground">Tips for Using Text Effects</h3>
+          <ul className="text-sm space-y-2 list-disc pl-5 text-muted-foreground">
+            <li>Use effects sparingly for maximum impact.</li>
+            <li>Combine different effects to create unique expressions.</li>
+            <li>Effects can be nested, but avoid overdoing it.</li>
+            <li>Dynamic text will be rendered for readers who have effects enabled.</li>
+            <li>Readers can toggle effects on/off in their reading settings.</li>
           </ul>
         </div>
       </CardContent>
