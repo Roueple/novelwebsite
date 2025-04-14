@@ -1,4 +1,6 @@
 // src/components/reading/text-effects-example.tsx
+"use client"; // <-- ADD THIS LINE
+
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
