@@ -2,16 +2,18 @@
 
 import { useState } from 'react';
 import { useAuth } from '@/providers/auth-provider';
-import { useTheme } from '@/providers/theme-provider';
 import { FcGoogle } from 'react-icons/fc';
 import { HiMail } from 'react-icons/hi';
 import PhoneInput from 'react-phone-input-2';
 import 'react-phone-input-2/lib/style.css';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { X } from 'lucide-react'; // <-- IMPORT X from lucide-react
+import LoadingSpinner from '@/components/ui/loading-spinner'; // <-- IMPORT LoadingSpinner
 
-export default function LoginForm() { // Changed from LoginButton to LoginForm
-  const { theme } = useTheme();
-  const isDark = theme === 'dark';
-  const { user, signInWithGoogle, signInWithEmail, signInWithPhone, signInAsGuest, signOut } = useAuth(); // Added signOut
+export default function LoginForm() {
+  // Removed theme imports as planned
+  const { user, signInWithGoogle, signInWithEmail, signInWithPhone, signInAsGuest, signOut } = useAuth();
 
   const [showModal, setShowModal] = useState(false);
   const [loginMethod, setLoginMethod] = useState<'email' | 'phone'>('email');
@@ -19,162 +21,208 @@ export default function LoginForm() { // Changed from LoginButton to LoginForm
   const [phone, setPhone] = useState('');
   const [emailSent, setEmailSent] = useState(false);
   const [phoneSent, setPhoneSent] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const handleSignOut = async () => {
+      setLoading(true);
+      try { // Add try/catch for sign out as well
+          await signOut();
+      } catch(error) {
+          console.error("Sign out error:", error);
+          alert("Failed to sign out."); // Optional feedback
+      } finally {
+          setLoading(false);
+      }
+  }
 
   if (user) {
     return (
-      <button
-        onClick={signOut}
-        className={`px-4 py-2 rounded-lg ${
-          isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'
-        } border border-gray-300 hover:bg-opacity-80`}
+      <Button
+        variant="outline"
+        onClick={handleSignOut}
+        disabled={loading}
+        size="sm"
       >
-        Logout
-      </button>
+        {loading ? 'Logging out...' : 'Logout'}
+      </Button>
     );
   }
 
   const handleContinue = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
+    setEmailSent(false);
+    setPhoneSent(false);
     try {
       if (loginMethod === 'email') {
         await signInWithEmail(email);
         setEmailSent(true);
       } else {
-        await signInWithPhone(phone);
+        const formattedPhone = phone.startsWith('+') ? phone : `+${phone}`;
+        await signInWithPhone(formattedPhone);
         setPhoneSent(true);
       }
     } catch (error) {
       console.error('Error during login:', error);
-      alert('Login failed. Please try again.'); // Added error feedback
+      const message = error instanceof Error ? error.message : 'Login failed. Please try again.';
+      alert(message); // Provide more specific error if available
+    } finally {
+        setLoading(false);
     }
   };
 
+  const handleGoogleSignIn = async () => {
+      setLoading(true);
+      try {
+          await signInWithGoogle();
+          // Successful sign-in will trigger auth state change, closing modal implicitly
+      } catch (error) {
+          console.error('Google Sign in error:', error);
+          alert('Google Sign in failed. Please try again.');
+          setLoading(false); // Ensure loading is false on error
+      }
+      // No finally needed if modal closes automatically on auth change
+  }
+
+  const handleGuestSignIn = async () => {
+      setLoading(true);
+      try {
+          await signInAsGuest();
+          // Successful sign-in will trigger auth state change, closing modal implicitly
+      } catch (error) {
+           console.error('Guest Sign in error:', error);
+          alert('Guest Sign in failed. Please try again.');
+           setLoading(false); // Ensure loading is false on error
+      }
+       // No finally needed if modal closes automatically on auth change
+  }
+
+
   return (
     <>
-      <button
+      <Button
+        variant="outline"
         onClick={() => setShowModal(true)}
-        className={`px-4 py-2 rounded-lg ${
-          isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'
-        } border border-gray-300 hover:bg-opacity-80`}
+        size="sm"
       >
         Login
-      </button>
+      </Button>
 
       {showModal && (
         <div className="fixed inset-0 flex items-center justify-center z-50">
-          <div className="fixed inset-0 bg-black bg-opacity-50" onClick={() => setShowModal(false)} />
-          <div className={`relative ${isDark ? 'bg-gray-800' : 'bg-white'} p-8 rounded-lg shadow-xl max-w-sm w-full mx-4`}>
-            <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          <div className="fixed inset-0 bg-black bg-opacity-50" onClick={() => !loading && setShowModal(false)} />
+          <div className="relative bg-card p-8 rounded-lg shadow-xl max-w-sm w-full mx-4">
+             <button
+                onClick={() => !loading && setShowModal(false)}
+                disabled={loading}
+                className="absolute top-3 right-3 p-1 rounded-full text-muted-foreground hover:bg-accent disabled:opacity-50"
+                aria-label="Close login modal"
+             >
+                <X size={18} /> {/* X is now imported */}
+             </button>
+
+            <h2 className="text-2xl font-bold mb-6 text-foreground">
               Login to Continue
             </h2>
 
             {emailSent ? (
-              <div className={`text-center ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
-                <p className="mb-4">Check your email for the magic link!</p>
-                <button
-                  onClick={() => setShowModal(false)}
-                  className="text-blue-500 hover:underline"
-                >
+              <div className="text-center text-foreground">
+                <p className="mb-4">Check your email ({email}) for the magic link!</p>
+                <Button variant="link" onClick={() => setShowModal(false)}>
                   Close
-                </button>
+                </Button>
               </div>
             ) : phoneSent ? (
-              <div className={`text-center ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
-                <p className="mb-4">Check your phone for the verification code!</p>
-                <button
-                  onClick={() => setShowModal(false)}
-                  className="text-blue-500 hover:underline"
-                >
+              <div className="text-center text-foreground">
+                <p className="mb-4">Check your phone ({phone}) for the verification code!</p>
+                 <Button variant="link" onClick={() => setShowModal(false)}>
                   Close
-                </button>
+                </Button>
               </div>
             ) : (
               <div className="space-y-4">
-                <button
-                  onClick={signInWithGoogle}
-                  className={`w-full py-3 px-4 rounded-lg border flex items-center justify-center gap-2 ${
-                    isDark ? 'border-gray-600 hover:bg-gray-700' : 'border-gray-300 hover:bg-gray-50'
-                  }`}
+                <Button
+                  variant="outline"
+                  onClick={handleGoogleSignIn}
+                  disabled={loading}
+                  className="w-full"
                 >
-                  <FcGoogle size={20} />
-                  <span className={isDark ? 'text-white' : 'text-gray-900'}>Continue with Google</span>
-                </button>
+                  <FcGoogle size={20} className="mr-2"/>
+                  Continue with Google
+                </Button>
 
-                <div className={`relative text-center my-6 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                  <span className="bg-inherit px-2 relative z-10">or</span>
-                  <div className="absolute top-1/2 w-full h-px bg-gray-300 -z-10" />
+                <div className="relative text-center my-4 text-muted-foreground text-xs">
+                  <span className="bg-card px-2 relative z-10">OR</span>
+                  <div className="absolute top-1/2 w-full h-px bg-border -z-10" />
                 </div>
 
                 <div className="flex gap-2 mb-4">
-                  <button 
-                    onClick={() => setLoginMethod('email')}
-                    className={`flex-1 py-2 rounded-lg ${
-                      loginMethod === 'email' 
-                        ? 'bg-blue-600 text-white' 
-                        : isDark ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'
-                    }`}
+                  <Button
+                     variant={loginMethod === 'email' ? 'secondary' : 'ghost'}
+                     onClick={() => setLoginMethod('email')}
+                     disabled={loading}
+                     className="flex-1"
                   >
                     Email
-                  </button>
-                  <button 
-                    onClick={() => setLoginMethod('phone')}
-                    className={`flex-1 py-2 rounded-lg ${
-                      loginMethod === 'phone' 
-                        ? 'bg-blue-600 text-white' 
-                        : isDark ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'
-                    }`}
+                  </Button>
+                   <Button
+                     variant={loginMethod === 'phone' ? 'secondary' : 'ghost'}
+                     onClick={() => setLoginMethod('phone')}
+                     disabled={loading}
+                     className="flex-1"
                   >
                     Phone
-                  </button>
+                  </Button>
                 </div>
 
                 <form onSubmit={handleContinue}>
                   {loginMethod === 'email' ? (
-                    <input
+                    <Input
                       type="email"
                       placeholder="Enter your email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className={`w-full px-4 py-2 rounded-lg border mb-4 ${
-                        isDark 
-                          ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
-                          : 'bg-white border-gray-300 text-gray-900'
-                      }`}
+                      className="w-full mb-4"
                       required
+                      disabled={loading}
                     />
                   ) : (
-                    <div className="mb-4">
+                    <div className="mb-4 [&_.react-tel-input_.form-control]:w-full [&_.react-tel-input_.form-control]:bg-background [&_.react-tel-input_.form-control]:text-foreground [&_.react-tel-input_.form-control]:border-border">
                       <PhoneInput
                         country={'us'}
                         value={phone}
                         onChange={setPhone}
-                        inputStyle={{
-                          width: '100%',
-                          height: '42px',
-                          fontSize: '16px',
-                          backgroundColor: isDark ? '#374151' : '#fff',
-                          color: isDark ? '#fff' : '#000',
-                          border: isDark ? '1px solid #4B5563' : '1px solid #D1D5DB',
+                        inputProps={{
+                            name: 'phone',
+                            required: true,
+                            disabled: loading
                         }}
                       />
                     </div>
                   )}
-                  <button
+                  <Button
                     type="submit"
-                    className="w-full py-3 px-4 rounded-lg bg-blue-600 text-white hover:bg-blue-700 flex items-center justify-center gap-2"
+                    disabled={loading || (loginMethod === 'email' && !email) || (loginMethod === 'phone' && phone.length < 5)}
+                    className="w-full"
                   >
-                    <HiMail size={20} />
-                    Continue with {loginMethod === 'email' ? 'Email' : 'Phone'}
-                  </button>
+                    {loading ? (
+                        <LoadingSpinner className="mr-2" size="sm"/> // LoadingSpinner is now imported
+                    ) : (
+                        <HiMail size={20} className="mr-2"/>
+                    )}
+                    {loading ? 'Sending...' : `Continue with ${loginMethod === 'email' ? 'Email' : 'Phone'}`}
+                  </Button>
                 </form>
 
                 <div className="mt-4 text-center">
-                  <button 
-                    onClick={signInAsGuest}
-                    className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'} hover:underline`}
+                  <Button
+                    variant="link"
+                    onClick={handleGuestSignIn}
+                    disabled={loading}
+                    className="text-sm text-muted-foreground"
                   >
                     Continue as Guest
-                  </button>
+                  </Button>
                 </div>
               </div>
             )}

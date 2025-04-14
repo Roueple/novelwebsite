@@ -1,4 +1,6 @@
 // src/components/reading/reading-settings-menu.tsx
+"use client";
+
 import React, { RefObject } from 'react';
 import { useTheme } from '@/providers/theme-provider';
 import { 
