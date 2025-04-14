@@ -5,15 +5,16 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/providers/auth-provider';
 import { useTheme } from '@/providers/theme-provider';
-import { usePathname, useRouter } from 'next/navigation'; // Import useRouter
+import { usePathname, useRouter } from 'next/navigation';
 import LoginForm from './login-form';
 import { Moon, Sun, BookOpen, Search, Plus } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import Image from 'next/image';
-import { cn } from '@/lib/utils'; // Import cn
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button'; // <-- ADD THIS LINE
 
 export default function Header() {
-  const router = useRouter(); // Use router for navigation
+  const router = useRouter();
   const pathname = usePathname();
   const { theme, cycleTheme } = useTheme();
   const { user, role } = useAuth();
@@ -113,14 +114,14 @@ export default function Header() {
             {/* Add Novel Button (Admin/Author) */}
             {(role === 'admin' || role === 'author') && (
               <Link href="/novels/create" passHref legacyBehavior>
-                <Button variant="ghost" size="icon" aria-label="Add Novel">
+                <Button variant="ghost" size="icon" aria-label="Add Novel"> {/* Now Button is defined */}
                   <Plus size={20} />
                 </Button>
               </Link>
             )}
 
             {/* Theme Toggle */}
-            <Button
+            <Button // Using Button here
               variant="ghost"
               size="icon"
               onClick={cycleTheme}
