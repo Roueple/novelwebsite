@@ -1,10 +1,10 @@
 // src/components/editor/text-effects-toolbar.tsx
-import React, { RefObject } from 'react'; // Ensure RefObject is imported
+import React, { RefObject } from 'react';
 import { Button } from '@/components/ui/button';
-import { Bold, Italic, Strikethrough, Code, Type, Quote, Heading2, List, ListOrdered } from 'lucide-react'; // Example icons
+import { Bold, Italic, Strikethrough, Code, Type, Quote, Heading2, List, ListOrdered } from 'lucide-react';
 
-// Define the effect tags and their corresponding buttons/icons
 const EFFECT_BUTTONS = [
+  // ... (keep your effect buttons array)
   { tag: 'shout', label: 'Shout', icon: '📣' },
   { tag: 'whisper', label: 'Whisper', icon: '🤫' },
   { tag: 'tremble', label: 'Tremble', icon: '🥶' },
@@ -12,25 +12,28 @@ const EFFECT_BUTTONS = [
   { tag: 'joy', label: 'Joy', icon: '😊' },
   { tag: 'anger', label: 'Anger', icon: '😠' },
   { tag: 'thought', label: 'Thought', icon: '🤔' },
-  { tag: 'emphasis', label: 'Emphasis', icon: <Bold size={16}/> }, // Example Lucide icon
+  { tag: 'emphasis', label: 'Emphasis', icon: <Bold size={16}/> },
   { tag: 'impact', label: 'Impact', icon: '💥' },
   { tag: 'pause', label: 'Pause', icon: '…' },
-  // Add more buttons for other effects...
 ];
 
-// --- >>>> MAKE SURE 'export' IS NOT PRESENT ON THE LINE BELOW <<<< ---
+// --- CORRECTED INTERFACE - Allow null in the generic type ---
 interface TextEffectsToolbarProps {
-  editorRef: RefObject<HTMLTextAreaElement>;
+  // Explicitly state that the element the ref points to might be null initially
+  editorRef: RefObject<HTMLTextAreaElement | null>;
   setContent: (value: string | ((prev: string) => string)) => void;
   disabled?: boolean;
 }
-// --- >>>> END CHECK <<<< ---
+// --- END CORRECTION ---
 
 export default function TextEffectsToolbar({ editorRef, setContent, disabled = false }: TextEffectsToolbarProps) {
 
   const applyTag = (tag: string) => {
-    const textarea = editorRef.current;
-    if (!textarea) return;
+    const textarea = editorRef.current; // Still HTMLTextAreaElement | null
+    if (!textarea) {
+        console.warn("Textarea ref not available yet.");
+        return;
+    }
 
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
@@ -38,7 +41,6 @@ export default function TextEffectsToolbar({ editorRef, setContent, disabled = f
     const tagStart = `[${tag}]`;
     const tagEnd = `[${tag}]`;
 
-    // Wrap selected text or insert tags at cursor
     const newText = selectedText
       ? `${tagStart}${selectedText}${tagEnd}`
       : `${tagStart}${tagEnd}`;
@@ -46,18 +48,17 @@ export default function TextEffectsToolbar({ editorRef, setContent, disabled = f
     const before = textarea.value.substring(0, start);
     const after = textarea.value.substring(end);
 
-    // Update content state using the callback form of setContent
     setContent(currentContent => before + newText + after);
 
-    // Delay focus and selection adjustment to allow React state update
     setTimeout(() => {
-      textarea.focus();
-      if (selectedText) {
-        // Keep the original selection highlighted (now including tags)
-        textarea.setSelectionRange(start, start + newText.length);
-      } else {
-        // Place cursor between the inserted tags
-        textarea.setSelectionRange(start + tagStart.length, start + tagStart.length);
+      // Null check remains important before accessing methods/properties
+      if (editorRef.current) {
+          editorRef.current.focus();
+          if (selectedText) {
+            editorRef.current.setSelectionRange(start, start + newText.length);
+          } else {
+            editorRef.current.setSelectionRange(start + tagStart.length, start + tagStart.length);
+          }
       }
     }, 0);
   };
@@ -75,11 +76,8 @@ export default function TextEffectsToolbar({ editorRef, setContent, disabled = f
           className="px-2 py-1 h-auto text-muted-foreground hover:bg-background hover:text-foreground"
         >
           {typeof icon === 'string' ? <span className="text-base">{icon}</span> : icon}
-          {/* Optional: Add label text for larger screens */}
-          {/* <span className="hidden sm:inline ml-1 text-xs">{label}</span> */}
         </Button>
       ))}
-      {/* Add more standard formatting buttons if needed (Bold, Italic etc. if using Markdown or similar) */}
     </div>
   );
 }
