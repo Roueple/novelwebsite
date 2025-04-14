@@ -1,7 +1,7 @@
 // src/app/novels/[id]/chapter/[chapterId]/edit/page.tsx
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from 'react'; // Added React and useRef import
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 // ... other imports remain the same
 import { Input } from '@/components/ui/input';
@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Save, X, Lock, Unlock, Eye, EyeOff, HelpCircle, Sparkles } from 'lucide-react';
-import TextEffectsToolbar from '@/components/editor/text-effects-toolbar';
+import TextEffectsToolbar from '@/components/editor/text-effects-toolbar'; // Keep this import
 import DynamicText from '@/components/reading/dynamic-text';
 import TextEffectsExample from '@/components/reading/text-effects-example';
 import {
@@ -20,7 +20,7 @@ import {
   DialogTrigger
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import type { ChapterType, NovelType } from '@/types/supabase'; // Ensure types are imported
+import type { ChapterType, NovelType } from '@/types/supabase';
 import { useAuth } from '@/providers/auth-provider';
 import { getChapter, getNovel } from '@/lib/api';
 import LoadingScreen from '@/components/ui/loading-screen';
@@ -29,8 +29,8 @@ import AdminRoleCheck from '@/components/auth/admin-role-check';
 import { useChapterActions } from '@/hooks/use-chapter-actions';
 
 
-// --- >>>> Add Explicit Type: React.FC <<<< ---
-const EditChapterPage: React.FC = () => {
+// --- >>>> REMOVE Explicit Type: React.FC <<<< ---
+const EditChapterPage = () => {
 // --- >>>> END CHANGE <<<< ---
 
   const { user, role } = useAuth();
@@ -106,7 +106,8 @@ const EditChapterPage: React.FC = () => {
       if (savedDraft && chapter) { // Only load if chapter data exists
         const { title, content, locked, timestamp } = JSON.parse(savedDraft);
         const draftDate = new Date(timestamp);
-        const chapterUpdateDate = new Date(chapter.updated_at);
+        // Make sure chapter.updated_at exists before comparing
+        const chapterUpdateDate = chapter.updated_at ? new Date(chapter.updated_at) : new Date(0); // Default to epoch if undefined
         if (draftDate > chapterUpdateDate) {
           setEditedTitle(title);
           setEditedContent(content);
@@ -290,6 +291,6 @@ const EditChapterPage: React.FC = () => {
       </div>
     </AdminRoleCheck>
   );
-}; // Added closing curly brace for the component
+};
 
-export default EditChapterPage; // Ensure default export is correct
+export default EditChapterPage;
