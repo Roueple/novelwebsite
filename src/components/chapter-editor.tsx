@@ -168,9 +168,9 @@ export default function ChapterEditor({
                 <span>Help</span>
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+            <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto bg-background text-foreground border border-border">
               <DialogHeader>
-                <DialogTitle>Text Effects Guide</DialogTitle>
+                <DialogTitle className="text-foreground">Text Effects Guide</DialogTitle>
               </DialogHeader>
               <TextEffectsExample />
             </DialogContent>

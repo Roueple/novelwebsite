@@ -103,7 +103,7 @@ export default function TextEffectsExample() {
             <TabsContent key={category} value={category} className="space-y-4">
               {effects.map((effect) => (
                 // Ensure inner borders and text use theme colors
-                <div key={effect.tag} className="border border-border rounded-lg p-4">
+                <div key={effect.tag} className="border border-border rounded-lg p-4 bg-background">
                   <div className="flex items-center justify-between mb-2">
                     <h3 className="font-medium text-foreground">{effect.name}</h3>
                     <Button
