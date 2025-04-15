@@ -1,0 +1,3 @@
+#Untuk Bypass Admin Credentials
+Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process -Force
+
