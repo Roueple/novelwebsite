@@ -7,7 +7,6 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-// Import Code icon for the toggle button
 import { Save, X, Lock, Unlock, Eye, EyeOff, Sparkles, Code } from 'lucide-react';
 import TextEffectsToolbar from '@/components/editor/text-effects-toolbar';
 import DynamicText from '@/components/reading/dynamic-text';
@@ -33,15 +32,15 @@ const EditChapterPage = () => {
   const [chapter, setChapterState] = useState<ChapterType | null>(null);
   const [novel, setNovel] = useState<NovelType | null>(null);
 
-  // --- NEW STATE ---
-  const [showRawEditor, setShowRawEditor] = useState(false); // Default to showing PREVIEW
-  // --- END NEW STATE ---
+  // --- Ensure Default View is RAW Editor ---
+  const [showRawEditor, setShowRawEditor] = useState(true); // Default remains true
+  // ---
 
-  const [effectsEnabledInPreview, setEffectsEnabledInPreview] = useState(true); // Keep for preview toggle
+  const [effectsEnabledInPreview, setEffectsEnabledInPreview] = useState(true);
   const [lastSavedTime, setLastSavedTime] = useState<Date | null>(null);
   const editorRef = useRef<HTMLTextAreaElement>(null);
 
-  // Fetch Data (Logic remains the same)
+  // Fetch Data (No changes needed)
   const loadData = useCallback(async () => {
     setLoading(true);
     setInitialLoadError(null);
@@ -61,16 +60,16 @@ const EditChapterPage = () => {
       if (message.includes('not found')) { router.push(`/novels/${novelId || ''}`); }
     } finally { setLoading(false); }
   }, [novelId, chapterNumber, router]);
-
   useEffect(() => { loadData(); }, [loadData]);
 
-  // Chapter Actions Hook (Logic remains the same)
+
+  // Chapter Actions Hook (No changes needed)
   const {
     isAuthor, isLocked, setIsLocked, editedTitle, setEditedTitle,
     editedContent, setEditedContent, saving, handleSave: performSave, handleLockToggle,
   } = useChapterActions(chapter, user, role, setChapterState, novel);
 
-  // Autosave Logic (Logic remains the same, operates on editedContent state)
+  // Autosave Logic (No changes needed)
   const autosaveKey = `chapter_draft_${novelId}_${chapter?.id ?? 'new'}`;
   useEffect(() => {
     if (!chapter) return;
@@ -82,12 +81,18 @@ const EditChapterPage = () => {
         const chapterUpdateDate = chapter.updated_at ? new Date(chapter.updated_at) : new Date(0);
         if (draftDate > chapterUpdateDate) {
           setEditedTitle(title); setEditedContent(content); setIsLocked(locked); setLastSavedTime(draftDate);
-          toast.info("Draft loaded from previous session");
+        } else {
+           setEditedTitle(chapter.title); setEditedContent(chapter.content || ''); setIsLocked(chapter.is_locked);
         }
       } else {
          setEditedTitle(chapter.title); setEditedContent(chapter.content || ''); setIsLocked(chapter.is_locked);
       }
-    } catch (e) { console.error("Failed to load draft", e); }
+    } catch (e) {
+        console.error("Failed to load or parse draft", e);
+        if(chapter) {
+            setEditedTitle(chapter.title); setEditedContent(chapter.content || ''); setIsLocked(chapter.is_locked);
+        }
+    }
   }, [chapter, autosaveKey, setEditedTitle, setEditedContent, setIsLocked]);
 
    useEffect(() => {
@@ -101,19 +106,27 @@ const EditChapterPage = () => {
      return () => clearTimeout(handler);
    }, [editedTitle, editedContent, isLocked, autosaveKey, chapter, loading]);
 
-  // Final Save Action (Logic remains the same)
+  // Final Save Action (No changes needed)
   const handleFinalSave = async () => {
     const success = await performSave();
-    if (success) { localStorage.removeItem(autosaveKey); toast.success("Chapter saved successfully!"); }
+    if (success) {
+        localStorage.removeItem(autosaveKey);
+        toast.success("Chapter saved successfully! Redirecting...");
+        router.push(`/novels/${novelId}/chapter/${chapterNumber}`);
+    }
   };
 
-  // Cancel Action (Logic remains the same)
+  // Cancel Action (No changes needed)
   const handleCancel = () => {
     const hasChanges = editedTitle !== chapter?.title || editedContent !== (chapter?.content || '') || isLocked !== chapter?.is_locked;
-    if (hasChanges && !confirm("You have unsaved changes. Discard draft and return to chapter view?")) { return; }
+    if (hasChanges) {
+        const discard = confirm("You have unsaved changes in this draft. Discard draft and return to chapter view?");
+        if (!discard) return;
+    }
     localStorage.removeItem(autosaveKey);
     router.push(`/novels/${novelId}/chapter/${chapterNumber}`);
   };
+
 
   // --- Loading and Error Handling (Logic Remains the Same) ---
   if (loading) return <LoadingScreen message="Loading chapter editor..." />;
@@ -127,87 +140,56 @@ const EditChapterPage = () => {
       <div className="min-h-screen bg-background text-foreground p-4 md:p-8">
         {/* Editor Header Controls */}
         <div className="flex flex-wrap items-center justify-between mb-6 gap-4">
+           {/* Title Input */}
            <div className='flex flex-col'>
              <h1 className="text-xl md:text-2xl font-bold text-foreground">Edit Chapter {chapter.chapter_number}</h1>
              <Input value={editedTitle} onChange={(e) => setEditedTitle(e.target.value)} placeholder="Chapter Title" className="text-lg font-semibold mt-1 w-full max-w-md" disabled={saving} aria-label="Chapter Title" />
            </div>
-
-          <div className="flex items-center flex-wrap gap-2">
-            {lastSavedTime && ( <span className="text-xs text-muted-foreground mr-2" aria-live="polite"> Draft saved: {lastSavedTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })} </span> )}
-
-            {/* --- MODIFICATION START: Replaced Preview Toggle with Raw/Preview Toggle --- */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowRawEditor(!showRawEditor)} // Toggle the new state
-              className="gap-1"
-              aria-pressed={showRawEditor}
-            >
-              {showRawEditor ? <Eye size={16} /> : <Code size={16} />} {/* Show Eye icon when showing Raw, Code icon when showing Preview */}
-              {showRawEditor ? 'Show Preview' : 'Show Raw Text'} {/* Adjust label */}
-            </Button>
-            {/* --- MODIFICATION END --- */}
-
-            {/* Effects Toggle for Preview (Only makes sense when preview is visible) */}
-            {!showRawEditor && ( // Only show this if preview is active
-                 <Button
-                    variant="ghost" size="icon"
-                    onClick={() => setEffectsEnabledInPreview(!effectsEnabledInPreview)}
-                    className={cn("w-8 h-8", effectsEnabledInPreview ? 'text-yellow-500 hover:text-yellow-600' : 'text-muted-foreground hover:text-foreground')}
-                    aria-label={effectsEnabledInPreview ? 'Disable effects in preview' : 'Enable effects in preview'}
-                    aria-pressed={effectsEnabledInPreview}
-                  > <Sparkles size={16} /> </Button>
-            )}
-
-            {/* Lock Toggle */}
-             <Button variant="outline" size="sm" onClick={handleLockToggle} disabled={saving} className={cn("gap-1", isLocked ? 'text-destructive border-destructive hover:bg-destructive/10' : 'text-green-600 border-green-600 hover:bg-green-500/10')} aria-pressed={isLocked} >
-                {isLocked ? <Lock size={16} /> : <Unlock size={16} />} {isLocked ? 'Locked' : 'Unlocked'}
+           {/* Right Side Controls */}
+           <div className="flex items-center flex-wrap gap-2">
+             {lastSavedTime && ( <span className="text-xs text-muted-foreground mr-2" aria-live="polite"> Draft saved: {lastSavedTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })} </span> )}
+             {/* Toggle Raw/Preview Button */}
+             <Button variant="outline" size="sm" onClick={() => setShowRawEditor(!showRawEditor)} className="gap-1" aria-pressed={!showRawEditor} >
+               {showRawEditor ? <Eye size={16} /> : <Code size={16} />}
+               {showRawEditor ? 'Show Preview' : 'Show Raw Text'}
              </Button>
+             {/* Effects Toggle (for Preview) */}
+             {!showRawEditor && ( <Button variant="ghost" size="icon" onClick={() => setEffectsEnabledInPreview(!effectsEnabledInPreview)} className={cn("w-8 h-8", effectsEnabledInPreview ? 'text-yellow-500 hover:text-yellow-600' : 'text-muted-foreground hover:text-foreground')} aria-label={effectsEnabledInPreview ? 'Disable effects in preview' : 'Enable effects in preview'} aria-pressed={effectsEnabledInPreview} > <Sparkles size={16} /> </Button> )}
+             {/* Lock Toggle Button */}
+             <Button variant="outline" size="sm" onClick={handleLockToggle} disabled={saving} className={cn("gap-1", isLocked ? 'text-destructive border-destructive hover:bg-destructive/10' : 'text-green-600 border-green-600 hover:bg-green-500/10')} aria-pressed={isLocked} > {isLocked ? <Lock size={16} /> : <Unlock size={16} />} {isLocked ? 'Locked' : 'Unlocked'} </Button>
              {/* Cancel Button */}
              <Button variant="outline" size="sm" onClick={handleCancel} disabled={saving}> <X size={16} className="mr-1"/> Cancel </Button>
-            {/* Save Button */}
-            <Button size="sm" onClick={handleFinalSave} disabled={saving} className="bg-primary hover:bg-primary/90 text-primary-foreground"> <Save size={16} className="mr-1" /> {saving ? 'Saving...' : 'Save Chapter'} </Button>
-          </div>
+             {/* Save Button */}
+             <Button size="sm" onClick={handleFinalSave} disabled={saving} className="bg-primary hover:bg-primary/90 text-primary-foreground"> <Save size={16} className="mr-1" /> {saving ? 'Saving...' : 'Save Chapter'} </Button>
+           </div>
         </div>
 
-         {/* Editor Toolbar - Always interacts with editedContent state */}
+         {/* --- Toolbar is always rendered, but its internal buttons are disabled based on prop --- */}
          <TextEffectsToolbar
-            editorRef={editorRef} // Pass the ref to the underlying textarea
-            setContent={setEditedContent} // Pass the state setter for raw text
-            disabled={saving} // Disable toolbar while saving
+            editorRef={editorRef}
+            setContent={setEditedContent}
+            // Pass disabled state: true if preview is showing OR if saving
+            disabled={!showRawEditor || saving}
          />
+         {/* --- */}
 
-        {/* --- MODIFICATION START: Main Editor Area - Conditional Rendering --- */}
+        {/* Main Editor Area - Conditional Views */}
         <div className="mt-4">
-          {/* Raw Text Editor (Hidden by default, uses ref) */}
-          <div className={cn({ 'hidden': !showRawEditor })}> {/* Hide if showRawEditor is false */}
-            <label htmlFor="chapter-content-editor" className="text-sm font-medium mb-1 sr-only">Raw Content Editor</label>
-             <Textarea
-                id="chapter-content-editor"
-                ref={editorRef} // Ref is attached here
-                value={editedContent} // Bound to the raw text state
-                onChange={(e) => setEditedContent(e.target.value)} // Updates raw text state
-                className="min-h-[60vh] lg:min-h-[70vh] font-mono text-base border-input focus:border-primary resize-y w-full"
-                placeholder="Write your chapter content here. Use the toolbar or type tags like [shout]text[/shout]..."
-                disabled={saving}
-                aria-label="Chapter Content Editor"
-            />
+          {/* Raw Text Editor (Shown by default) */}
+          <div className={cn({ 'hidden': !showRawEditor })}>
+            <label htmlFor="chapter-content-editor" className="sr-only">Raw Content Editor</label>
+             <Textarea id="chapter-content-editor" ref={editorRef} value={editedContent} onChange={(e) => setEditedContent(e.target.value)} className="min-h-[60vh] lg:min-h-[70vh] font-mono text-base border-input focus:border-primary resize-y w-full" placeholder="Write your chapter content here..." disabled={saving} aria-label="Chapter Content Editor" />
           </div>
-
-          {/* Preview Panel (Shown by default) */}
-          <div className={cn({ 'hidden': showRawEditor })}> {/* Hide if showRawEditor is true */}
-             <label className="text-sm font-medium mb-1 sr-only">Preview</label>
+          {/* Preview Panel (Hidden by default) */}
+          <div className={cn({ 'hidden': showRawEditor })}>
+             <label className="sr-only">Preview</label>
              <Card className="flex-grow overflow-hidden">
-                {/* Apply a min-height consistent with the textarea */}
                 <CardContent className="p-4 md:p-6 min-h-[60vh] lg:min-h-[70vh] overflow-y-auto prose max-w-none bg-card text-card-foreground">
-                    {/* Preview uses the same raw text state, rendered with effects */}
                     <DynamicText content={editedContent} isEnabled={effectsEnabledInPreview} />
                 </CardContent>
             </Card>
           </div>
         </div>
-        {/* --- MODIFICATION END --- */}
-
       </div>
     </AdminRoleCheck>
   );

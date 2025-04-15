@@ -2,56 +2,42 @@
 import React, { RefObject } from 'react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils'; // Import cn for combining classes
+import { cn } from '@/lib/utils';
 
-// Keep the EFFECT_BUTTONS data structure as it already has tag and label
+// EFFECT_BUTTONS data remains the same
 const EFFECT_BUTTONS = [
-  // Volume/Intensity
-  { tag: 'shout', label: 'Shout' },
-  { tag: 'whisper', label: 'Whisper' },
-  { tag: 'loud', label: 'Loud' },
-  { tag: 'quiet', label: 'Quiet' },
-  // Emotion
-  { tag: 'tremble', label: 'Tremble' },
-  { tag: 'fear', label: 'Fear' },
-  { tag: 'joy', label: 'Joy' },
-  { tag: 'anger', label: 'Anger' },
-  { tag: 'sadness', label: 'Sadness' },
-  // Timing/Pacing
-  { tag: 'fast', label: 'Fast' },
-  { tag: 'slow', label: 'Slow' },
-  { tag: 'stutter', label: 'Stutter' },
-  { tag: 'pause', label: 'Pause' },
-  // Mental State/Voice
-  { tag: 'thought', label: 'Thought' },
-  { tag: 'dream', label: 'Dream' },
-  { tag: 'robotic', label: 'Robotic' },
-  { tag: 'weak', label: 'Weak' },
-  { tag: 'ghostly', label: 'Ghostly' },
-  // Stylistic
-  { tag: 'emphasis', label: 'Emphasis' },
-  { tag: 'fade', label: 'Fade' },
-  { tag: 'fadein', label: 'Fade In' },
-  { tag: 'fadeout', label: 'Fade Out' },
-  { tag: 'echo', label: 'Echo' },
-  { tag: 'distant', label: 'Distant' },
-  // Special
-  { tag: 'hesitate', label: 'Hesitate' },
-  { tag: 'impact', label: 'Impact' },
-  { tag: 'underwater', label: 'Underwater' },
-  { tag: 'radio', label: 'Radio' },
+  { tag: 'shout', label: 'Shout' }, { tag: 'whisper', label: 'Whisper' },
+  { tag: 'loud', label: 'Loud' }, { tag: 'quiet', label: 'Quiet' },
+  { tag: 'tremble', label: 'Tremble' }, { tag: 'fear', label: 'Fear' },
+  { tag: 'joy', label: 'Joy' }, { tag: 'anger', label: 'Anger' },
+  { tag: 'sadness', label: 'Sadness' }, { tag: 'fast', label: 'Fast' },
+  { tag: 'slow', label: 'Slow' }, { tag: 'stutter', label: 'Stutter' },
+  { tag: 'pause', label: 'Pause' }, { tag: 'thought', label: 'Thought' },
+  { tag: 'dream', label: 'Dream' }, { tag: 'robotic', label: 'Robotic' },
+  { tag: 'weak', label: 'Weak' }, { tag: 'ghostly', label: 'Ghostly' },
+  { tag: 'emphasis', label: 'Emphasis' }, { tag: 'fade', label: 'Fade' },
+  { tag: 'fadein', label: 'Fade In' }, { tag: 'fadeout', label: 'Fade Out' },
+  { tag: 'echo', label: 'Echo' }, { tag: 'distant', label: 'Distant' },
+  { tag: 'hesitate', label: 'Hesitate' }, { tag: 'impact', label: 'Impact' },
+  { tag: 'underwater', label: 'Underwater' }, { tag: 'radio', label: 'Radio' },
 ];
+
 
 interface TextEffectsToolbarProps {
   editorRef: RefObject<HTMLTextAreaElement | null>;
   setContent: (value: string | ((prev: string) => string)) => void;
-  disabled?: boolean;
+  disabled?: boolean; // Receives true when preview is shown or saving
 }
 
 export default function TextEffectsToolbar({ editorRef, setContent, disabled = false }: TextEffectsToolbarProps) {
 
   // applyTag function remains the same
   const applyTag = (tag: string) => {
+    // --- This function should NOT run if disabled is true, ---
+    // --- because the button itself will be disabled.      ---
+    // --- But keep the check just in case.                  ---
+    if (disabled) return;
+
     const textarea = editorRef.current;
     if (!textarea) {
         toast.error("Editor is not ready.");
@@ -63,7 +49,7 @@ export default function TextEffectsToolbar({ editorRef, setContent, disabled = f
     const end = textarea.selectionEnd;
     const selectedText = textarea.value.substring(start, end);
     const tagStart = `[${tag}]`;
-    const tagEnd = `[${tag}]`; // Assuming same tag for start/end
+    const tagEnd = `[${tag}]`;
 
     let newText = '';
     let finalCursorPos = start;
@@ -91,31 +77,33 @@ export default function TextEffectsToolbar({ editorRef, setContent, disabled = f
   };
 
   return (
+    // Toolbar container is always visible
     <div className="flex flex-wrap gap-1 p-2 border rounded-md bg-muted">
       {EFFECT_BUTTONS.map(({ tag, label }) => (
         <Button
           key={tag}
-          variant="ghost" // Keep ghost variant for base button styling
+          variant="ghost"
           size="sm"
           onClick={() => applyTag(tag)}
           title={`Apply ${label} effect`}
-          disabled={disabled}
-          // Apply base button styles + potentially remove conflicting text styles
+          disabled={disabled} // Button is functionally disabled here
+          // --- MODIFICATION: Add visual cue for disabled state ---
           className={cn(
-            "px-2 py-1 h-auto text-xs font-medium", // Base size/padding/font
-            "hover:bg-background", // Use background for hover on ghost
-            // Remove base text color to allow effect class to take over
-            // "text-muted-foreground hover:text-foreground"
-             "disabled:opacity-50" // Ensure disabled style works
+            "px-2 py-1 h-auto text-xs font-medium",
+            "hover:bg-background",
+            // Apply opacity change when disabled to make it clearer
+            // The default disabled:opacity-50 might be sufficient,
+            // but we can make it more explicit if needed.
+            // Add specific styles for the disabled state *if* the default isn't clear enough:
+             {"opacity-60 cursor-not-allowed": disabled} // Example: make it semi-transparent
           )}
+          // --- END MODIFICATION ---
           aria-label={`Apply ${label} effect`}
         >
-          {/* --- MODIFICATION START: Wrap label in span with effect class --- */}
-          {/* Construct the CSS class name dynamically */}
+          {/* Inner span still gets the effect class for visual preview */}
           <span className={cn(`effect-${tag}`)}>
              {label}
           </span>
-          {/* --- MODIFICATION END --- */}
         </Button>
       ))}
     </div>
