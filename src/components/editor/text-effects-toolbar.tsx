@@ -1,44 +1,45 @@
 // src/components/editor/text-effects-toolbar.tsx
 import React, { RefObject } from 'react';
 import { Button } from '@/components/ui/button';
-import { Bold, Italic, Strikethrough, Code, Type, Quote, Heading2, List, ListOrdered } from 'lucide-react';
-import { toast } from 'sonner'; // Import toast for feedback
+import { toast } from 'sonner';
+import { cn } from '@/lib/utils'; // Import cn for combining classes
 
+// Keep the EFFECT_BUTTONS data structure as it already has tag and label
 const EFFECT_BUTTONS = [
   // Volume/Intensity
-  { tag: 'shout', label: 'Shout', icon: '📣' },
-  { tag: 'whisper', label: 'Whisper', icon: '🤫' },
-  { tag: 'loud', label: 'Loud', icon: '🔊' },
-  { tag: 'quiet', label: 'Quiet', icon: '🔈' },
+  { tag: 'shout', label: 'Shout' },
+  { tag: 'whisper', label: 'Whisper' },
+  { tag: 'loud', label: 'Loud' },
+  { tag: 'quiet', label: 'Quiet' },
   // Emotion
-  { tag: 'tremble', label: 'Tremble', icon: '🥶' },
-  { tag: 'fear', label: 'Fear', icon: '😨' },
-  { tag: 'joy', label: 'Joy', icon: '😊' },
-  { tag: 'anger', label: 'Anger', icon: '😠' },
-  { tag: 'sadness', label: 'Sadness', icon: '😢' },
+  { tag: 'tremble', label: 'Tremble' },
+  { tag: 'fear', label: 'Fear' },
+  { tag: 'joy', label: 'Joy' },
+  { tag: 'anger', label: 'Anger' },
+  { tag: 'sadness', label: 'Sadness' },
   // Timing/Pacing
-  { tag: 'fast', label: 'Fast', icon: '⏩' },
-  { tag: 'slow', label: 'Slow', icon: '🐌' },
-  { tag: 'stutter', label: 'Stutter', icon: '🗣️' },
-  { tag: 'pause', label: 'Pause', icon: '…' },
+  { tag: 'fast', label: 'Fast' },
+  { tag: 'slow', label: 'Slow' },
+  { tag: 'stutter', label: 'Stutter' },
+  { tag: 'pause', label: 'Pause' },
   // Mental State/Voice
-  { tag: 'thought', label: 'Thought', icon: '🤔' },
-  { tag: 'dream', label: 'Dream', icon: '몽' }, // Example unique icon
-  { tag: 'robotic', label: 'Robotic', icon: '🤖' },
-  { tag: 'weak', label: 'Weak', icon: '📉' },
-  { tag: 'ghostly', label: 'Ghostly', icon: '👻' },
+  { tag: 'thought', label: 'Thought' },
+  { tag: 'dream', label: 'Dream' },
+  { tag: 'robotic', label: 'Robotic' },
+  { tag: 'weak', label: 'Weak' },
+  { tag: 'ghostly', label: 'Ghostly' },
   // Stylistic
-  { tag: 'emphasis', label: 'Emphasis', icon: <Bold size={16}/> }, // Use Lucide icon
-  { tag: 'fade', label: 'Fade', icon: '🌫️' },
-  { tag: 'fadein', label: 'Fade In', icon: '📈' },
-  { tag: 'fadeout', label: 'Fade Out', icon: '📉' },
-  { tag: 'echo', label: 'Echo', icon: '(((o)))' }, // Example icon
-  { tag: 'distant', label: 'Distant', icon: '🗺️' },
+  { tag: 'emphasis', label: 'Emphasis' },
+  { tag: 'fade', label: 'Fade' },
+  { tag: 'fadein', label: 'Fade In' },
+  { tag: 'fadeout', label: 'Fade Out' },
+  { tag: 'echo', label: 'Echo' },
+  { tag: 'distant', label: 'Distant' },
   // Special
-  { tag: 'hesitate', label: 'Hesitate', icon: '❓' },
-  { tag: 'impact', label: 'Impact', icon: '💥' },
-  { tag: 'underwater', label: 'Underwater', icon: '🌊' },
-  { tag: 'radio', label: 'Radio', icon: '📻' },
+  { tag: 'hesitate', label: 'Hesitate' },
+  { tag: 'impact', label: 'Impact' },
+  { tag: 'underwater', label: 'Underwater' },
+  { tag: 'radio', label: 'Radio' },
 ];
 
 interface TextEffectsToolbarProps {
@@ -49,6 +50,7 @@ interface TextEffectsToolbarProps {
 
 export default function TextEffectsToolbar({ editorRef, setContent, disabled = false }: TextEffectsToolbarProps) {
 
+  // applyTag function remains the same
   const applyTag = (tag: string) => {
     const textarea = editorRef.current;
     if (!textarea) {
@@ -61,30 +63,25 @@ export default function TextEffectsToolbar({ editorRef, setContent, disabled = f
     const end = textarea.selectionEnd;
     const selectedText = textarea.value.substring(start, end);
     const tagStart = `[${tag}]`;
-    const tagEnd = `[${tag}]`; // Using same tag for start/end based on examples
+    const tagEnd = `[${tag}]`; // Assuming same tag for start/end
 
     let newText = '';
     let finalCursorPos = start;
 
     if (selectedText) {
-      // Wrap selected text
       newText = `${tagStart}${selectedText}${tagEnd}`;
-      finalCursorPos = start + newText.length; // Position cursor after the inserted tags+text
+      finalCursorPos = start + newText.length;
     } else {
-      // Insert tags with cursor in the middle
       newText = `${tagStart}${tagEnd}`;
-      finalCursorPos = start + tagStart.length; // Position cursor between tags
+      finalCursorPos = start + tagStart.length;
     }
 
-    // Update content using the callback function for safety with state updates
     setContent(currentContent => {
         const before = currentContent.substring(0, start);
         const after = currentContent.substring(end);
         return before + newText + after;
     });
 
-
-    // Use requestAnimationFrame to ensure state update has likely processed
     requestAnimationFrame(() => {
       if (editorRef.current) {
           editorRef.current.focus();
@@ -95,18 +92,30 @@ export default function TextEffectsToolbar({ editorRef, setContent, disabled = f
 
   return (
     <div className="flex flex-wrap gap-1 p-2 border rounded-md bg-muted">
-      {EFFECT_BUTTONS.map(({ tag, label, icon }) => (
+      {EFFECT_BUTTONS.map(({ tag, label }) => (
         <Button
           key={tag}
-          variant="ghost"
+          variant="ghost" // Keep ghost variant for base button styling
           size="sm"
           onClick={() => applyTag(tag)}
-          title={label}
+          title={`Apply ${label} effect`}
           disabled={disabled}
-          className="px-2 py-1 h-auto text-muted-foreground hover:bg-background hover:text-foreground"
-          aria-label={`Apply ${label} effect`} // Add aria-label for accessibility
+          // Apply base button styles + potentially remove conflicting text styles
+          className={cn(
+            "px-2 py-1 h-auto text-xs font-medium", // Base size/padding/font
+            "hover:bg-background", // Use background for hover on ghost
+            // Remove base text color to allow effect class to take over
+            // "text-muted-foreground hover:text-foreground"
+             "disabled:opacity-50" // Ensure disabled style works
+          )}
+          aria-label={`Apply ${label} effect`}
         >
-          {typeof icon === 'string' ? <span className="text-base leading-none align-middle">{icon}</span> : icon}
+          {/* --- MODIFICATION START: Wrap label in span with effect class --- */}
+          {/* Construct the CSS class name dynamically */}
+          <span className={cn(`effect-${tag}`)}>
+             {label}
+          </span>
+          {/* --- MODIFICATION END --- */}
         </Button>
       ))}
     </div>
