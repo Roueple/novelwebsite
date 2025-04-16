@@ -1,6 +1,6 @@
 // src/app/layout.tsx
 "use client";
-import { Suspense } from 'react'; // <--- Import Suspense
+import { Suspense } from 'react'; // Import Suspense
 import { Merriweather, Roboto_Slab, Libre_Baskerville, Source_Sans_3, Open_Sans } from "next/font/google";
 import { AuthProvider } from '@/providers/auth-provider';
 import { ThemeProvider } from "@/providers/theme-provider";
@@ -10,7 +10,7 @@ import 'nprogress/nprogress.css';
 import { Toaster } from '@/components/ui/sonner';
 import { useState, useEffect } from "react";
 import { useNProgress } from '@/hooks/use-nprogress';
-import LoadingSpinner from '@/components/ui/loading-spinner'; // <-- Import a loader for fallback
+import LoadingSpinner from '@/components/ui/loading-spinner';
 
 // --- Font definitions ---
 const merriweather = Merriweather({
@@ -43,14 +43,20 @@ const openSans = Open_Sans({
 });
 // --- End Font definitions ---
 
-// --- Suspense Fallback Component ---
+// --- Suspense Fallback Components ---
 function RootLayoutFallback() {
+  // Full screen loader might be too much if only main content is suspended
   return (
-    // Basic fallback, you can customize this further
-    <div className="min-h-screen bg-background flex items-center justify-center">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <LoadingSpinner size="lg" />
     </div>
   );
+}
+
+function HeaderFallback() {
+    // A simpler placeholder for the header area, maybe just height
+    // Or return null if a brief flash without header is acceptable
+    return <div className="h-[56px] md:h-[60px] bg-background border-b border-border"></div>; // Match header height
 }
 
 
@@ -72,19 +78,37 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     'font-sans'
   ].join(' ');
 
+  // Return null or a basic structure until mounted to avoid hydration issues
+  if (!isMounted) {
+      // Or return a basic HTML shell if needed
+      return (
+          <html lang="en" suppressHydrationWarning>
+              <body className={fontClasses}>
+                  <RootLayoutFallback />
+              </body>
+          </html>
+      );
+  }
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={fontClasses}>
         <AuthProvider>
           <ThemeProvider>
-            {isMounted && <Header />}
-            {/* Wrap the main content area with Suspense */}
+            {/* Wrap Header in Suspense */}
+            <Suspense fallback={<HeaderFallback />}>
+              <Header />
+            </Suspense>
+
+            {/* Wrap Main Content Area in Suspense */}
             <Suspense fallback={<RootLayoutFallback />}>
               <main className="min-h-screen">
                 {children}
               </main>
             </Suspense>
-            {isMounted && <Toaster />}
+
+            {/* Toaster doesn't usually need Suspense */}
+            <Toaster />
           </ThemeProvider>
         </AuthProvider>
       </body>
