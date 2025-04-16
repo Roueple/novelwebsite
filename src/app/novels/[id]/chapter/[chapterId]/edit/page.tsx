@@ -9,7 +9,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { 
   Save, X, Lock, Unlock, Eye, EyeOff, Sparkles, 
-  Code, SparklesIcon, Trash2, ChevronUp, ChevronDown 
+  Code, SparklesIcon, Trash2, ChevronUp, ChevronDown,
+  SplitSquareVertical
 } from 'lucide-react';
 import TextEffectsToolbar from '@/components/editor/text-effects-toolbar';
 import DynamicText from '@/components/reading/dynamic-text';
@@ -36,20 +37,16 @@ const EditChapterPage = () => {
   const [chapter, setChapterState] = useState<ChapterType | null>(null);
   const [novel, setNovel] = useState<NovelType | null>(null);
 
-  const [showRawEditor, setShowRawEditor] = useState(true);
+  // View state
+  const [viewMode, setViewMode] = useState<'raw' | 'preview' | 'split'>('raw');
   const [effectsEnabledInPreview, setEffectsEnabledInPreview] = useState(true);
-  const [lastSavedTime, setLastSavedTime] = useState<Date | null>(null);
-  const [scrollPosition, setScrollPosition] = useState(0);
-  const [scrollPercentage, setScrollPercentage] = useState(0);
   const [headerVisible, setHeaderVisible] = useState(true);
+  
+  // Editor state
+  const [lastSavedTime, setLastSavedTime] = useState<Date | null>(null);
   const [lockToggleInProgress, setLockToggleInProgress] = useState(false);
 
-  // Scroll sync state
-  const [isScrolling, setIsScrolling] = useState(false);
-  const [activeScrollElement, setActiveScrollElement] = useState<'editor' | 'preview' | null>(null);
-  const attemptedSyncRef = useRef(0);
-  const maxSyncAttempts = 5;
-
+  // Refs
   const editorRef = useRef<HTMLTextAreaElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
 
@@ -202,164 +199,77 @@ const EditChapterPage = () => {
   }, [editedTitle, editedContent, isLocked, autosaveKey, chapter, loading]);
 
   // --- Scroll Synchronization ---
-  // Specialized function for scroll synchronization
-  const syncScroll = (sourceType: 'editor' | 'preview', percentage: number) => {
-    // If already synchronizing from the other element, don't create infinite loop
-    if (isScrolling && activeScrollElement !== sourceType) {
-      return;
+  const synchronizeScroll = (sourceElement: HTMLElement) => {
+    if (!sourceElement) return;
+    
+    let targetElement: HTMLElement | null = null;
+    
+    // Determine which element to sync to based on which one triggered the scroll
+    if (sourceElement === editorRef.current && previewRef.current) {
+      targetElement = previewRef.current;
+    } else if (sourceElement === previewRef.current && editorRef.current) {
+      targetElement = editorRef.current;
     }
     
-    setIsScrolling(true);
-    setActiveScrollElement(sourceType);
+    if (!targetElement) return;
     
-    // Reset attempts counter when initiating a new sync
-    attemptedSyncRef.current = 0;
+    // Calculate and apply the scroll percentage
+    const sourceScrollMax = sourceElement.scrollHeight - sourceElement.clientHeight;
+    const targetScrollMax = targetElement.scrollHeight - targetElement.clientHeight;
     
-    // Define which element to sync to
-    const targetElement = sourceType === 'editor' ? previewRef.current : editorRef.current;
+    if (sourceScrollMax <= 0 || targetScrollMax <= 0) return;
     
-    // Attempt to apply scroll
-    const tryApplyScroll = () => {
-      if (!targetElement || attemptedSyncRef.current >= maxSyncAttempts) {
-        // Give up after max attempts
-        setIsScrolling(false);
-        setActiveScrollElement(null);
-        return;
-      }
-      
-      attemptedSyncRef.current += 1;
-      
-      // Get the target's maximum scroll range
-      const maxScroll = targetElement.scrollHeight - targetElement.clientHeight;
-      
-      // Apply the percentage
-      if (maxScroll > 0) {
-        const targetPosition = percentage * maxScroll;
-        targetElement.scrollTop = targetPosition;
-        
-        // Check if we got close enough (within 5 pixels)
-        const appliedPosition = targetElement.scrollTop;
-        const difference = Math.abs(appliedPosition - targetPosition);
-        
-        if (difference <= 5) {
-          // Success! We're done.
-          setIsScrolling(false);
-          setActiveScrollElement(null);
-        } else {
-          // Try again after a short delay
-          setTimeout(tryApplyScroll, 50);
-        }
-      } else {
-        // No scroll needed if there's nothing to scroll
-        setIsScrolling(false);
-        setActiveScrollElement(null);
-      }
-    };
-    
-    // Start the attempt process
-    tryApplyScroll();
+    const scrollPercentage = sourceElement.scrollTop / sourceScrollMax;
+    targetElement.scrollTop = scrollPercentage * targetScrollMax;
   };
 
-  // Add scroll event listeners
+  // Attach scroll event listeners
   useEffect(() => {
-    if (loading) return;
+    if (loading || viewMode !== 'split') return;
     
-    const handleEditorScroll = () => {
-      if (isScrolling && activeScrollElement !== 'editor') return;
-      
-      if (editorRef.current) {
-        const element = editorRef.current;
-        const maxScroll = element.scrollHeight - element.clientHeight;
-        if (maxScroll <= 0) return; // No scrolling possible
-        
-        const percentage = element.scrollTop / maxScroll;
-        syncScroll('editor', percentage);
-      }
-    };
-    
-    const handlePreviewScroll = () => {
-      if (isScrolling && activeScrollElement !== 'preview') return;
-      
-      if (previewRef.current) {
-        const element = previewRef.current;
-        const maxScroll = element.scrollHeight - element.clientHeight;
-        if (maxScroll <= 0) return; // No scrolling possible
-        
-        const percentage = element.scrollTop / maxScroll;
-        syncScroll('preview', percentage);
-      }
-    };
-    
-    // Attach event listeners
+    // Only set up scroll sync for split view mode
     const editorElement = editorRef.current;
     const previewElement = previewRef.current;
     
-    if (editorElement) {
-      editorElement.addEventListener('scroll', handleEditorScroll);
-    }
+    if (!editorElement || !previewElement) return;
     
-    if (previewElement) {
-      previewElement.addEventListener('scroll', handlePreviewScroll);
-    }
+    const handleEditorScroll = () => synchronizeScroll(editorElement);
+    const handlePreviewScroll = () => synchronizeScroll(previewElement);
     
-    // Initial sync after elements are fully rendered
-    // Set a timeout to ensure content is rendered
-    const initialSyncTimer = setTimeout(() => {
-      // Initialize based on which view is active
-      if (showRawEditor && editorRef.current) {
-        const element = editorRef.current;
-        const maxScroll = element.scrollHeight - element.clientHeight;
-        if (maxScroll > 0) {
-          // Use stored scrollPercentage from previous toggle if available
-          const percentage = scrollPercentage > 0 ? scrollPercentage : 0;
-          element.scrollTop = percentage * maxScroll;
-        }
-      } else if (!showRawEditor && previewRef.current) {
-        const element = previewRef.current;
-        const maxScroll = element.scrollHeight - element.clientHeight;
-        if (maxScroll > 0) {
-          const percentage = scrollPercentage > 0 ? scrollPercentage : 0;
-          element.scrollTop = percentage * maxScroll;
-        }
-      }
-    }, 150);
+    // Set a flag to prevent recursive scroll events
+    let isScrolling = false;
     
-    // Cleanup
-    return () => {
-      if (editorElement) {
-        editorElement.removeEventListener('scroll', handleEditorScroll);
-      }
-      
-      if (previewElement) {
-        previewElement.removeEventListener('scroll', handlePreviewScroll);
-      }
-      
-      clearTimeout(initialSyncTimer);
+    const wrappedEditorScroll = () => {
+      if (isScrolling) return;
+      isScrolling = true;
+      handleEditorScroll();
+      setTimeout(() => { isScrolling = false; }, 50);
     };
-  }, [loading, showRawEditor, isScrolling, activeScrollElement, scrollPercentage]);
-
-  // --- Handle View Toggle ---
-  const handleViewToggle = () => {
-    // Capture the scroll percentage from the active view
-    if (showRawEditor && editorRef.current) {
-      const element = editorRef.current;
-      const maxScroll = element.scrollHeight - element.clientHeight;
-      if (maxScroll > 0) {
-        const percentage = element.scrollTop / maxScroll;
-        setScrollPercentage(percentage);
-      }
-    } else if (!showRawEditor && previewRef.current) {
-      const element = previewRef.current;
-      const maxScroll = element.scrollHeight - element.clientHeight;
-      if (maxScroll > 0) {
-        const percentage = element.scrollTop / maxScroll;
-        setScrollPercentage(percentage);
-      }
-    }
     
-    // Toggle the view - the effect hook will handle initializing
-    // the scroll position for the newly active view
-    setShowRawEditor(prev => !prev);
+    const wrappedPreviewScroll = () => {
+      if (isScrolling) return;
+      isScrolling = true;
+      handlePreviewScroll();
+      setTimeout(() => { isScrolling = false; }, 50);
+    };
+    
+    editorElement.addEventListener('scroll', wrappedEditorScroll);
+    previewElement.addEventListener('scroll', wrappedPreviewScroll);
+    
+    return () => {
+      editorElement.removeEventListener('scroll', wrappedEditorScroll);
+      previewElement.removeEventListener('scroll', wrappedPreviewScroll);
+    };
+  }, [loading, viewMode]);
+
+  // --- View Mode Cycling ---
+  const cycleViewMode = () => {
+    setViewMode(current => {
+      // Cycle through modes: raw -> preview -> split -> raw
+      if (current === 'raw') return 'preview';
+      if (current === 'preview') return 'split';
+      return 'raw';
+    });
   };
 
   // --- Remove All Effects ---
@@ -410,9 +320,9 @@ const EditChapterPage = () => {
         {/* Header Section (Non-Sticky, Toggleable) */}
         {headerVisible ? (
           <div className="relative w-full bg-background border-b border-border shadow-sm px-4 md:px-8 py-3 mb-4">
-            <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex flex-col">
               {/* Title Input Area */}
-              <div className='flex flex-col flex-grow min-w-[200px]'>
+              <div className='flex flex-col w-full'>
                 <h1 className="text-sm md:text-base font-semibold text-muted-foreground mb-1">Edit Chapter {chapter.chapter_number}</h1>
                 <Input
                   value={editedTitle}
@@ -441,108 +351,127 @@ const EditChapterPage = () => {
                 </div>
               </div>
               
-              {/* Right Side Controls */}
-              <div className="flex items-center flex-wrap gap-2 flex-shrink-0">
+              {/* Controls Row - Static Layout */}
+              <div className="flex items-center flex-wrap gap-2 mt-4 border-t border-border pt-4">
+                <div className="flex gap-2 items-center mr-auto">
+                  {/* View Mode Controls - Always in the same position */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={cycleViewMode}
+                    className="gap-1"
+                    aria-label="Change view mode"
+                  >
+                    {viewMode === 'raw' && (
+                      <>
+                        <Eye size={16} />
+                        <span>Preview</span>
+                      </>
+                    )}
+                    {viewMode === 'preview' && (
+                      <>
+                        <SplitSquareVertical size={16} />
+                        <span>Split View</span>
+                      </>
+                    )}
+                    {viewMode === 'split' && (
+                      <>
+                        <Code size={16} />
+                        <span>Raw Text</span>
+                      </>
+                    )}
+                  </Button>
+                  
+                  {/* Effects Toggle - Always visible, but only enabled in preview/split modes */}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setEffectsEnabledInPreview(!effectsEnabledInPreview)}
+                    className={cn(
+                      "gap-1",
+                      effectsEnabledInPreview 
+                        ? 'text-yellow-500 hover:text-yellow-600' 
+                        : 'text-muted-foreground hover:text-foreground'
+                    )}
+                    aria-label={effectsEnabledInPreview ? 'Disable effects' : 'Enable effects'}
+                    disabled={viewMode === 'raw' || saving}
+                  >
+                    <SparklesIcon size={16} />
+                    <span>Effects</span>
+                  </Button>
+                  
+                  {/* Effects Removal - Always visible but only enabled in raw mode */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleRemoveAllEffects}
+                    disabled={saving || viewMode === 'preview'}
+                    className="gap-1 text-destructive hover:bg-destructive/10 disabled:opacity-50"
+                    aria-label="Remove all text effects"
+                  >
+                    <Trash2 size={16} />
+                    <span className="hidden sm:inline">Remove Effects</span>
+                  </Button>
+                </div>
+                
+                {/* Last saved indicator - Fixed position */}
                 {lastSavedTime && (
-                  <span className="text-xs text-muted-foreground mr-2 hidden sm:inline" aria-live="polite">
-                    Draft saved: {lastSavedTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  <span className="text-xs text-muted-foreground hidden sm:inline" aria-live="polite">
+                    Saved: {lastSavedTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
                 )}
                 
-                {/* Hide Header Button */}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setHeaderVisible(false)}
-                  className="gap-1"
-                  title="Hide header"
-                >
-                  <ChevronUp size={16} />
-                  <span className="hidden sm:inline">Hide</span>
-                </Button>
-                
-                {/* Raw/Preview Toggle Button */}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleViewToggle}
-                  className="gap-1"
-                  aria-pressed={!showRawEditor}
-                >
-                  {showRawEditor ? <Eye size={16} /> : <Code size={16} />}
-                  {showRawEditor ? 'Preview' : 'Raw Text'}
-                </Button>
-                
-                {/* Effects Toggle (for Preview) */}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setEffectsEnabledInPreview(!effectsEnabledInPreview)}
-                  className={cn(
-                    "w-8 h-8",
-                    effectsEnabledInPreview ? 'text-yellow-500 hover:text-yellow-600' : 'text-muted-foreground hover:text-foreground',
-                    { 'invisible': showRawEditor }
-                  )}
-                  aria-label={effectsEnabledInPreview ? 'Disable effects in preview' : 'Enable effects in preview'}
-                  aria-pressed={effectsEnabledInPreview}
-                  disabled={showRawEditor || saving}
-                  tabIndex={showRawEditor ? -1 : 0}
-                >
-                  <SparklesIcon size={16} />
-                </Button>
-                
-                {/* Remove All Effects Button */}
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={handleRemoveAllEffects}
-                  disabled={saving || !showRawEditor}
-                  className="w-8 h-8 text-destructive hover:bg-destructive/10 disabled:opacity-50"
-                  aria-label="Remove all text effects"
-                  title="Remove all text effects"
-                >
-                  <Trash2 size={16} />
-                </Button>
-                
-                {/* Lock Toggle Button */}
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={directLockToggle} 
-                  disabled={saving || lockToggleInProgress} 
-                  className={cn(
-                    "gap-1", 
-                    isLocked 
-                      ? 'text-destructive border-destructive hover:bg-destructive/10' 
-                      : 'text-green-600 border-green-600 hover:bg-green-500/10'
-                  )}
-                >
-                  {lockToggleInProgress ? (
-                    // Show loading spinner during the operation
-                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                  ) : isLocked ? (
-                    <Lock size={16} />
-                  ) : (
-                    <Unlock size={16} />
-                  )}
-                  {isLocked ? 'Locked' : 'Unlocked'}
-                </Button>
-                
-                {/* Cancel Button */}
-                <Button variant="outline" size="sm" onClick={handleCancel} disabled={saving}>
-                  <X size={16} className="mr-1"/> Cancel
-                </Button>
-                
-                {/* Save Button */}
-                <Button size="sm" onClick={handleFinalSave} disabled={saving} className="bg-primary hover:bg-primary/90 text-primary-foreground">
-                  <Save size={16} className="mr-1" /> {saving ? 'Saving...' : 'Save Chapter'}
-                </Button>
+                <div className="flex items-center gap-2">
+                  {/* Lock Toggle Button - Fixed position */}
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={directLockToggle} 
+                    disabled={saving || lockToggleInProgress} 
+                    className={cn(
+                      "gap-1", 
+                      isLocked 
+                        ? 'text-destructive border-destructive hover:bg-destructive/10' 
+                        : 'text-green-600 border-green-600 hover:bg-green-500/10'
+                    )}
+                  >
+                    {lockToggleInProgress ? (
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                    ) : isLocked ? (
+                      <Lock size={16} />
+                    ) : (
+                      <Unlock size={16} />
+                    )}
+                    <span>{isLocked ? 'Locked' : 'Unlocked'}</span>
+                  </Button>
+                  
+                  {/* Cancel Button - Fixed position */}
+                  <Button variant="outline" size="sm" onClick={handleCancel} disabled={saving}>
+                    <X size={16} className="mr-1"/> Cancel
+                  </Button>
+                  
+                  {/* Save Button - Fixed position */}
+                  <Button size="sm" onClick={handleFinalSave} disabled={saving} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+                    <Save size={16} className="mr-1" /> {saving ? 'Saving...' : 'Save'}
+                  </Button>
+                  
+                  {/* Hide Header Button - Fixed position */}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setHeaderVisible(false)}
+                    title="Hide header"
+                    className="ml-2"
+                  >
+                    <ChevronUp size={16} />
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
         ) : (
-          // Show Header Button when header is hidden
-          <div className="fixed top-0 left-0 p-2 z-30">
+          // Floating show header button
+          <div className="fixed top-2 right-2 z-30">
             <Button
               variant="outline"
               size="sm"
@@ -556,46 +485,80 @@ const EditChapterPage = () => {
           </div>
         )}
 
-        {/* Text Effects Toolbar */}
-        <div className={cn(
-          "relative bg-background py-2 mb-4",
-          headerVisible ? "" : "hidden" 
-        )}>
-          <TextEffectsToolbar
-            editorRef={editorRef}
-            setContent={setEditedContent}
-            disabled={!showRawEditor || saving}
-          />
-        </div>
-
-        {/* Main Editor Area - Conditional Views */}
-        <div className="mt-4">
-          {/* Raw Text Editor */}
-          <div className={cn({ 'hidden': !showRawEditor })}>
-            <label htmlFor="chapter-content-editor" className="sr-only">Raw Content Editor</label>
-            <Textarea
-              id="chapter-content-editor"
-              ref={editorRef}
-              value={editedContent}
-              onChange={(e) => setEditedContent(e.target.value)}
-              className="min-h-[60vh] lg:min-h-[70vh] font-mono text-base border-input focus:border-primary resize-y w-full bg-background"
-              placeholder="Write your chapter content here..."
+        {/* Text Effects Toolbar - Only show in raw and split views */}
+        {(viewMode === 'raw' || viewMode === 'split') && (
+          <div className="relative bg-background py-2 mb-4">
+            <TextEffectsToolbar
+              editorRef={editorRef}
+              setContent={setEditedContent}
               disabled={saving}
-              aria-label="Chapter Content Editor"
             />
           </div>
-          {/* Preview Panel */}
-          <div className={cn({ 'hidden': showRawEditor })}>
-            <label className="sr-only">Preview</label>
-            <Card className="flex-grow overflow-hidden bg-card text-card-foreground">
-              <CardContent
-                ref={previewRef}
-                className="p-4 md:p-6 min-h-[60vh] lg:min-h-[70vh] overflow-y-auto prose prose-sm sm:prose-base max-w-none dark:prose-invert"
-              >
-                <DynamicText content={editedContent} isEnabled={effectsEnabledInPreview} />
-              </CardContent>
-            </Card>
-          </div>
+        )}
+
+        {/* Main Editor Content Area - Conditional Views */}
+        <div className="mt-4">
+          {/* Raw Text Editor View */}
+          {viewMode === 'raw' && (
+            <div className="w-full">
+              <label htmlFor="chapter-content-editor-raw" className="sr-only">Raw Content Editor</label>
+              <Textarea
+                id="chapter-content-editor-raw"
+                ref={editorRef}
+                value={editedContent}
+                onChange={(e) => setEditedContent(e.target.value)}
+                className="min-h-[60vh] lg:min-h-[70vh] font-mono text-base border-input focus:border-primary resize-y w-full bg-background"
+                placeholder="Write your chapter content here..."
+                disabled={saving}
+                aria-label="Chapter Content Editor"
+              />
+            </div>
+          )}
+
+          {/* Preview Only View */}
+          {viewMode === 'preview' && (
+            <div className="w-full">
+              <label className="sr-only">Preview</label>
+              <Card className="flex-grow overflow-hidden bg-card text-card-foreground">
+                <CardContent
+                  ref={previewRef}
+                  className="p-4 md:p-6 min-h-[60vh] lg:min-h-[70vh] overflow-y-auto prose prose-sm sm:prose-base max-w-none dark:prose-invert"
+                >
+                  <DynamicText content={editedContent} isEnabled={effectsEnabledInPreview} />
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Split View Mode */}
+          {viewMode === 'split' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Editor Side */}
+              <div className="w-full">
+                <label htmlFor="chapter-content-editor-split" className="sr-only">Raw Content Editor</label>
+                <Textarea
+                  id="chapter-content-editor-split"
+                  ref={editorRef}
+                  value={editedContent}
+                  onChange={(e) => setEditedContent(e.target.value)}
+                  className="min-h-[60vh] lg:min-h-[70vh] font-mono text-base border-input focus:border-primary resize-y w-full bg-background"
+                  placeholder="Write your chapter content here..."
+                  disabled={saving}
+                  aria-label="Chapter Content Editor"
+                />
+              </div>
+              
+              {/* Preview Side */}
+              <Card className="flex-grow overflow-hidden bg-card text-card-foreground h-full">
+                <CardContent
+                  ref={previewRef}
+                  className="p-4 md:p-6 min-h-[60vh] lg:min-h-[70vh] overflow-y-auto prose prose-sm sm:prose-base max-w-none dark:prose-invert"
+                >
+                  <DynamicText content={editedContent} isEnabled={effectsEnabledInPreview} />
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </div>
       </div>
     </AdminRoleCheck>

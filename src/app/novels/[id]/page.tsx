@@ -1,75 +1,92 @@
+// src/app/novels/[id]/page.tsx
 "use client";
 
-import { useState, useEffect, useCallback } from 'react'; // Added useCallback
+import { useState, useEffect, useCallback } from 'react';
 import { BookOpen, Edit, Trash2, Check, X, Plus } from 'lucide-react';
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation'; // Added useRouter
+import { useParams, useRouter } from 'next/navigation';
 import { ImageUpload } from '@/components/ui/image-upload';
 import { supabase } from '@/lib/supabase';
-import { getNovel, deleteChapter, updateChapter } from '@/lib/api'; // Added deleteChapter, updateChapter
-import type { NovelType, ChapterType } from '@/types/supabase'; // Use ChapterType
+import { getNovel, deleteChapter, updateChapter } from '@/lib/api';
+import type { NovelType, ChapterType } from '@/types/supabase';
 import Image from 'next/image';
 import { useAuth } from '@/providers/auth-provider';
 import AddChapterModal from '@/components/add-chapter-modal';
-import LoadingScreen from '@/components/ui/loading-screen'; // Import LoadingScreen
-import NotFoundScreen from '@/components/ui/not-found-screen'; // Import NotFoundScreen
-import { Button } from '@/components/ui/button'; // Import Button
-import { Input } from '@/components/ui/input'; // Import Input
-import { Textarea } from '@/components/ui/textarea'; // Import Textarea
-import { toast } from 'sonner'; // Import toast
+import LoadingScreen from '@/components/ui/loading-screen';
+import NotFoundScreen from '@/components/ui/not-found-screen';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { toast } from 'sonner';
+import LoadingSpinner from '@/components/ui/loading-spinner'; // Import spinner
 
 export default function NovelPage() {
   const { user, role } = useAuth();
   const params = useParams();
-  const router = useRouter(); // Initialize router
-  const novelId = Number(params.id);
+  const router = useRouter();
+  const novelIdParam = params.id; // Get raw param first
 
+  // State
+  const [novelId, setNovelId] = useState<number | null>(null); // Store validated ID
   const [novel, setNovel] = useState<NovelType | null>(null);
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null); // State for load errors
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [isAuthor, setIsAuthor] = useState(false);
   const [isEditingNovel, setIsEditingNovel] = useState(false);
   const [isEditingChapter, setIsEditingChapter] = useState<number | null>(null);
-  const [editedNovelTitle, setEditedNovelTitle] = useState(''); // Separate state for novel edit
-  const [editedDescription, setEditedDescription] = useState(''); // Separate state for novel edit
-  const [editedChapterTitle, setEditedChapterTitle] = useState(''); // State for chapter title edit
+  const [editedNovelTitle, setEditedNovelTitle] = useState('');
+  const [editedDescription, setEditedDescription] = useState('');
+  const [editedChapterTitle, setEditedChapterTitle] = useState('');
   const [showAddChapter, setShowAddChapter] = useState(false);
-  const [savingNovel, setSavingNovel] = useState(false); // Saving state for novel details
-  const [savingChapter, setSavingChapter] = useState(false); // Saving state for chapter title
-  const [deletingChapter, setDeletingChapter] = useState<number | null>(null); // Track deleting chapter
+  const [savingNovel, setSavingNovel] = useState(false);
+  const [savingChapter, setSavingChapter] = useState(false);
+  const [deletingChapter, setDeletingChapter] = useState<number | null>(null);
 
-  // Fetch Novel Data
-  const loadNovel = useCallback(async () => {
-    console.log(`[NovelPage] Attempting to load novel ID: ${novelId}`); // LOG: Start loading
-    if (isNaN(novelId)) {
-      console.error("[NovelPage] Invalid novel ID detected.");
-      setLoadError("Invalid Novel ID provided in URL.");
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    setLoadError(null); // Reset error on new load attempt
-    try {
-      const data = await getNovel(novelId);
-      console.log("[NovelPage] Data received from getNovel:", data); // LOG: Data received
-      if (data) {
-        setNovel(data);
-      } else {
-        console.log("[NovelPage] getNovel returned null, setting error.");
-        setLoadError("Novel not found or failed to load."); // Set specific error
-      }
-    } catch (err: any) { // Catch potential errors during the call itself
-       console.error("[NovelPage] Error during getNovel call:", err);
-       setLoadError(err.message || "An unexpected error occurred while loading the novel.");
-    } finally {
-      console.log("[NovelPage] Loading finished."); // LOG: Loading finished
-      setLoading(false);
-    }
-  }, [novelId]); // Dependency is novelId
-
+  // Validate novelIdParam on mount and when it changes
   useEffect(() => {
-    loadNovel();
-  }, [loadNovel]); // Run loadNovel when the component mounts or novelId changes
+      const id = Number(novelIdParam);
+      if (!isNaN(id) && id > 0) {
+          setNovelId(id);
+      } else {
+          setLoadError("Invalid Novel ID provided in URL.");
+          setLoading(false); // Stop loading if ID is invalid
+          setNovelId(null);
+      }
+  }, [novelIdParam]);
+
+  // Fetch Novel Data - depends on validated novelId
+  const loadNovel = useCallback(async () => {
+      if (novelId === null) { // Don't fetch if ID is invalid or not set yet
+          setLoading(false);
+          return;
+      }
+      console.log(`[NovelPage] Attempting to load novel ID: ${novelId}`);
+      setLoading(true);
+      setLoadError(null);
+      try {
+          const data = await getNovel(novelId);
+          console.log("[NovelPage] Data received from getNovel:", data);
+          if (data) {
+              setNovel(data);
+          } else {
+              console.log("[NovelPage] getNovel returned null, setting error.");
+              setLoadError("Novel not found or failed to load.");
+          }
+      } catch (err: any) {
+          console.error("[NovelPage] Error during getNovel call:", err);
+          setLoadError(err.message || "An unexpected error occurred while loading the novel.");
+      } finally {
+          console.log("[NovelPage] Loading finished.");
+          setLoading(false);
+      }
+  }, [novelId]); // Re-run when novelId changes
+
+  // Trigger loadNovel when novelId is validated and set
+  useEffect(() => {
+      if (novelId !== null) {
+          loadNovel();
+      }
+  }, [novelId, loadNovel]);
 
   // Determine Author Status
   useEffect(() => {
@@ -77,14 +94,13 @@ export default function NovelPage() {
       const isAdmin = role === 'admin';
       const isNovelAuthor = novel.author_id === user.id;
       setIsAuthor(isAdmin || isNovelAuthor);
-       console.log(`[NovelPage] Author status determined: ${isAdmin || isNovelAuthor} (Role: ${role}, User ID: ${user.id}, Author ID: ${novel.author_id})`); // LOG: Author status
+      console.log(`[NovelPage] Author status determined: ${isAdmin || isNovelAuthor} (Role: ${role}, User ID: ${user.id}, Author ID: ${novel.author_id})`);
     } else {
-       setIsAuthor(false); // Reset if novel or user is not available
+      setIsAuthor(false);
     }
   }, [novel, user, role]);
 
   // --- Handlers ---
-
   const handleStartEditNovel = () => {
     if (!novel) return;
     setEditedNovelTitle(novel.title);
@@ -94,11 +110,10 @@ export default function NovelPage() {
 
   const handleCancelEditNovel = () => {
     setIsEditingNovel(false);
-    // Reset edit fields if needed, though they get reset on next edit start
   };
 
   const handleSaveNovelDetails = async () => {
-    if (!novel || !isAuthor) return;
+    if (!novel || !isAuthor || novelId === null) return;
     setSavingNovel(true);
     toast.info("Saving novel details...");
     try {
@@ -108,17 +123,14 @@ export default function NovelPage() {
           title: editedNovelTitle.trim(),
           description: editedDescription.trim()
         })
-        .eq('id', novel.id);
-
+        .eq('id', novelId); // Use validated novelId
       if (error) throw error;
 
-      // Update local state optimistically/after success
       setNovel(prev => prev ? {
         ...prev,
         title: editedNovelTitle.trim(),
         description: editedDescription.trim()
       } : null);
-
       setIsEditingNovel(false);
       toast.success("Novel details updated!");
     } catch (error: any) {
@@ -136,19 +148,18 @@ export default function NovelPage() {
 
   const handleCancelEditChapter = () => {
     setIsEditingChapter(null);
-    setEditedChapterTitle(''); // Clear edit field
+    setEditedChapterTitle('');
   };
 
   const handleSaveChapterTitle = async (chapterId: number) => {
-     if (!novel || !isAuthor) return;
+     if (!novel || !isAuthor || novelId === null) return;
     setSavingChapter(true);
     toast.info("Saving chapter title...");
     try {
-      const success = await updateChapter(novel.id, chapterId, { title: editedChapterTitle.trim() });
-
+      // Pass novelId here
+      const success = await updateChapter(novelId, chapterId, { title: editedChapterTitle.trim() });
       if (!success) throw new Error("API returned failure");
 
-      // Update local state
       setNovel(prev => {
         if (!prev) return null;
         return {
@@ -158,8 +169,7 @@ export default function NovelPage() {
           )
         };
       });
-
-      setIsEditingChapter(null); // Exit edit mode for this chapter
+      setIsEditingChapter(null);
       toast.success("Chapter title updated!");
     } catch (error: any) {
       console.error('Error updating chapter title:', error);
@@ -170,73 +180,91 @@ export default function NovelPage() {
   };
 
   const handleDeleteChapterClick = async (chapterId: number, chapterNumber: number) => {
-    if (!novel || !isAuthor) return;
+    if (!novel || !isAuthor || novelId === null) return;
     if (!confirm(`Are you sure you want to permanently delete Chapter ${chapterNumber}? This cannot be undone.`)) {
       return;
     }
-    setDeletingChapter(chapterId); // Indicate which chapter is being deleted
+    setDeletingChapter(chapterId);
     toast.info(`Deleting Chapter ${chapterNumber}...`);
     try {
-       const success = await deleteChapter(novel.id, chapterId);
+       // Pass novelId here
+       const success = await deleteChapter(novelId, chapterId);
        if (!success) throw new Error("API returned failure");
 
-      // Update local state on success
       setNovel(prev => {
         if (!prev) return null;
+        // Renumber subsequent chapters after deletion
+        let chapterCounter = 1;
+        const updatedChapters = prev.chapters
+            .filter(ch => ch.id !== chapterId)
+            .sort((a, b) => a.chapter_number - b.chapter_number) // Ensure sorting before renumbering
+            .map(ch => ({ ...ch, chapter_number: chapterCounter++ }));
+
         return {
           ...prev,
-          chapters: prev.chapters.filter(ch => ch.id !== chapterId)
-                                  // Optional: Renumber subsequent chapters if desired (more complex)
+          chapters: updatedChapters
         };
       });
       toast.success(`Chapter ${chapterNumber} deleted successfully.`);
+       // Optional: Trigger API calls to update the chapter_number in the database for remaining chapters
+       // This can be complex and might be better handled via a backend function or delayed job.
+       // For now, the UI reflects the renumbering, but the DB might not immediately.
+
     } catch (error: any) {
       console.error('Error deleting chapter:', error);
       toast.error(`Failed to delete chapter: ${error.message}`);
     } finally {
-       setDeletingChapter(null); // Reset deleting indicator
+       setDeletingChapter(null);
     }
   };
 
   const handleChapterAdded = () => {
       setShowAddChapter(false);
       toast.success("Chapter added, reloading novel details...");
-      loadNovel(); // Reload novel data to get the updated chapter list
+      loadNovel(); // Reload to get updated chapter list and correct numbering
   };
 
-
   // --- Render Logic ---
-
   if (loading) {
-     console.log("[NovelPage] Rendering LoadingScreen..."); // LOG: Render loading
     return <LoadingScreen message="Loading novel details..." />;
   }
 
+  // Handle invalid ID error specifically before checking !novel
+  if (loadError?.includes("Invalid Novel ID")) {
+      return <NotFoundScreen message={loadError} returnUrl="/" returnText="Return to Home" />;
+  }
+
   if (loadError || !novel) {
-     console.log("[NovelPage] Rendering NotFoundScreen due to error or missing novel.", { loadError, novelExists: !!novel }); // LOG: Render error/not found
     return <NotFoundScreen message={loadError || "Novel not found."} returnUrl="/" returnText="Return to Home" />;
   }
 
+  // Ensure novelId is valid before rendering modal or other actions
+  if (novelId === null) {
+      return <NotFoundScreen message="Invalid Novel ID." returnUrl="/" returnText="Return to Home" />;
+  }
+
   // --- Main Render ---
-  console.log("[NovelPage] Rendering novel content for:", novel.title); // LOG: Render content
+  console.log("[NovelPage] Rendering novel content for:", novel.title);
   return (
     <div className="min-h-screen bg-background text-foreground transition-colors duration-200">
       <div className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* Left Column - Cover and Info */}
           <div className="md:col-span-1">
-            <div className="relative aspect-[2/3] w-full mb-4 shadow-md rounded-lg overflow-hidden">
-                <Image
-                  src={novel.cover_url || '/api/placeholder/400/600'} // Use a consistent placeholder API or local file
+            <div className="relative aspect-[2/3] w-full mb-4 shadow-lg rounded-lg overflow-hidden border border-border/10"> {/* Added border */}
+                 <Image
+                  src={novel.cover_url || '/placeholder-cover.png'} // Use local placeholder
                   alt={`Cover for ${novel.title}`}
                   fill
-                  sizes="(max-width: 768px) 100vw, 33vw" // Adjusted sizes
-                  quality={85} // Slightly lower quality for faster load
-                  priority // Load cover image eagerly
+                  sizes="(max-width: 768px) 100vw, 33vw"
+                  quality={85}
+                  priority // <--- Add priority prop
                   className="object-cover"
-                  onError={(e) => { // Basic error handling for images
+                  placeholder="blur" // Use blur placeholder
+                  blurDataURL="/placeholder-cover-blur.png" // Provide blur placeholder URL
+                  onError={(e) => {
                       console.warn(`Error loading image: ${novel.cover_url}`);
-                      e.currentTarget.src = '/api/placeholder/400/600'; // Fallback placeholder
+                      e.currentTarget.src = '/placeholder-cover.png'; // Fallback
                   }}
                 />
             </div>
@@ -247,15 +275,14 @@ export default function NovelPage() {
                     onUploadComplete={async (url: string) => {
                       toast.info("Updating cover image...");
                       const { error } = await supabase
-                        .from('novels')
-                        .update({ cover_url: url })
-                        .eq('id', novel.id);
+                          .from('novels')
+                          .update({ cover_url: url })
+                          .eq('id', novelId); // Use validated novelId
 
                       if (error) {
-                        toast.error(`Error updating cover: ${error.message}`);
-                        return;
+                          toast.error(`Error updating cover: ${error.message}`);
+                          return;
                       }
-                       // Update local state immediately
                       setNovel(prev => prev ? { ...prev, cover_url: url } : null);
                       toast.success("Cover image updated!");
                     }}
@@ -263,7 +290,7 @@ export default function NovelPage() {
                 </div>
             )}
             {/* Static Info */}
-            <div className="space-y-3 text-sm bg-card p-4 rounded-lg shadow">
+            <div className="space-y-3 text-sm bg-card p-4 rounded-lg shadow border border-border/10"> {/* Added border */}
                 <div className="flex items-center justify-between">
                   <span className="font-medium text-muted-foreground">Rating</span>
                   <span className="text-yellow-500 font-semibold">★ {novel.rating?.toFixed(1) ?? 'N/A'}</span>
@@ -272,8 +299,8 @@ export default function NovelPage() {
                   <span className="font-medium text-muted-foreground">Status</span>
                   <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
                     novel.status === 'Ongoing'
-                      ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                      : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                      ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300'
+                      : 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300'
                   }`}>
                     {novel.status}
                   </span>
@@ -295,7 +322,7 @@ export default function NovelPage() {
           {/* Right Column - Description and Chapters */}
           <div className="md:col-span-2 space-y-6">
             {/* Title and Description Section */}
-            <div className="bg-card rounded-lg shadow p-6">
+            <div className="bg-card rounded-lg shadow p-6 border border-border/10"> {/* Added border */}
               {isEditingNovel ? (
                 // Novel Edit Form
                 <div className="space-y-4">
@@ -308,7 +335,7 @@ export default function NovelPage() {
                       type="text"
                       value={editedNovelTitle}
                       onChange={(e) => setEditedNovelTitle(e.target.value)}
-                      className="w-full" // Uses theme classes from Input component
+                      className="w-full"
                       disabled={savingNovel}
                     />
                   </div>
@@ -321,22 +348,23 @@ export default function NovelPage() {
                       value={editedDescription}
                       onChange={(e) => setEditedDescription(e.target.value)}
                       rows={5}
-                      className="w-full" // Uses theme classes from Textarea component
-                       disabled={savingNovel}
+                      className="w-full"
+                      disabled={savingNovel}
                     />
                   </div>
                   <div className="flex justify-end gap-2 pt-2">
                     <Button
                       variant="ghost"
                       onClick={handleCancelEditNovel}
-                       disabled={savingNovel}
+                      disabled={savingNovel}
                     >
                       Cancel
                     </Button>
                     <Button
                       onClick={handleSaveNovelDetails}
-                       disabled={savingNovel}
+                      disabled={savingNovel || !editedNovelTitle.trim()} // Disable if title is empty
                     >
+                      {savingNovel ? <LoadingSpinner className="mr-2" size="sm"/> : null}
                       {savingNovel ? 'Saving...' : 'Save Changes'}
                     </Button>
                   </div>
@@ -348,32 +376,34 @@ export default function NovelPage() {
                     <h1 className="text-2xl md:text-3xl font-bold text-foreground">{novel.title}</h1>
                     {isAuthor && (
                       <Button
-                         variant="ghost"
-                         size="icon"
-                         onClick={handleStartEditNovel}
-                         className="text-muted-foreground hover:text-foreground"
-                         aria-label="Edit novel title and description"
+                        variant="ghost"
+                        size="icon"
+                        onClick={handleStartEditNovel}
+                        className="text-muted-foreground hover:text-foreground"
+                        aria-label="Edit novel title and description"
                       >
                         <Edit size={18} />
                       </Button>
                     )}
                   </div>
                   <p className="text-sm text-muted-foreground mb-4">by {novel.author}</p>
-                  <div className="prose prose-sm sm:prose-base max-w-none text-foreground dark:prose-invert whitespace-pre-line">
-                    {novel.description || <span className="italic">No description provided.</span>}
+                  {/* Use text-foreground/prose styles defined in globals.css */}
+                  <div className="prose prose-sm sm:prose-base max-w-none dark:prose-invert whitespace-pre-line text-foreground">
+                    {novel.description || <span className="italic text-muted-foreground">No description provided.</span>}
                   </div>
                 </div>
               )}
             </div>
 
             {/* Chapters Section */}
-            <div className="bg-card rounded-lg shadow p-6">
+            <div className="bg-card rounded-lg shadow p-6 border border-border/10"> {/* Added border */}
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-semibold text-foreground">Chapters</h2>
                 {isAuthor && (
                   <Button
                     onClick={() => setShowAddChapter(true)}
                     size="sm"
+                    variant="outline" // Changed variant
                   >
                     <Plus size={16} className="mr-1" />
                     Add Chapter
@@ -382,106 +412,111 @@ export default function NovelPage() {
               </div>
 
               {/* Add Chapter Modal */}
-              {showAddChapter && novel.chapters && (
+              {showAddChapter && novel.chapters && novelId !== null && (
                 <AddChapterModal
-                  novelId={novel.id}
+                  novelId={novelId} // Pass validated novelId
                   currentChapters={novel.chapters}
                   onClose={() => setShowAddChapter(false)}
-                  onSuccess={handleChapterAdded} // Use the new handler
+                  onSuccess={handleChapterAdded}
                 />
               )}
 
               {/* Chapter List */}
               <div className="space-y-1">
-                {novel.chapters && novel.chapters.length > 0 ? novel.chapters.map((chapter) => (
-                  <div
-                    key={chapter.id}
-                    className="flex items-center justify-between p-2 rounded-md hover:bg-accent group" // Added group for hover effects
-                  >
-                    <div className="flex items-center gap-3 flex-1 min-w-0"> {/* Added min-w-0 */}
-                      <BookOpen size={18} className="text-muted-foreground flex-shrink-0" />
-                      {isEditingChapter === chapter.id ? (
-                        // Chapter Title Edit Input
-                        <div className="flex-1 flex items-center gap-2 min-w-0"> {/* Added min-w-0 */}
-                           <Input
-                              type="text"
-                              value={editedChapterTitle}
-                              onChange={(e) => setEditedChapterTitle(e.target.value)}
-                              className="flex-grow h-8 text-sm" // Smaller input
-                              disabled={savingChapter}
-                              aria-label={`Edit title for chapter ${chapter.chapter_number}`}
-                           />
-                           <Button
-                             variant="ghost"
-                             size="icon"
-                             onClick={handleCancelEditChapter}
-                             className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                             disabled={savingChapter}
-                             aria-label="Cancel editing chapter title"
-                           >
-                             <X size={16} />
-                           </Button>
-                           <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleSaveChapterTitle(chapter.id)}
-                              className="h-7 w-7 text-green-600 hover:bg-green-500/10"
-                              disabled={savingChapter || editedChapterTitle.trim() === ''}
-                              aria-label="Save chapter title"
-                           >
-                              <Check size={16} />
-                           </Button>
-                        </div>
-                      ) : (
-                        // Chapter Title Display/Link
-                        <Link
-                          href={`/novels/${novel.id}/chapter/${chapter.chapter_number}`}
-                          className="flex-1 flex items-center justify-between min-w-0 mr-2" // Added min-w-0 and margin
-                        >
-                          <span className="text-sm text-foreground truncate group-hover:text-primary">
-                            Chapter {chapter.chapter_number}: {chapter.title}
-                          </span>
-                          {chapter.is_locked && (
-                            <span className="ml-2 px-1.5 py-0.5 text-xs rounded-full bg-secondary text-muted-foreground flex-shrink-0">
-                              Locked
-                            </span>
+                {novel.chapters && novel.chapters.length > 0 ? (
+                  // Sort chapters by chapter_number before mapping
+                  [...novel.chapters]
+                    .sort((a, b) => a.chapter_number - b.chapter_number)
+                    .map((chapter) => (
+                      <div
+                        key={chapter.id}
+                        className="flex items-center justify-between p-2 rounded-md hover:bg-accent group" // Added group for hover effects
+                      >
+                        <div className="flex items-center gap-3 flex-1 min-w-0"> {/* Added min-w-0 */}
+                          <BookOpen size={18} className="text-muted-foreground flex-shrink-0" />
+                          {isEditingChapter === chapter.id ? (
+                            // Chapter Title Edit Input
+                            <div className="flex-1 flex items-center gap-2 min-w-0"> {/* Added min-w-0 */}
+                              <Input
+                                  type="text"
+                                  value={editedChapterTitle}
+                                  onChange={(e) => setEditedChapterTitle(e.target.value)}
+                                  className="flex-grow h-8 text-sm" // Smaller input
+                                  disabled={savingChapter}
+                                  aria-label={`Edit title for chapter ${chapter.chapter_number}`}
+                              />
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={handleCancelEditChapter}
+                                className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                disabled={savingChapter}
+                                aria-label="Cancel editing chapter title"
+                              >
+                                <X size={16} />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleSaveChapterTitle(chapter.id)}
+                                className="h-7 w-7 text-green-600 hover:text-green-500 hover:bg-green-500/10" // Added hover text color
+                                disabled={savingChapter || editedChapterTitle.trim() === ''}
+                                aria-label="Save chapter title"
+                              >
+                                {savingChapter ? <LoadingSpinner size="sm" className="text-green-600"/> : <Check size={16} />}
+                              </Button>
+                            </div>
+                          ) : (
+                            // Chapter Title Display/Link
+                            <Link
+                              href={`/novels/${novelId}/chapter/${chapter.chapter_number}`}
+                              className="flex-1 flex items-center justify-between min-w-0 mr-2 group/link" // Add group name
+                            >
+                              <span className="text-sm text-foreground truncate group-hover/link:text-primary group-hover/link:underline underline-offset-2"> {/* Target specific group */}
+                                Chapter {chapter.chapter_number}: {chapter.title}
+                              </span>
+                              {chapter.is_locked && (
+                                <span className="ml-2 px-1.5 py-0.5 text-xs rounded-full bg-secondary text-muted-foreground flex-shrink-0">
+                                  Locked
+                                </span>
+                              )}
+                            </Link>
                           )}
-                        </Link>
-                      )}
-                    </div>
+                        </div>
 
-                    {/* Author Controls for Chapter */}
-                    {isAuthor && (
-                      <div className="flex items-center gap-1 ml-2 flex-shrink-0">
-                        {isEditingChapter !== chapter.id && ( // Show edit only if not currently editing this one
-                           <Button
+                        {/* Author Controls for Chapter */}
+                        {isAuthor && (
+                          <div className="flex items-center gap-1 ml-2 flex-shrink-0">
+                            {isEditingChapter !== chapter.id && ( // Show edit only if not currently editing this one
+                              <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleStartEditChapter(chapter)}
+                                  className="h-7 w-7 text-muted-foreground opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity" // Show on hover/focus
+                                  aria-label={`Edit chapter ${chapter.chapter_number} title`}
+                              >
+                                  <Edit size={16} />
+                              </Button>
+                            )}
+                            <Button
                               variant="ghost"
                               size="icon"
-                              onClick={() => handleStartEditChapter(chapter)}
-                              className="h-7 w-7 text-muted-foreground opacity-0 group-hover:opacity-100 focus:opacity-100" // Show on hover/focus
-                              aria-label={`Edit chapter ${chapter.chapter_number} title`}
-                           >
-                              <Edit size={16} />
-                           </Button>
+                              onClick={() => handleDeleteChapterClick(chapter.id, chapter.chapter_number)}
+                              className="h-7 w-7 text-destructive opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity" // Show on hover/focus
+                              disabled={deletingChapter === chapter.id} // Disable while deleting this specific chapter
+                              aria-label={`Delete chapter ${chapter.chapter_number}`}
+                            >
+                              {deletingChapter === chapter.id ? (
+                                  <LoadingSpinner size="sm" className="text-destructive"/>
+                              ) : (
+                                <Trash2 size={16} />
+                              )}
+                            </Button>
+                          </div>
                         )}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDeleteChapterClick(chapter.id, chapter.chapter_number)}
-                          className="h-7 w-7 text-destructive opacity-0 group-hover:opacity-100 focus:opacity-100" // Show on hover/focus
-                           disabled={deletingChapter === chapter.id} // Disable while deleting this specific chapter
-                           aria-label={`Delete chapter ${chapter.chapter_number}`}
-                        >
-                           {deletingChapter === chapter.id ? (
-                              <div className="animate-spin h-4 w-4 border-2 border-destructive border-t-transparent rounded-full"></div>
-                           ) : (
-                             <Trash2 size={16} />
-                           )}
-                        </Button>
                       </div>
-                    )}
-                  </div>
-                )) : (
+                  ))
+                ) : (
                   <p className="text-sm text-muted-foreground italic p-2">No chapters added yet.</p>
                 )}
               </div>
