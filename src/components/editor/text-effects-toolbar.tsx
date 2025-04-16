@@ -1,4 +1,7 @@
 // src/components/editor/text-effects-toolbar.tsx
+// (Content is the same as the previous step - showing 7 effects,
+// with effect class on span and marker class on button)
+
 import React, { RefObject } from 'react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -92,7 +95,7 @@ export default function TextEffectsToolbar({ editorRef, setContent, disabled = f
           disabled={disabled}
           // Add a specific class to the button for CSS targeting
           className={cn(
-            "text-effects-toolbar-button", // <-- Add this class
+            "text-effects-toolbar-button", // Marker class (still useful if needed later)
             "px-2 py-1 h-auto text-xs font-medium",
             "hover:bg-background",
             {"cursor-not-allowed opacity-60": disabled}
@@ -100,6 +103,7 @@ export default function TextEffectsToolbar({ editorRef, setContent, disabled = f
           aria-label={`Apply ${label} effect`}
         >
           {/* Add the effect class back to the span for animations/previews */}
+          {/* Color will now come from the effect class definition */}
           <span className={cn(`effect-${tag}`)}>
              {label}
           </span>

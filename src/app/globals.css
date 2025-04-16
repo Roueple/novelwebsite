@@ -721,18 +721,6 @@
 .disable-animations .effect-impact { font-weight: normal; }
 .disable-animations .effect-radio { font-family: inherit; }
 
-/* Toolbar Button Label Color Overrides */
-/* Prevents effect-specific colors from overriding button text color */
-/* Allows animations/other styles defined in effect-* classes to still apply */
-.text-effects-toolbar-button span[class*="effect-"] {
-  color: inherit !important; /* Force inherit button's text color */
-  /* Reset other styles only if they conflict visually */
-  font-weight: normal !important;
-  text-transform: none !important;
-  /* Keep animations, filter, opacity etc. from the original effect class */
-}
-
-
 /* --- Focus Mode Styles --- */
 .focus-mode .reading-header-container, /* Target the container if ReadingHeader has one */
 .focus-mode .chapter-navigation { /* Target navigation */
