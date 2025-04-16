@@ -1,14 +1,16 @@
 // src/app/layout.tsx
 "use client";
+import { Suspense } from 'react'; // <--- Import Suspense
 import { Merriweather, Roboto_Slab, Libre_Baskerville, Source_Sans_3, Open_Sans } from "next/font/google";
 import { AuthProvider } from '@/providers/auth-provider';
 import { ThemeProvider } from "@/providers/theme-provider";
 import Header from '@/components/header';
 import "./globals.css";
-import 'nprogress/nprogress.css'; // <--- Import NProgress CSS
+import 'nprogress/nprogress.css';
 import { Toaster } from '@/components/ui/sonner';
 import { useState, useEffect } from "react";
-import { useNProgress } from '@/hooks/use-nprogress'; // <--- Import the hook
+import { useNProgress } from '@/hooks/use-nprogress';
+import LoadingSpinner from '@/components/ui/loading-spinner'; // <-- Import a loader for fallback
 
 // --- Font definitions ---
 const merriweather = Merriweather({
@@ -41,9 +43,20 @@ const openSans = Open_Sans({
 });
 // --- End Font definitions ---
 
+// --- Suspense Fallback Component ---
+function RootLayoutFallback() {
+  return (
+    // Basic fallback, you can customize this further
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <LoadingSpinner size="lg" />
+    </div>
+  );
+}
+
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   // Initialize NProgress for page transitions
-  useNProgress(); // <--- Call the hook
+  useNProgress();
 
   const [isMounted, setIsMounted] = useState(false);
   useEffect(() => {
@@ -56,21 +69,21 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     libreBaskerville.variable,
     sourceSans.variable,
     openSans.variable,
-    'font-sans' // Assuming Open Sans is the default sans-serif
+    'font-sans'
   ].join(' ');
 
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={fontClasses}>
         <AuthProvider>
-          {/* ThemeProvider now handles its mount logic internally */}
           <ThemeProvider>
-            {/* Header rendering depends on its own internal logic now */}
             {isMounted && <Header />}
-            <main className="min-h-screen">
-              {children}
-            </main>
-            {/* Conditionally render Toaster */}
+            {/* Wrap the main content area with Suspense */}
+            <Suspense fallback={<RootLayoutFallback />}>
+              <main className="min-h-screen">
+                {children}
+              </main>
+            </Suspense>
             {isMounted && <Toaster />}
           </ThemeProvider>
         </AuthProvider>
