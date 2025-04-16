@@ -22,14 +22,13 @@ const ALL_EFFECT_BUTTONS = [
   { tag: 'underwater', label: 'Underwater' }, { tag: 'radio', label: 'Radio' },
 ];
 
-// Define the 7 effects to display
+// Define the 7 effects to display again
 const DISPLAYED_EFFECT_TAGS = ['shout', 'whisper', 'emphasis', 'thought', 'tremble', 'anger', 'joy'];
 
-// Filter the full list to get only the ones we want to display
+// Filter the full list
 const DISPLAYED_EFFECT_BUTTONS = ALL_EFFECT_BUTTONS.filter(effect =>
   DISPLAYED_EFFECT_TAGS.includes(effect.tag)
 );
-
 
 interface TextEffectsToolbarProps {
   editorRef: RefObject<HTMLTextAreaElement | null>;
@@ -39,7 +38,7 @@ interface TextEffectsToolbarProps {
 
 export default function TextEffectsToolbar({ editorRef, setContent, disabled = false }: TextEffectsToolbarProps) {
 
-  // applyTag function remains the same, it can handle any tag
+  // applyTag function remains the same
   const applyTag = (tag: string) => {
     if (disabled) return;
     const textarea = editorRef.current;
@@ -72,7 +71,6 @@ export default function TextEffectsToolbar({ editorRef, setContent, disabled = f
         return before + newText + after;
     });
 
-    // Delay focus and cursor positioning slightly
     requestAnimationFrame(() => {
       if (editorRef.current) {
           editorRef.current.focus();
@@ -82,7 +80,6 @@ export default function TextEffectsToolbar({ editorRef, setContent, disabled = f
   };
 
   return (
-    // Toolbar container is always visible
     <div className="flex flex-wrap gap-1 p-2 border rounded-md bg-muted">
       {/* Map over the FILTERED list */}
       {DISPLAYED_EFFECT_BUTTONS.map(({ tag, label }) => (
@@ -92,23 +89,26 @@ export default function TextEffectsToolbar({ editorRef, setContent, disabled = f
           size="sm"
           onClick={() => applyTag(tag)}
           title={`Apply ${label} effect`}
-          disabled={disabled} // Button is functionally disabled here
+          disabled={disabled}
+          // Add a specific class to the button for CSS targeting
           className={cn(
+            "text-effects-toolbar-button", // <-- Add this class
             "px-2 py-1 h-auto text-xs font-medium",
             "hover:bg-background",
-            // Apply standard disabled styling (Tailwind handles this via disabled:opacity-50)
-            {"cursor-not-allowed": disabled} // Ensure cursor changes
+            {"cursor-not-allowed opacity-60": disabled}
           )}
           aria-label={`Apply ${label} effect`}
         >
-          {/* Text inside the button - REMOVED effect class to fix theme color */}
-          <span>
+          {/* Add the effect class back to the span for animations/previews */}
+          <span className={cn(`effect-${tag}`)}>
              {label}
           </span>
         </Button>
       ))}
-      {/* Optional: Add a hint or button to show more effects later */}
-      {/* <Button variant="ghost" size="sm" className="text-xs italic text-muted-foreground" disabled={disabled}>...</Button> */}
+       {/* Optional: Placeholder for potentially showing more effects later */}
+       { ALL_EFFECT_BUTTONS.length > DISPLAYED_EFFECT_BUTTONS.length && (
+          <Button variant="ghost" size="sm" className="text-xs italic text-muted-foreground" disabled={disabled} title="More effects...">...</Button>
+       )}
     </div>
   );
 }

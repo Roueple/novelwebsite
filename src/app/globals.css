@@ -215,8 +215,7 @@
 
     /* --- Text Effect Color Overrides for Reading Theme --- */
     /* Use the base light/dark reading variables defined above */
-    /* Decide if reading theme should inherit from light or dark base *first* */
-    /* Example: Inherit from light mode reading theme first */
+    /* Default to light mode reading theme */
     --reading-background-raw: 39 52% 96%; /* Light Paper */
     --reading-foreground-raw: 30 20% 25%; /* Dark Brown */
     --reading-muted-raw: 30 15% 55%;      /* Muted Brown */
@@ -637,7 +636,7 @@
 }
 
 /* Special */
-.effect-hesitate { /* Renamed from effect-hesitation */
+.effect-hesitate {
   @apply effect-base;
   color: var(--text-hesitate); /* Uses the theme-aware semantic variable */
 }
@@ -721,6 +720,17 @@
 .disable-animations .effect-distant { opacity: 1; }
 .disable-animations .effect-impact { font-weight: normal; }
 .disable-animations .effect-radio { font-family: inherit; }
+
+/* Toolbar Button Label Color Overrides */
+/* Prevents effect-specific colors from overriding button text color */
+/* Allows animations/other styles defined in effect-* classes to still apply */
+.text-effects-toolbar-button span[class*="effect-"] {
+  color: inherit !important; /* Force inherit button's text color */
+  /* Reset other styles only if they conflict visually */
+  font-weight: normal !important;
+  text-transform: none !important;
+  /* Keep animations, filter, opacity etc. from the original effect class */
+}
 
 
 /* --- Focus Mode Styles --- */
