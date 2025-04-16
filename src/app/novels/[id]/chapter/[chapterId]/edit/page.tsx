@@ -132,31 +132,44 @@ const EditChapterPage = () => {
   // --- Scroll Synchronization ---
   const handleViewToggle = () => {
     // Capture scroll position *before* toggling state
+    let currentScroll = 0;
     if (showRawEditor && editorRef.current) {
-      setScrollPosition(editorRef.current.scrollTop);
+      currentScroll = editorRef.current.scrollTop;
     } else if (!showRawEditor && previewRef.current) {
-      setScrollPosition(previewRef.current.scrollTop);
+      currentScroll = previewRef.current.scrollTop;
     }
+    setScrollPosition(currentScroll); // Store the position
     // Toggle the view
-    setShowRawEditor(!showRawEditor);
+    setShowRawEditor(prev => !prev);
   };
 
-  // Effect to restore scroll position *after* view toggles
+  // Effect to restore scroll position *after* view toggles and DOM updates
   useEffect(() => {
-    requestAnimationFrame(() => {
-      if (!showRawEditor && previewRef.current) {
-        previewRef.current.scrollTop = scrollPosition;
-      } else if (showRawEditor && editorRef.current) {
-        editorRef.current.scrollTop = scrollPosition;
-      }
-    });
-  }, [showRawEditor]); // Run only when the view mode changes
+    // No need to run if loading initially
+    if (loading) return;
+
+    // Use a short timeout WITH requestAnimationFrame to give content (esp. preview) time to render
+    const timerId = setTimeout(() => {
+        requestAnimationFrame(() => {
+            // Read the latest scroll position directly from state right before applying
+            const targetScroll = scrollPosition;
+            if (!showRawEditor && previewRef.current) {
+              previewRef.current.scrollTop = targetScroll;
+            } else if (showRawEditor && editorRef.current) {
+              editorRef.current.scrollTop = targetScroll;
+            }
+        });
+    }, 50); // 50ms delay - adjust if needed
+
+    return () => clearTimeout(timerId); // Cleanup timer on unmount or if showRawEditor changes again quickly
+
+  }, [showRawEditor, loading, scrollPosition]); // Rerun when view changes (or loading finishes)
+
 
   // --- Remove All Effects ---
   const handleRemoveAllEffects = () => {
     if (confirm("Are you sure you want to remove ALL text effect tags (e.g., [shout]) from this chapter? This cannot be undone easily.")) {
       setEditedContent(currentContent => {
-        // Regex to find and remove tags like [word]
         const pattern = /\[[a-zA-Z]+\]/g;
         const newContent = currentContent.replace(pattern, '');
         toast.success("All text effect tags removed.");
@@ -199,20 +212,37 @@ const EditChapterPage = () => {
              {/* Right Side Controls */}
              <div className="flex items-center flex-wrap gap-2 flex-shrink-0">
                {lastSavedTime && ( <span className="text-xs text-muted-foreground mr-2 hidden sm:inline" aria-live="polite"> Draft saved: {lastSavedTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} </span> )}
-               {/* Modified Toggle Button */}
+               {/* Raw/Preview Toggle Button */}
                <Button variant="outline" size="sm" onClick={handleViewToggle} className="gap-1" aria-pressed={!showRawEditor} >
                  {showRawEditor ? <Eye size={16} /> : <Code size={16} />}
                  {showRawEditor ? 'Preview' : 'Raw Text'}
                </Button>
-               {/* Effects Toggle (for Preview) */}
-               {!showRawEditor && ( <Button variant="ghost" size="icon" onClick={() => setEffectsEnabledInPreview(!effectsEnabledInPreview)} className={cn("w-8 h-8", effectsEnabledInPreview ? 'text-yellow-500 hover:text-yellow-600' : 'text-muted-foreground hover:text-foreground')} aria-label={effectsEnabledInPreview ? 'Disable effects in preview' : 'Enable effects in preview'} aria-pressed={effectsEnabledInPreview} > <SparklesIcon size={16} /> </Button> )}
+               {/* Effects Toggle (for Preview) - Always rendered, hidden conditionally */}
+               <Button
+                   variant="ghost"
+                   size="icon"
+                   onClick={() => setEffectsEnabledInPreview(!effectsEnabledInPreview)}
+                   className={cn(
+                       "w-8 h-8",
+                       effectsEnabledInPreview ? 'text-yellow-500 hover:text-yellow-600' : 'text-muted-foreground hover:text-foreground',
+                       // Use 'invisible' to hide while preserving layout space
+                       { 'invisible': showRawEditor }
+                   )}
+                   aria-label={effectsEnabledInPreview ? 'Disable effects in preview' : 'Enable effects in preview'}
+                   aria-pressed={effectsEnabledInPreview}
+                   // Also disable interaction when invisible
+                   disabled={showRawEditor || saving}
+                   tabIndex={showRawEditor ? -1 : 0} // Improve accessibility
+               >
+                   <SparklesIcon size={16} />
+               </Button>
                {/* Remove All Effects Button */}
                <Button
                   variant="outline"
                   size="icon"
                   onClick={handleRemoveAllEffects}
                   disabled={saving || !showRawEditor}
-                  className="w-8 h-8 text-destructive hover:bg-destructive/10"
+                  className="w-8 h-8 text-destructive hover:bg-destructive/10 disabled:opacity-50"
                   aria-label="Remove all text effects"
                   title="Remove all text effects"
                >
@@ -230,8 +260,8 @@ const EditChapterPage = () => {
 
          {/* --- Sticky Text Effects Toolbar --- */}
          <div className={cn(
-             "sticky z-40 bg-background py-2",
-             TOOLBAR_OFFSET
+             "sticky z-40 bg-background py-2", // Ensure background for overlap
+             TOOLBAR_OFFSET // Position below the top bar
          )}>
             <TextEffectsToolbar
                 editorRef={editorRef}
@@ -250,7 +280,7 @@ const EditChapterPage = () => {
                 ref={editorRef}
                 value={editedContent}
                 onChange={(e) => setEditedContent(e.target.value)}
-                // REMOVED onScroll handler
+                // Removed onScroll handler
                 className="min-h-[60vh] lg:min-h-[70vh] font-mono text-base border-input focus:border-primary resize-y w-full bg-background"
                 placeholder="Write your chapter content here..."
                 disabled={saving}
@@ -263,7 +293,7 @@ const EditChapterPage = () => {
              <Card className="flex-grow overflow-hidden bg-card text-card-foreground">
                 <CardContent
                     ref={previewRef}
-                    // REMOVED onScroll handler
+                    // Removed onScroll handler
                     className="p-4 md:p-6 min-h-[60vh] lg:min-h-[70vh] overflow-y-auto prose prose-sm sm:prose-base max-w-none dark:prose-invert"
                 >
                     <DynamicText content={editedContent} isEnabled={effectsEnabledInPreview} />
