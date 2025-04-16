@@ -30,8 +30,8 @@
     /* --- Reading Mode Specific - Light Base (Sepia/Paper) --- */
     --reading-background-raw: 39 52% 96%; /* Lighter paper: #FAF6F0 */
     --reading-foreground-raw: 30 20% 25%; /* Darker brown text: #4D4033 */
-    --reading-muted-raw: 30 15% 55%;    /* Muted brown: #9C8C80 */
-    --reading-accent-raw: 15 70% 45%;    /* Warm accent: #C06027 */
+    --reading-muted-raw: 30 15% 55%; /* Muted brown: #9C8C80 */
+    --reading-accent-raw: 15 70% 45%; /* Warm accent: #C06027 */
 
     /* --- Text Effect Colors - Light Base --- */
     --text-shout-raw: 0 72% 41%; /* #b91c1c */
@@ -85,12 +85,14 @@
     --ring: hsl(var(--ring-raw));
 
     /* --- Reading Semantic Overrides (Applied by .reading class) --- */
+    /* Note: These are defined here but applied via the .reading class below */
     --reading-background: hsl(var(--reading-background-raw));
     --reading-foreground: hsl(var(--reading-foreground-raw));
     --reading-muted: hsl(var(--reading-muted-raw));
     --reading-accent: hsl(var(--reading-accent-raw));
 
-    /* --- Text Effect Semantic Variables --- */
+    /* --- Text Effect Semantic Variables (Applied by effect classes) --- */
+    /* These use the raw values defined above or in theme overrides */
     --text-shout: hsl(var(--text-shout-raw));
     --text-whisper: hsl(var(--text-whisper-raw));
     --text-loud: hsl(var(--text-loud-raw));
@@ -119,7 +121,6 @@
     --text-impact: hsl(var(--text-impact-raw));
     --text-underwater: hsl(var(--text-underwater-raw));
     --text-radio: hsl(var(--text-radio-raw));
-
 
     /* Default Reading Preferences Variables (Can be overridden by JS) */
     --reading-line-height: 1.6;
@@ -153,8 +154,8 @@
     /* --- Reading Mode Specific - Dark Base (Night/Dark Paper) --- */
     --reading-background-raw: 220 15% 18%; /* Dark gray-blue: #2A2D33 */
     --reading-foreground-raw: 210 20% 85%; /* Off-white text: #D3D6DB */
-    --reading-muted-raw: 210 10% 60%;    /* Grayish: #9299A1 */
-    --reading-accent-raw: 30 60% 60%;    /* Muted gold/brown: #C8A365 */
+    --reading-muted-raw: 210 10% 60%; /* Grayish: #9299A1 */
+    --reading-accent-raw: 30 60% 60%; /* Muted gold/brown: #C8A365 */
 
      /* --- Text Effect Colors - Dark Base --- */
     --text-shout-raw: 0 90% 70%; /* Lighter red */
@@ -211,7 +212,85 @@
     --border: color-mix(in srgb, hsl(var(--reading-foreground-raw)) 15%, hsl(var(--reading-background-raw)));
     --input: color-mix(in srgb, hsl(var(--reading-foreground-raw)) 5%, hsl(var(--reading-background-raw)));
     --ring: hsl(var(--reading-accent-raw));
+
+    /* --- Text Effect Color Overrides for Reading Theme --- */
+    /* Use the base light/dark reading variables defined above */
+    /* Decide if reading theme should inherit from light or dark base *first* */
+    /* Example: Inherit from light mode reading theme first */
+    --reading-background-raw: 39 52% 96%; /* Light Paper */
+    --reading-foreground-raw: 30 20% 25%; /* Dark Brown */
+    --reading-muted-raw: 30 15% 55%;      /* Muted Brown */
+    --reading-accent-raw: 15 70% 45%;     /* Warm Accent */
+
+    /* Define text effects based on the *reading* palette */
+    --text-shout-raw: 0 60% 35%;    /* Darker, bolder red for paper */
+    --text-whisper-raw: var(--reading-muted-raw); /* Use reading muted */
+    --text-loud-raw: 0 50% 40%;     /* Less intense red */
+    --text-quiet-raw: 30 15% 65%;   /* Slightly lighter muted brown */
+    --text-tremble-raw: var(--reading-foreground-raw); /* Inherit reading text color */
+    --text-fear-raw: 270 30% 40%;   /* Muted purple, less vibrant */
+    --text-joy-raw: 120 40% 35%;    /* Earthy green */
+    --text-anger-raw: 0 70% 40%;    /* Strong, but not neon, red */
+    --text-sadness-raw: 210 30% 45%; /* Muted blue/grey */
+    --text-fast-raw: var(--reading-foreground-raw);
+    --text-slow-raw: var(--reading-foreground-raw);
+    --text-stutter-raw: var(--reading-foreground-raw);
+    --text-pause-raw: var(--reading-foreground-raw);
+    --text-thought-raw: 30 10% 50%; /* Greyer brown */
+    --text-dream-raw: 190 40% 60%;  /* Softer, slightly muted blue */
+    --text-robotic-raw: 210 5% 45%; /* Grey, less metallic */
+    --text-weak-raw: 40 20% 70%;    /* Paler brown */
+    --text-ghostly-raw: 200 30% 75%;/* Paler, less saturated blue */
+    --text-emphasis-raw: var(--reading-accent-raw); /* Use reading accent color */
+    --text-fade-raw: var(--reading-foreground-raw);
+    --text-fadein-raw: var(--reading-foreground-raw);
+    --text-fadeout-raw: var(--reading-foreground-raw);
+    --text-echo-raw: var(--reading-muted-raw); /* Use reading muted for echo */
+    --text-distant-raw: 30 15% 70%; /* Lighter muted brown */
+    --text-hesitate-raw: var(--reading-foreground-raw);
+    --text-impact-raw: 15 60% 50%;  /* Stronger warm accent */
+    --text-underwater-raw: 190 40% 55%; /* Muted teal/blue */
+    --text-radio-raw: 45 30% 45%;   /* Muted olive/brown */
   }
+  /* Apply dark reading theme overrides *if* .dark and .reading are both present */
+  .dark.reading {
+    /* Inherit from dark mode reading theme */
+    --reading-background-raw: 220 15% 18%; /* Dark Gray-Blue */
+    --reading-foreground-raw: 210 20% 85%; /* Off-White */
+    --reading-muted-raw: 210 10% 60%;      /* Grayish */
+    --reading-accent-raw: 30 60% 60%;      /* Muted Gold/Brown */
+
+    /* Override text effects for dark reading */
+    --text-shout-raw: 0 70% 75%;    /* Lighter, visible red */
+    --text-whisper-raw: var(--reading-muted-raw);
+    --text-loud-raw: 0 60% 80%;     /* Brighter red */
+    --text-quiet-raw: 210 10% 70%;   /* Lighter gray */
+    --text-tremble-raw: var(--reading-foreground-raw);
+    --text-fear-raw: 270 50% 75%;   /* Lighter purple */
+    --text-joy-raw: 120 50% 70%;    /* Brighter earthy green */
+    --text-anger-raw: 0 80% 80%;    /* Very visible red */
+    --text-sadness-raw: 210 50% 75%; /* Lighter muted blue */
+    --text-fast-raw: var(--reading-foreground-raw);
+    --text-slow-raw: var(--reading-foreground-raw);
+    --text-stutter-raw: var(--reading-foreground-raw);
+    --text-pause-raw: var(--reading-foreground-raw);
+    --text-thought-raw: 210 10% 75%; /* Light gray */
+    --text-dream-raw: 190 50% 80%;  /* Light teal */
+    --text-robotic-raw: 210 10% 70%; /* Medium gray */
+    --text-weak-raw: 40 20% 80%;    /* Very pale brown */
+    --text-ghostly-raw: 200 40% 85%;/* Very pale blue */
+    --text-emphasis-raw: var(--reading-accent-raw);
+    --text-fade-raw: var(--reading-foreground-raw);
+    --text-fadein-raw: var(--reading-foreground-raw);
+    --text-fadeout-raw: var(--reading-foreground-raw);
+    --text-echo-raw: var(--reading-muted-raw);
+    --text-distant-raw: 210 10% 70%; /* Light gray */
+    --text-hesitate-raw: var(--reading-foreground-raw);
+    --text-impact-raw: 15 70% 70%;  /* Brighter warm accent */
+    --text-underwater-raw: 190 50% 75%; /* Lighter muted teal */
+    --text-radio-raw: 45 40% 70%;   /* Lighter olive */
+  }
+
 
   /* Base body styles */
   body {
@@ -269,6 +348,7 @@
   --tw-prose-pre-bg: var(--card); /* Code block bg */
   --tw-prose-th-borders: var(--border);
   --tw-prose-td-borders: var(--border);
+
   /* Invert colors (applied by .dark class automatically by plugin) */
   --tw-prose-invert-body: var(--foreground);
   --tw-prose-invert-headings: var(--foreground);
@@ -327,7 +407,7 @@
   @apply effect-base;
   font-weight: 900;
   text-transform: uppercase;
-  color: var(--text-shout);
+  color: var(--text-shout); /* Uses the theme-aware semantic variable */
   animation: shout-shake 0.4s ease-in-out infinite alternate;
 }
 @keyframes shout-shake {
@@ -339,21 +419,21 @@
   @apply effect-base;
   opacity: 0.7;
   font-size: 0.85em;
-  color: var(--text-whisper);
+  color: var(--text-whisper); /* Uses the theme-aware semantic variable */
 }
 
 .effect-loud {
    @apply effect-base;
    font-weight: 700;
    transform: scale(1.03);
-   color: var(--text-loud);
+   color: var(--text-loud); /* Uses the theme-aware semantic variable */
 }
 
 .effect-quiet {
    @apply effect-base;
    opacity: 0.8;
    font-size: 0.9em;
-   color: var(--text-quiet);
+   color: var(--text-quiet); /* Uses the theme-aware semantic variable */
 }
 
 
@@ -361,7 +441,7 @@
 .effect-tremble {
   @apply effect-base;
   animation: tremble 0.2s linear infinite;
-  color: var(--text-tremble);
+  color: var(--text-tremble); /* Uses the theme-aware semantic variable */
 }
 @keyframes tremble {
   0% { transform: translate(1px, 1px) rotate(0deg); }
@@ -375,7 +455,7 @@
   @apply effect-base;
   animation: fear-pulse 1.5s ease-in-out infinite;
   font-style: italic;
-  color: var(--text-fear);
+  color: var(--text-fear); /* Uses the theme-aware semantic variable */
 }
 @keyframes fear-pulse {
   0%, 100% { opacity: 1; transform: scale(1); }
@@ -385,7 +465,7 @@
 .effect-joy {
   @apply effect-base;
   animation: joy-bounce 0.8s ease-out infinite;
-  color: var(--text-joy);
+  color: var(--text-joy); /* Uses the theme-aware semantic variable */
   font-weight: 500;
 }
 @keyframes joy-bounce {
@@ -396,7 +476,7 @@
 .effect-anger {
   @apply effect-base;
   animation: anger-shake 0.15s ease-in-out infinite;
-  color: var(--text-anger);
+  color: var(--text-anger); /* Uses the theme-aware semantic variable */
   font-weight: 700;
   letter-spacing: 0.02em;
 }
@@ -408,7 +488,7 @@
 
 .effect-sadness {
    @apply effect-base;
-   color: var(--text-sadness);
+   color: var(--text-sadness); /* Uses the theme-aware semantic variable */
    opacity: 0.85;
    animation: sadness-fade 2s ease-in-out infinite alternate;
 }
@@ -422,14 +502,14 @@
   @apply effect-base;
   letter-spacing: -0.05em;
   font-style: italic;
-  color: var(--text-fast);
+  color: var(--text-fast); /* Uses the theme-aware semantic variable */
   /* No animation needed, just visual style */
 }
 
 .effect-slow {
   @apply effect-base;
   letter-spacing: 0.1em;
-  color: var(--text-slow);
+  color: var(--text-slow); /* Uses the theme-aware semantic variable */
   animation: slow-stretch 3s ease-in-out infinite alternate;
 }
 @keyframes slow-stretch {
@@ -440,7 +520,7 @@
 .effect-stutter {
   @apply effect-base;
   animation: stutter 0.4s steps(2, jump-none) infinite;
-  color: var(--text-stutter);
+  color: var(--text-stutter); /* Uses the theme-aware semantic variable */
 }
 @keyframes stutter {
   0%, 100% { transform: translateX(0); }
@@ -449,7 +529,7 @@
 
 .effect-pause {
   @apply effect-base;
-  color: var(--text-pause);
+  color: var(--text-pause); /* Uses the theme-aware semantic variable */
   /* Uses pseudo-element for pause visualization */
 }
 .effect-pause::after {
@@ -469,13 +549,13 @@
 .effect-thought {
   @apply effect-base;
   font-style: italic;
-  color: var(--text-thought);
+  color: var(--text-thought); /* Uses the theme-aware semantic variable */
   opacity: 0.9;
 }
 
 .effect-dream {
   @apply effect-base;
-  color: var(--text-dream);
+  color: var(--text-dream); /* Uses the theme-aware semantic variable */
   animation: dream-wave 3s ease-in-out infinite alternate;
   filter: blur(0.5px);
 }
@@ -489,19 +569,19 @@
   font-family: monospace;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: var(--text-robotic);
+  color: var(--text-robotic); /* Uses the theme-aware semantic variable */
 }
 
 .effect-weak {
   @apply effect-base;
-  color: var(--text-weak);
+  color: var(--text-weak); /* Uses the theme-aware semantic variable */
   opacity: 0.75;
   transform: scaleY(0.95);
 }
 
 .effect-ghostly {
   @apply effect-base;
-  color: var(--text-ghostly);
+  color: var(--text-ghostly); /* Uses the theme-aware semantic variable */
   opacity: 0.8;
   text-shadow: 0 0 5px var(--text-ghostly);
   animation: ghostly-float 4s ease-in-out infinite alternate;
@@ -516,13 +596,13 @@
   @apply effect-base;
   font-style: italic;
   font-weight: 600;
-  color: var(--text-emphasis);
+  color: var(--text-emphasis); /* Uses the theme-aware semantic variable */
 }
 
 .effect-fade, .effect-fadeout { /* Combine fade and fadeout */
   @apply effect-base;
   animation: fade-out 1s ease-out forwards;
-  color: var(--text-fade);
+  color: var(--text-fade); /* Uses the theme-aware semantic variable */
 }
 @keyframes fade-out {
   from { opacity: 1; }
@@ -533,47 +613,33 @@
   @apply effect-base;
   opacity: 0.3;
   animation: fade-in-effect 1s ease-in forwards; /* Renamed keyframe */
-  color: var(--text-fadein);
+  color: var(--text-fadein); /* Uses the theme-aware semantic variable */
 }
 @keyframes fade-in-effect { /* Renamed keyframe */
   from { opacity: 0.3; }
   to { opacity: 1; }
 }
 
-.effect-echo {
-  @apply effect-base;
-  position: relative;
-  color: var(--text-echo);
-}
-.effect-echo::after {
-  content: attr(data-text); /* Requires JS to set data-text or use content directly */
-  position: absolute;
-  left: 2px;
-  top: 2px;
-  z-index: -1;
-  opacity: 0.5;
-  color: inherit; /* Inherit echo color */
-  filter: blur(1px);
-}
 /* Simpler CSS-only echo using text-shadow */
 .effect-echo {
    @apply effect-base;
    color: var(--foreground); /* Main text color */
+   /* Use the theme-aware echo color variable */
    text-shadow: 1px 1px 0 var(--text-echo), 2px 2px 0 color-mix(in srgb, var(--text-echo) 50%, transparent);
 }
 
 
 .effect-distant {
   @apply effect-base;
-  color: var(--text-distant);
+  color: var(--text-distant); /* Uses the theme-aware semantic variable */
   transform: scale(0.9);
   opacity: 0.8;
 }
 
 /* Special */
-.effect-hesitate {
+.effect-hesitate { /* Renamed from effect-hesitation */
   @apply effect-base;
-  color: var(--text-hesitate);
+  color: var(--text-hesitate); /* Uses the theme-aware semantic variable */
 }
 .effect-hesitate::after {
   content: '..';
@@ -589,7 +655,7 @@
 .effect-impact {
   @apply effect-base;
   font-weight: 900;
-  color: var(--text-impact);
+  color: var(--text-impact); /* Uses the theme-aware semantic variable */
   animation: impact-shake 0.2s ease-in-out 1; /* Play once */
 }
 @keyframes impact-shake {
@@ -599,7 +665,7 @@
 
 .effect-underwater {
   @apply effect-base;
-  color: var(--text-underwater);
+  color: var(--text-underwater); /* Uses the theme-aware semantic variable */
   animation: underwater-wave 2.5s ease-in-out infinite alternate;
   filter: blur(0.7px);
 }
@@ -610,7 +676,7 @@
 
 .effect-radio {
   @apply effect-base;
-  color: var(--text-radio);
+  color: var(--text-radio); /* Uses the theme-aware semantic variable */
   animation: radio-static 0.1s linear infinite;
   font-family: monospace;
 }
@@ -629,10 +695,10 @@
   filter: none !important;
   opacity: 1 !important; /* Reset opacity changes */
   letter-spacing: normal !important; /* Reset letter spacing */
+  text-shadow: none !important; /* Reset text shadow */
 }
 /* Special handling for pseudo-elements if needed */
 .disable-animations .effect-pause::after,
-.disable-animations .effect-echo::after,
 .disable-animations .effect-hesitate::after {
   content: '' !important;
   display: none !important;

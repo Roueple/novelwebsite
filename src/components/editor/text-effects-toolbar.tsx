@@ -4,8 +4,8 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
-// EFFECT_BUTTONS data remains the same
-const EFFECT_BUTTONS = [
+// Full list of effects (kept for easy re-activation)
+const ALL_EFFECT_BUTTONS = [
   { tag: 'shout', label: 'Shout' }, { tag: 'whisper', label: 'Whisper' },
   { tag: 'loud', label: 'Loud' }, { tag: 'quiet', label: 'Quiet' },
   { tag: 'tremble', label: 'Tremble' }, { tag: 'fear', label: 'Fear' },
@@ -22,6 +22,14 @@ const EFFECT_BUTTONS = [
   { tag: 'underwater', label: 'Underwater' }, { tag: 'radio', label: 'Radio' },
 ];
 
+// Define the 7 effects to display
+const DISPLAYED_EFFECT_TAGS = ['shout', 'whisper', 'emphasis', 'thought', 'tremble', 'anger', 'joy'];
+
+// Filter the full list to get only the ones we want to display
+const DISPLAYED_EFFECT_BUTTONS = ALL_EFFECT_BUTTONS.filter(effect =>
+  DISPLAYED_EFFECT_TAGS.includes(effect.tag)
+);
+
 
 interface TextEffectsToolbarProps {
   editorRef: RefObject<HTMLTextAreaElement | null>;
@@ -31,13 +39,9 @@ interface TextEffectsToolbarProps {
 
 export default function TextEffectsToolbar({ editorRef, setContent, disabled = false }: TextEffectsToolbarProps) {
 
-  // applyTag function remains the same
+  // applyTag function remains the same, it can handle any tag
   const applyTag = (tag: string) => {
-    // --- This function should NOT run if disabled is true, ---
-    // --- because the button itself will be disabled.      ---
-    // --- But keep the check just in case.                  ---
     if (disabled) return;
-
     const textarea = editorRef.current;
     if (!textarea) {
         toast.error("Editor is not ready.");
@@ -68,6 +72,7 @@ export default function TextEffectsToolbar({ editorRef, setContent, disabled = f
         return before + newText + after;
     });
 
+    // Delay focus and cursor positioning slightly
     requestAnimationFrame(() => {
       if (editorRef.current) {
           editorRef.current.focus();
@@ -79,7 +84,8 @@ export default function TextEffectsToolbar({ editorRef, setContent, disabled = f
   return (
     // Toolbar container is always visible
     <div className="flex flex-wrap gap-1 p-2 border rounded-md bg-muted">
-      {EFFECT_BUTTONS.map(({ tag, label }) => (
+      {/* Map over the FILTERED list */}
+      {DISPLAYED_EFFECT_BUTTONS.map(({ tag, label }) => (
         <Button
           key={tag}
           variant="ghost"
@@ -87,25 +93,22 @@ export default function TextEffectsToolbar({ editorRef, setContent, disabled = f
           onClick={() => applyTag(tag)}
           title={`Apply ${label} effect`}
           disabled={disabled} // Button is functionally disabled here
-          // --- MODIFICATION: Add visual cue for disabled state ---
           className={cn(
             "px-2 py-1 h-auto text-xs font-medium",
             "hover:bg-background",
-            // Apply opacity change when disabled to make it clearer
-            // The default disabled:opacity-50 might be sufficient,
-            // but we can make it more explicit if needed.
-            // Add specific styles for the disabled state *if* the default isn't clear enough:
-             {"opacity-60 cursor-not-allowed": disabled} // Example: make it semi-transparent
+            // Apply standard disabled styling (Tailwind handles this via disabled:opacity-50)
+            {"cursor-not-allowed": disabled} // Ensure cursor changes
           )}
-          // --- END MODIFICATION ---
           aria-label={`Apply ${label} effect`}
         >
-          {/* Inner span still gets the effect class for visual preview */}
-          <span className={cn(`effect-${tag}`)}>
+          {/* Text inside the button - REMOVED effect class to fix theme color */}
+          <span>
              {label}
           </span>
         </Button>
       ))}
+      {/* Optional: Add a hint or button to show more effects later */}
+      {/* <Button variant="ghost" size="sm" className="text-xs italic text-muted-foreground" disabled={disabled}>...</Button> */}
     </div>
   );
 }
