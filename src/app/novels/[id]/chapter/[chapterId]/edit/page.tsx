@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Save, X, Lock, Unlock, Eye, EyeOff, Sparkles, Code, SparklesIcon, Trash2 } from 'lucide-react'; // Added SparklesIcon, Trash2
+import { Save, X, Lock, Unlock, Eye, EyeOff, Sparkles, Code, SparklesIcon, Trash2 } from 'lucide-react';
 import TextEffectsToolbar from '@/components/editor/text-effects-toolbar';
 import DynamicText from '@/components/reading/dynamic-text';
 import { toast } from 'sonner';
@@ -143,7 +143,6 @@ const EditChapterPage = () => {
 
   // Effect to restore scroll position *after* view toggles
   useEffect(() => {
-    // Use rAF to wait for DOM update after state change
     requestAnimationFrame(() => {
       if (!showRawEditor && previewRef.current) {
         previewRef.current.scrollTop = scrollPosition;
@@ -151,7 +150,7 @@ const EditChapterPage = () => {
         editorRef.current.scrollTop = scrollPosition;
       }
     });
-  }, [showRawEditor, scrollPosition]); // Run when view or stored position changes
+  }, [showRawEditor]); // Run only when the view mode changes
 
   // --- Remove All Effects ---
   const handleRemoveAllEffects = () => {
@@ -176,7 +175,6 @@ const EditChapterPage = () => {
   // --- Render Editor ---
   return (
     <AdminRoleCheck allowAuthor={true}>
-      {/* Add calculated padding top to main container */}
       <div className={cn("min-h-screen bg-background text-foreground p-4 md:p-8", EDITOR_PADDING_TOP)}>
 
         {/* --- Sticky Top Control Bar --- */}
@@ -201,12 +199,11 @@ const EditChapterPage = () => {
              {/* Right Side Controls */}
              <div className="flex items-center flex-wrap gap-2 flex-shrink-0">
                {lastSavedTime && ( <span className="text-xs text-muted-foreground mr-2 hidden sm:inline" aria-live="polite"> Draft saved: {lastSavedTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} </span> )}
-               {/* --- Modified Toggle Button --- */}
+               {/* Modified Toggle Button */}
                <Button variant="outline" size="sm" onClick={handleViewToggle} className="gap-1" aria-pressed={!showRawEditor} >
                  {showRawEditor ? <Eye size={16} /> : <Code size={16} />}
                  {showRawEditor ? 'Preview' : 'Raw Text'}
                </Button>
-               {/* --- End Modified Toggle Button --- */}
                {/* Effects Toggle (for Preview) */}
                {!showRawEditor && ( <Button variant="ghost" size="icon" onClick={() => setEffectsEnabledInPreview(!effectsEnabledInPreview)} className={cn("w-8 h-8", effectsEnabledInPreview ? 'text-yellow-500 hover:text-yellow-600' : 'text-muted-foreground hover:text-foreground')} aria-label={effectsEnabledInPreview ? 'Disable effects in preview' : 'Enable effects in preview'} aria-pressed={effectsEnabledInPreview} > <SparklesIcon size={16} /> </Button> )}
                {/* Remove All Effects Button */}
@@ -214,7 +211,7 @@ const EditChapterPage = () => {
                   variant="outline"
                   size="icon"
                   onClick={handleRemoveAllEffects}
-                  disabled={saving || !showRawEditor} // Disable if previewing or saving
+                  disabled={saving || !showRawEditor}
                   className="w-8 h-8 text-destructive hover:bg-destructive/10"
                   aria-label="Remove all text effects"
                   title="Remove all text effects"
@@ -250,11 +247,10 @@ const EditChapterPage = () => {
             <label htmlFor="chapter-content-editor" className="sr-only">Raw Content Editor</label>
             <Textarea
                 id="chapter-content-editor"
-                ref={editorRef} // Assign ref
+                ref={editorRef}
                 value={editedContent}
                 onChange={(e) => setEditedContent(e.target.value)}
-                // Store scroll position on scroll event
-                onScroll={(e) => { if (showRawEditor) setScrollPosition(e.currentTarget.scrollTop); }}
+                // REMOVED onScroll handler
                 className="min-h-[60vh] lg:min-h-[70vh] font-mono text-base border-input focus:border-primary resize-y w-full bg-background"
                 placeholder="Write your chapter content here..."
                 disabled={saving}
@@ -265,11 +261,9 @@ const EditChapterPage = () => {
           <div className={cn({ 'hidden': showRawEditor })}>
              <label className="sr-only">Preview</label>
              <Card className="flex-grow overflow-hidden bg-card text-card-foreground">
-                {/* Assign ref to the scrollable content area */}
                 <CardContent
                     ref={previewRef}
-                    // Store scroll position on scroll event
-                    onScroll={(e) => { if (!showRawEditor) setScrollPosition(e.currentTarget.scrollTop); }}
+                    // REMOVED onScroll handler
                     className="p-4 md:p-6 min-h-[60vh] lg:min-h-[70vh] overflow-y-auto prose prose-sm sm:prose-base max-w-none dark:prose-invert"
                 >
                     <DynamicText content={editedContent} isEnabled={effectsEnabledInPreview} />
