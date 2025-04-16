@@ -16,7 +16,8 @@ import DynamicText from '@/components/reading/dynamic-text';
 import { toast } from 'sonner';
 import type { ChapterType, NovelType } from '@/types/supabase';
 import { useAuth } from '@/providers/auth-provider';
-import { getChapter, getNovel, updateChapter } from '@/lib/api';
+import { getChapter, getNovel } from '@/lib/api';
+import { supabase } from '@/lib/supabase';
 import LoadingScreen from '@/components/ui/loading-screen';
 import NotFoundScreen from '@/components/ui/not-found-screen';
 import AdminRoleCheck from '@/components/auth/admin-role-check';
@@ -41,6 +42,13 @@ const EditChapterPage = () => {
   const [scrollPosition, setScrollPosition] = useState(0);
   const [scrollPercentage, setScrollPercentage] = useState(0);
   const [headerVisible, setHeaderVisible] = useState(true);
+  const [lockToggleInProgress, setLockToggleInProgress] = useState(false);
+
+  // Scroll sync state
+  const [isScrolling, setIsScrolling] = useState(false);
+  const [activeScrollElement, setActiveScrollElement] = useState<'editor' | 'preview' | null>(null);
+  const attemptedSyncRef = useRef(0);
+  const maxSyncAttempts = 5;
 
   const editorRef = useRef<HTMLTextAreaElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
@@ -94,47 +102,48 @@ const EditChapterPage = () => {
     handleSave: performSave
   } = useChapterActions(chapter, user, role, setChapterState, novel);
 
-  // --- Manual Lock Toggle Function ---
-  const handleManualLockToggle = async () => {
-    // Log before toggling
-    console.log('Before toggle - isLocked:', isLocked);
+  // --- Direct Lock Toggle Function ---
+  const directLockToggle = async () => {
+    if (!chapter || !novel || lockToggleInProgress) return;
     
-    // Toggle the lock state directly
-    const newLockedState = !isLocked;
-    setIsLocked(newLockedState);
-    
-    // Show what we're trying to do
-    toast.info(`Setting to ${newLockedState ? 'Locked' : 'Unlocked'}...`);
-    
-    // Use a timeout to ensure state is updated before we check
-    setTimeout(() => {
-      console.log('After immediate toggle - isLocked:', newLockedState);
-    }, 10);
-    
-    // Now call the API to persist the change
     try {
-      if (!chapter || !novel) {
-        throw new Error("Missing chapter or novel data");
+      setLockToggleInProgress(true);
+      
+      // Define the target state (opposite of current)
+      const targetLockedState = !isLocked;
+      
+      // Show visual feedback immediately
+      setIsLocked(targetLockedState);
+      toast.info(`Setting chapter to ${targetLockedState ? 'locked' : 'unlocked'}...`);
+      
+      // Call Supabase directly instead of using the API layer
+      const { error } = await supabase
+        .from('chapters')
+        .update({
+          is_locked: targetLockedState
+        })
+        .eq('id', chapter.id)
+        .eq('novel_id', novel.id);
+      
+      if (error) {
+        console.error('Supabase error during lock toggle:', error);
+        toast.error(`Lock toggle failed: ${error.message}`);
+        // Revert UI
+        setIsLocked(!targetLockedState);
+        return;
       }
       
-      // Direct API call to verify
-      const success = await updateChapter(novelId, chapter.id, {
-        is_locked: newLockedState
-      });
+      // Success! Update both the visual state and chapter object
+      toast.success(`Chapter is now ${targetLockedState ? 'locked' : 'unlocked'}`);
+      setChapterState(prev => prev ? { ...prev, is_locked: targetLockedState } : null);
       
-      if (success) {
-        toast.success(`Chapter ${newLockedState ? 'locked' : 'unlocked'} successfully`);
-        // Update chapter state
-        setChapterState(prev => prev ? { ...prev, is_locked: newLockedState } : null);
-      } else {
-        // Revert on failure
-        toast.error('Failed to update lock status');
-        setIsLocked(!newLockedState); // Revert
-      }
     } catch (err) {
-      console.error('Error in lock toggle:', err);
-      toast.error('Error toggling lock status');
-      setIsLocked(!newLockedState); // Revert
+      console.error('Exception during lock toggle:', err);
+      toast.error('An unexpected error occurred');
+      // Revert UI on exception
+      setIsLocked(!isLocked);
+    } finally {
+      setLockToggleInProgress(false);
     }
   };
 
@@ -192,61 +201,178 @@ const EditChapterPage = () => {
     return () => clearTimeout(handler);
   }, [editedTitle, editedContent, isLocked, autosaveKey, chapter, loading]);
 
-  // --- Enhanced View Toggle with Scroll Sync ---
-  const handleViewToggle = () => {
-    // Capture scroll position before toggling state
-    let currentScroll = 0;
-    let scrollPercentage = 0;
-    
-    if (showRawEditor && editorRef.current) {
-      const element = editorRef.current;
-      currentScroll = element.scrollTop;
-      // Calculate percentage scrolled for better cross-view sync
-      scrollPercentage = element.scrollHeight > 0 
-        ? currentScroll / (element.scrollHeight - element.clientHeight) 
-        : 0;
-    } else if (!showRawEditor && previewRef.current) {
-      const element = previewRef.current;
-      currentScroll = element.scrollTop;
-      // Calculate percentage scrolled
-      scrollPercentage = element.scrollHeight > 0 
-        ? currentScroll / (element.scrollHeight - element.clientHeight) 
-        : 0;
+  // --- Scroll Synchronization ---
+  // Specialized function for scroll synchronization
+  const syncScroll = (sourceType: 'editor' | 'preview', percentage: number) => {
+    // If already synchronizing from the other element, don't create infinite loop
+    if (isScrolling && activeScrollElement !== sourceType) {
+      return;
     }
     
-    // Store both values
-    setScrollPosition(currentScroll);
-    setScrollPercentage(scrollPercentage);
+    setIsScrolling(true);
+    setActiveScrollElement(sourceType);
     
-    // Toggle the view
+    // Reset attempts counter when initiating a new sync
+    attemptedSyncRef.current = 0;
+    
+    // Define which element to sync to
+    const targetElement = sourceType === 'editor' ? previewRef.current : editorRef.current;
+    
+    // Attempt to apply scroll
+    const tryApplyScroll = () => {
+      if (!targetElement || attemptedSyncRef.current >= maxSyncAttempts) {
+        // Give up after max attempts
+        setIsScrolling(false);
+        setActiveScrollElement(null);
+        return;
+      }
+      
+      attemptedSyncRef.current += 1;
+      
+      // Get the target's maximum scroll range
+      const maxScroll = targetElement.scrollHeight - targetElement.clientHeight;
+      
+      // Apply the percentage
+      if (maxScroll > 0) {
+        const targetPosition = percentage * maxScroll;
+        targetElement.scrollTop = targetPosition;
+        
+        // Check if we got close enough (within 5 pixels)
+        const appliedPosition = targetElement.scrollTop;
+        const difference = Math.abs(appliedPosition - targetPosition);
+        
+        if (difference <= 5) {
+          // Success! We're done.
+          setIsScrolling(false);
+          setActiveScrollElement(null);
+        } else {
+          // Try again after a short delay
+          setTimeout(tryApplyScroll, 50);
+        }
+      } else {
+        // No scroll needed if there's nothing to scroll
+        setIsScrolling(false);
+        setActiveScrollElement(null);
+      }
+    };
+    
+    // Start the attempt process
+    tryApplyScroll();
+  };
+
+  // Add scroll event listeners
+  useEffect(() => {
+    if (loading) return;
+    
+    const handleEditorScroll = () => {
+      if (isScrolling && activeScrollElement !== 'editor') return;
+      
+      if (editorRef.current) {
+        const element = editorRef.current;
+        const maxScroll = element.scrollHeight - element.clientHeight;
+        if (maxScroll <= 0) return; // No scrolling possible
+        
+        const percentage = element.scrollTop / maxScroll;
+        syncScroll('editor', percentage);
+      }
+    };
+    
+    const handlePreviewScroll = () => {
+      if (isScrolling && activeScrollElement !== 'preview') return;
+      
+      if (previewRef.current) {
+        const element = previewRef.current;
+        const maxScroll = element.scrollHeight - element.clientHeight;
+        if (maxScroll <= 0) return; // No scrolling possible
+        
+        const percentage = element.scrollTop / maxScroll;
+        syncScroll('preview', percentage);
+      }
+    };
+    
+    // Attach event listeners
+    const editorElement = editorRef.current;
+    const previewElement = previewRef.current;
+    
+    if (editorElement) {
+      editorElement.addEventListener('scroll', handleEditorScroll);
+    }
+    
+    if (previewElement) {
+      previewElement.addEventListener('scroll', handlePreviewScroll);
+    }
+    
+    // Initial sync after elements are fully rendered
+    // Set a timeout to ensure content is rendered
+    const initialSyncTimer = setTimeout(() => {
+      // Initialize based on which view is active
+      if (showRawEditor && editorRef.current) {
+        const element = editorRef.current;
+        const maxScroll = element.scrollHeight - element.clientHeight;
+        if (maxScroll > 0) {
+          // Use stored scrollPercentage from previous toggle if available
+          const percentage = scrollPercentage > 0 ? scrollPercentage : 0;
+          element.scrollTop = percentage * maxScroll;
+        }
+      } else if (!showRawEditor && previewRef.current) {
+        const element = previewRef.current;
+        const maxScroll = element.scrollHeight - element.clientHeight;
+        if (maxScroll > 0) {
+          const percentage = scrollPercentage > 0 ? scrollPercentage : 0;
+          element.scrollTop = percentage * maxScroll;
+        }
+      }
+    }, 150);
+    
+    // Cleanup
+    return () => {
+      if (editorElement) {
+        editorElement.removeEventListener('scroll', handleEditorScroll);
+      }
+      
+      if (previewElement) {
+        previewElement.removeEventListener('scroll', handlePreviewScroll);
+      }
+      
+      clearTimeout(initialSyncTimer);
+    };
+  }, [loading, showRawEditor, isScrolling, activeScrollElement, scrollPercentage]);
+
+  // --- Handle View Toggle ---
+  const handleViewToggle = () => {
+    // Capture the scroll percentage from the active view
+    if (showRawEditor && editorRef.current) {
+      const element = editorRef.current;
+      const maxScroll = element.scrollHeight - element.clientHeight;
+      if (maxScroll > 0) {
+        const percentage = element.scrollTop / maxScroll;
+        setScrollPercentage(percentage);
+      }
+    } else if (!showRawEditor && previewRef.current) {
+      const element = previewRef.current;
+      const maxScroll = element.scrollHeight - element.clientHeight;
+      if (maxScroll > 0) {
+        const percentage = element.scrollTop / maxScroll;
+        setScrollPercentage(percentage);
+      }
+    }
+    
+    // Toggle the view - the effect hook will handle initializing
+    // the scroll position for the newly active view
     setShowRawEditor(prev => !prev);
   };
 
-  // Effect to restore scroll position using percentage approach
-  useEffect(() => {
-    if (loading) return;
-
-    // Use a longer timeout to ensure content is fully rendered
-    const timerId = setTimeout(() => {
-      requestAnimationFrame(() => {
-        // Determine which element is currently visible
-        const targetElement = !showRawEditor ? previewRef.current : editorRef.current;
-        
-        if (targetElement) {
-          // Apply scroll based on percentage
-          const newScrollTop = scrollPercentage * 
-            (targetElement.scrollHeight - targetElement.clientHeight);
-          
-          // Apply the calculated scroll position
-          targetElement.scrollTop = newScrollTop;
-          
-          console.log(`Applied scroll: ${scrollPercentage.toFixed(2)}% → ${newScrollTop}px`);
-        }
+  // --- Remove All Effects ---
+  const handleRemoveAllEffects = () => {
+    if (confirm("Are you sure you want to remove ALL text effect tags (e.g., [shout]) from this chapter? This cannot be undone easily.")) {
+      setEditedContent(currentContent => {
+        const pattern = /\[[a-zA-Z]+\]/g;
+        const newContent = currentContent.replace(pattern, '');
+        toast.success("All text effect tags removed.");
+        return newContent;
       });
-    }, 100); // Increased timeout
-
-    return () => clearTimeout(timerId);
-  }, [showRawEditor, loading, scrollPercentage]);
+    }
+  };
 
   // --- Final Save & Cancel Actions ---
   const handleFinalSave = async () => {
@@ -269,18 +395,6 @@ const EditChapterPage = () => {
     }
     localStorage.removeItem(autosaveKey);
     router.push(`/novels/${novelId}/chapter/${chapterNumber}`);
-  };
-
-  // --- Remove All Effects ---
-  const handleRemoveAllEffects = () => {
-    if (confirm("Are you sure you want to remove ALL text effect tags (e.g., [shout]) from this chapter? This cannot be undone easily.")) {
-      setEditedContent(currentContent => {
-        const pattern = /\[[a-zA-Z]+\]/g;
-        const newContent = currentContent.replace(pattern, '');
-        toast.success("All text effect tags removed.");
-        return newContent;
-      });
-    }
   };
 
   // --- Loading and Error Handling ---
@@ -308,7 +422,25 @@ const EditChapterPage = () => {
                   disabled={saving}
                   aria-label="Chapter Title"
                 />
+                
+                {/* Lock Status Indicator */}
+                <div className="flex items-center mt-2">
+                  <div className={cn(
+                    "px-2 py-1 rounded-full text-xs font-medium",
+                    isLocked 
+                      ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
+                      : "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
+                  )}>
+                    {isLocked ? 'Premium (Locked)' : 'Free (Unlocked)'}
+                  </div>
+                  <div className="ml-2 text-xs text-muted-foreground">
+                    {isLocked 
+                      ? "Readers need a subscription to access this chapter"
+                      : "This chapter is free for all readers"}
+                  </div>
+                </div>
               </div>
+              
               {/* Right Side Controls */}
               <div className="flex items-center flex-wrap gap-2 flex-shrink-0">
                 {lastSavedTime && (
@@ -316,6 +448,7 @@ const EditChapterPage = () => {
                     Draft saved: {lastSavedTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
                 )}
+                
                 {/* Hide Header Button */}
                 <Button
                   variant="outline"
@@ -327,6 +460,7 @@ const EditChapterPage = () => {
                   <ChevronUp size={16} />
                   <span className="hidden sm:inline">Hide</span>
                 </Button>
+                
                 {/* Raw/Preview Toggle Button */}
                 <Button
                   variant="outline"
@@ -338,6 +472,7 @@ const EditChapterPage = () => {
                   {showRawEditor ? <Eye size={16} /> : <Code size={16} />}
                   {showRawEditor ? 'Preview' : 'Raw Text'}
                 </Button>
+                
                 {/* Effects Toggle (for Preview) */}
                 <Button
                   variant="ghost"
@@ -355,6 +490,7 @@ const EditChapterPage = () => {
                 >
                   <SparklesIcon size={16} />
                 </Button>
+                
                 {/* Remove All Effects Button */}
                 <Button
                   variant="outline"
@@ -367,42 +503,36 @@ const EditChapterPage = () => {
                 >
                   <Trash2 size={16} />
                 </Button>
-                {/* Debug Button (Temporary) */}
-                <Button
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => {
-                    console.log('Current lock state:', {
-                      componentIsLocked: isLocked,
-                      chapterIsLocked: chapter?.is_locked,
-                      mismatch: isLocked !== chapter?.is_locked
-                    });
-                  }}
-                  className="text-xs"
-                >
-                  Debug Lock
-                </Button>
+                
                 {/* Lock Toggle Button */}
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  onClick={handleManualLockToggle} 
-                  disabled={saving} 
+                  onClick={directLockToggle} 
+                  disabled={saving || lockToggleInProgress} 
                   className={cn(
                     "gap-1", 
                     isLocked 
                       ? 'text-destructive border-destructive hover:bg-destructive/10' 
                       : 'text-green-600 border-green-600 hover:bg-green-500/10'
-                  )} 
-                  aria-pressed={isLocked}
+                  )}
                 >
-                  {isLocked ? <Lock size={16} /> : <Unlock size={16} />}
+                  {lockToggleInProgress ? (
+                    // Show loading spinner during the operation
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  ) : isLocked ? (
+                    <Lock size={16} />
+                  ) : (
+                    <Unlock size={16} />
+                  )}
                   {isLocked ? 'Locked' : 'Unlocked'}
                 </Button>
+                
                 {/* Cancel Button */}
                 <Button variant="outline" size="sm" onClick={handleCancel} disabled={saving}>
                   <X size={16} className="mr-1"/> Cancel
                 </Button>
+                
                 {/* Save Button */}
                 <Button size="sm" onClick={handleFinalSave} disabled={saving} className="bg-primary hover:bg-primary/90 text-primary-foreground">
                   <Save size={16} className="mr-1" /> {saving ? 'Saving...' : 'Save Chapter'}
