@@ -205,37 +205,52 @@ export async function addChapter(
   }
 }
 
+// src/lib/api.ts
+
 export async function updateChapter(
   novelId: number,
   chapterId: number,
-  updateData: Partial<Omit<ChapterType, 'id' | 'novel_id' | 'created_at'>> // More specific type
+  updateData: Partial<Omit<ChapterType, 'id' | 'novel_id' | 'created_at'>>
 ): Promise<boolean> {
-   if (isNaN(novelId) || novelId <= 0 || isNaN(chapterId) || chapterId <= 0) {
-     console.error('Invalid novel or chapter ID for update:', { novelId, chapterId });
-     return false;
+  if (isNaN(novelId) || novelId <= 0 || isNaN(chapterId) || chapterId <= 0) {
+    console.error('Invalid novel or chapter ID for update:', { novelId, chapterId });
+    return false;
   }
+  
   // Remove potentially harmful fields if necessary before update
   const cleanData = { ...updateData };
-  // delete cleanData.id; // Example if needed, though Partial Omit handles this
-  // delete cleanData.novel_id;
-
+  
   if (Object.keys(cleanData).length === 0) {
-      console.warn("updateChapter called with empty data.");
-      return true; // No changes needed, technically successful
+    console.warn("updateChapter called with empty data.");
+    return true; // No changes needed, technically successful
   }
 
   try {
-    // Optional: Add permission checks here
-    const { error } = await supabase
+    // Add debug logging
+    console.log(`Updating chapter ${chapterId} with data:`, cleanData);
+    
+    const { error, data } = await supabase
       .from('chapters')
       .update(cleanData)
       .eq('id', chapterId)
-      .eq('novel_id', novelId); // Ensure update targets the correct novel's chapter
+      .eq('novel_id', novelId)
+      .select(); // Add select to get the response data
 
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase update error:', error);
+      throw error;
+    }
+    
+    // Log success response
+    console.log('Update success response:', data);
     return true;
   } catch (error) {
-    handleSupabaseError(error, `updateChapter (Chapter ID: ${chapterId})`);
+    console.error('Detailed error in updateChapter:', error);
+    // Provide more context in the error message
+    const errorMessage = error instanceof Error 
+      ? `${error.name}: ${error.message}` 
+      : String(error);
+    console.error(`Failed to update chapter ${chapterId}: ${errorMessage}`);
     return false;
   }
 }
