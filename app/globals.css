@@ -1,0 +1,786 @@
+/* src/app/globals.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* --- Base Light Theme --- */
+    --background-raw: 0 0% 100%;
+    --foreground-raw: 222 84% 4%; /* Slightly desaturated black for better readability */
+    --card-raw: 0 0% 100%;
+    --card-foreground-raw: 222 84% 4%;
+    --popover-raw: 0 0% 100%;
+    --popover-foreground-raw: 222 84% 4%;
+    --primary-raw: 221 83% 53%; /* A nice blue */
+    --primary-foreground-raw: 0 0% 100%;
+    --secondary-raw: 215 28% 96%; /* Light gray */
+    --secondary-foreground-raw: 222 47% 11%;
+    --muted-raw: 215 28% 96%;
+    --muted-foreground-raw: 215 20% 65%;
+    --accent-raw: 215 28% 96%;
+    --accent-foreground-raw: 222 47% 11%;
+    --destructive-raw: 0 84% 60%;
+    --destructive-foreground-raw: 0 0% 100%;
+    --border-raw: 214 32% 91%;
+    --input-raw: 214 32% 91%;
+    --ring-raw: 221 83% 53%; /* Use primary color for focus rings */
+    --radius: 0.5rem;
+
+    /* --- Reading Mode Specific - Light Base (Sepia/Paper) --- */
+    --reading-background-raw: 39 52% 96%; /* Lighter paper: #FAF6F0 */
+    --reading-foreground-raw: 30 20% 25%; /* Darker brown text: #4D4033 */
+    --reading-muted-raw: 30 15% 55%; /* Muted brown: #9C8C80 */
+    --reading-accent-raw: 15 70% 45%; /* Warm accent: #C06027 */
+
+    /* --- Text Effect Colors - Light Base --- */
+    --text-shout-raw: 0 72% 41%; /* #b91c1c */
+    --text-whisper-raw: 215 20% 65%; /* muted foreground */
+    --text-loud-raw: 0 60% 50%;
+    --text-quiet-raw: 215 15% 75%;
+    --text-tremble-raw: var(--foreground-raw); /* Color doesn't change, animation does */
+    --text-fear-raw: 270 50% 40%; /* Purplish */
+    --text-joy-raw: 140 60% 40%; /* Greenish */
+    --text-anger-raw: 0 80% 50%; /* Brighter red */
+    --text-sadness-raw: 220 60% 50%; /* Bluer */
+    --text-fast-raw: var(--foreground-raw);
+    --text-slow-raw: var(--foreground-raw);
+    --text-stutter-raw: var(--foreground-raw);
+    --text-pause-raw: var(--foreground-raw); /* Effect is spacing */
+    --text-thought-raw: 215 14% 44%; /* Grayer */
+    --text-dream-raw: 200 70% 60%; /* Lighter blue */
+    --text-robotic-raw: 210 10% 40%; /* Metallic gray */
+    --text-weak-raw: 40 10% 60%; /* Faded */
+    --text-ghostly-raw: 200 50% 80%; /* Pale blue */
+    --text-emphasis-raw: var(--primary-raw); /* Use primary accent */
+    --text-fade-raw: var(--foreground-raw); /* Opacity animation */
+    --text-fadein-raw: var(--foreground-raw);
+    --text-fadeout-raw: var(--foreground-raw);
+    --text-echo-raw: var(--muted-foreground-raw); /* Muted color for echo */
+    --text-distant-raw: 215 20% 75%; /* Very muted */
+    --text-hesitate-raw: var(--foreground-raw);
+    --text-impact-raw: 10 80% 55%; /* Orangey red */
+    --text-underwater-raw: 190 60% 50%; /* Murky blue */
+    --text-radio-raw: 50 40% 40%; /* Khaki/static */
+
+    /* --- Semantic Variables --- */
+    --background: hsl(var(--background-raw));
+    --foreground: hsl(var(--foreground-raw));
+    --card: hsl(var(--card-raw));
+    --card-foreground: hsl(var(--card-foreground-raw));
+    --popover: hsl(var(--popover-raw));
+    --popover-foreground: hsl(var(--popover-foreground-raw));
+    --primary: hsl(var(--primary-raw));
+    --primary-foreground: hsl(var(--primary-foreground-raw));
+    --secondary: hsl(var(--secondary-raw));
+    --secondary-foreground: hsl(var(--secondary-foreground-raw));
+    --muted: hsl(var(--muted-raw));
+    --muted-foreground: hsl(var(--muted-foreground-raw));
+    --accent: hsl(var(--accent-raw));
+    --accent-foreground: hsl(var(--accent-foreground-raw));
+    --destructive: hsl(var(--destructive-raw));
+    --destructive-foreground: hsl(var(--destructive-foreground-raw));
+    --border: hsl(var(--border-raw));
+    --input: hsl(var(--input-raw));
+    --ring: hsl(var(--ring-raw));
+
+    /* --- Reading Semantic Overrides (Applied by .reading class) --- */
+    /* Note: These are defined here but applied via the .reading class below */
+    --reading-background: hsl(var(--reading-background-raw));
+    --reading-foreground: hsl(var(--reading-foreground-raw));
+    --reading-muted: hsl(var(--reading-muted-raw));
+    --reading-accent: hsl(var(--reading-accent-raw));
+
+    /* --- Text Effect Semantic Variables (Applied by effect classes) --- */
+    /* These use the raw values defined above or in theme overrides */
+    --text-shout: hsl(var(--text-shout-raw));
+    --text-whisper: hsl(var(--text-whisper-raw));
+    --text-loud: hsl(var(--text-loud-raw));
+    --text-quiet: hsl(var(--text-quiet-raw));
+    --text-tremble: hsl(var(--text-tremble-raw));
+    --text-fear: hsl(var(--text-fear-raw));
+    --text-joy: hsl(var(--text-joy-raw));
+    --text-anger: hsl(var(--text-anger-raw));
+    --text-sadness: hsl(var(--text-sadness-raw));
+    --text-fast: hsl(var(--text-fast-raw));
+    --text-slow: hsl(var(--text-slow-raw));
+    --text-stutter: hsl(var(--text-stutter-raw));
+    --text-pause: hsl(var(--text-pause-raw));
+    --text-thought: hsl(var(--text-thought-raw));
+    --text-dream: hsl(var(--text-dream-raw));
+    --text-robotic: hsl(var(--text-robotic-raw));
+    --text-weak: hsl(var(--text-weak-raw));
+    --text-ghostly: hsl(var(--text-ghostly-raw));
+    --text-emphasis: hsl(var(--text-emphasis-raw));
+    --text-fade: hsl(var(--text-fade-raw));
+    --text-fadein: hsl(var(--text-fadein-raw));
+    --text-fadeout: hsl(var(--text-fadeout-raw));
+    --text-echo: hsl(var(--text-echo-raw));
+    --text-distant: hsl(var(--text-distant-raw));
+    --text-hesitate: hsl(var(--text-hesitate-raw));
+    --text-impact: hsl(var(--text-impact-raw));
+    --text-underwater: hsl(var(--text-underwater-raw));
+    --text-radio: hsl(var(--text-radio-raw));
+
+    /* Default Reading Preferences Variables (Can be overridden by JS) */
+    --reading-line-height: 1.6;
+    --reading-font-family: var(--font-merriweather, serif); /* Default to Merriweather */
+    --reading-transition-speed: 0.3s;
+    --reading-font-size: 1rem; /* Base size, classes will modify */
+  }
+
+  /* --- Dark Theme --- */
+  .dark {
+    --background-raw: 222 47% 11%; /* Dark blue */
+    --foreground-raw: 210 40% 96%; /* Light gray */
+    --card-raw: 222 47% 14%; /* Slightly lighter dark blue */
+    --card-foreground-raw: 210 40% 96%;
+    --popover-raw: 222 47% 11%;
+    --popover-foreground-raw: 210 40% 96%;
+    --primary-raw: 217 91% 60%; /* Bright blue */
+    --primary-foreground-raw: 0 0% 100%;
+    --secondary-raw: 217 33% 25%; /* Muted dark blue */
+    --secondary-foreground-raw: 210 40% 98%;
+    --muted-raw: 217 33% 25%;
+    --muted-foreground-raw: 215 20% 65%;
+    --accent-raw: 217 33% 25%;
+    --accent-foreground-raw: 210 40% 98%;
+    --destructive-raw: 0 72% 51%;
+    --destructive-foreground-raw: 0 0% 100%;
+    --border-raw: 217 33% 25%;
+    --input-raw: 217 33% 25%;
+    --ring-raw: 217 91% 60%;
+
+    /* --- Reading Mode Specific - Dark Base (Night/Dark Paper) --- */
+    --reading-background-raw: 220 15% 18%; /* Dark gray-blue: #2A2D33 */
+    --reading-foreground-raw: 210 20% 85%; /* Off-white text: #D3D6DB */
+    --reading-muted-raw: 210 10% 60%; /* Grayish: #9299A1 */
+    --reading-accent-raw: 30 60% 60%; /* Muted gold/brown: #C8A365 */
+
+     /* --- Text Effect Colors - Dark Base --- */
+    --text-shout-raw: 0 90% 70%; /* Lighter red */
+    --text-whisper-raw: 215 20% 65%;
+    --text-loud-raw: 0 75% 75%;
+    --text-quiet-raw: 210 10% 50%;
+    --text-tremble-raw: var(--foreground-raw);
+    --text-fear-raw: 270 60% 70%; /* Lighter purple */
+    --text-joy-raw: 140 70% 70%; /* Lighter green */
+    --text-anger-raw: 0 95% 75%; /* Bright light red */
+    --text-sadness-raw: 220 70% 70%; /* Lighter blue */
+    --text-fast-raw: var(--foreground-raw);
+    --text-slow-raw: var(--foreground-raw);
+    --text-stutter-raw: var(--foreground-raw);
+    --text-pause-raw: var(--foreground-raw);
+    --text-thought-raw: 215 14% 76%; /* Lighter gray */
+    --text-dream-raw: 200 80% 80%; /* Very light blue */
+    --text-robotic-raw: 210 15% 70%; /* Lighter metallic */
+    --text-weak-raw: 40 15% 70%; /* Lighter faded */
+    --text-ghostly-raw: 200 60% 90%; /* Very pale blue */
+    --text-emphasis-raw: var(--primary-raw);
+    --text-fade-raw: var(--foreground-raw);
+    --text-fadein-raw: var(--foreground-raw);
+    --text-fadeout-raw: var(--foreground-raw);
+    --text-echo-raw: var(--muted-foreground-raw);
+    --text-distant-raw: 215 10% 55%;
+    --text-hesitate-raw: var(--foreground-raw);
+    --text-impact-raw: 10 90% 75%; /* Lighter orange */
+    --text-underwater-raw: 190 70% 70%; /* Lighter murky blue */
+    --text-radio-raw: 50 50% 70%; /* Lighter khaki */
+  }
+
+  /* --- Reading Theme --- */
+  .reading {
+     /* Apply Reading Semantic Overrides using the correct variables */
+    --background: hsl(var(--reading-background-raw));
+    --foreground: hsl(var(--reading-foreground-raw));
+    /* Card/Popover matches reading background for seamless feel */
+    --card: hsl(var(--reading-background-raw));
+    --card-foreground: hsl(var(--reading-foreground-raw));
+    --popover: hsl(var(--reading-background-raw));
+    --popover-foreground: hsl(var(--reading-foreground-raw));
+    /* Define other semantic colors based on reading palette */
+    --primary: hsl(var(--reading-accent-raw));
+    --primary-foreground: hsl(var(--reading-background-raw)); /* High contrast */
+    --secondary: color-mix(in srgb, hsl(var(--reading-accent-raw)) 20%, hsl(var(--reading-background-raw)));
+    --secondary-foreground: hsl(var(--reading-foreground-raw));
+    --muted: hsl(var(--reading-muted-raw));
+    --muted-foreground: color-mix(in srgb, hsl(var(--reading-foreground-raw)) 65%, hsl(var(--reading-background-raw))); /* Ensure readability */
+    --accent: hsl(var(--reading-accent-raw));
+    --accent-foreground: hsl(var(--reading-background-raw));
+    --destructive: hsl(var(--destructive-raw)); /* Keep base destructive */
+    --destructive-foreground: hsl(var(--destructive-foreground-raw));
+    --border: color-mix(in srgb, hsl(var(--reading-foreground-raw)) 15%, hsl(var(--reading-background-raw)));
+    --input: color-mix(in srgb, hsl(var(--reading-foreground-raw)) 5%, hsl(var(--reading-background-raw)));
+    --ring: hsl(var(--reading-accent-raw));
+
+    /* --- Text Effect Color Overrides for Reading Theme --- */
+    /* Use the base light/dark reading variables defined above */
+    /* Default to light mode reading theme */
+    --reading-background-raw: 39 52% 96%; /* Light Paper */
+    --reading-foreground-raw: 30 20% 25%; /* Dark Brown */
+    --reading-muted-raw: 30 15% 55%;      /* Muted Brown */
+    --reading-accent-raw: 15 70% 45%;     /* Warm Accent */
+
+    /* Define text effects based on the *reading* palette */
+    --text-shout-raw: 0 60% 35%;    /* Darker, bolder red for paper */
+    --text-whisper-raw: var(--reading-muted-raw); /* Use reading muted */
+    --text-loud-raw: 0 50% 40%;     /* Less intense red */
+    --text-quiet-raw: 30 15% 65%;   /* Slightly lighter muted brown */
+    --text-tremble-raw: var(--reading-foreground-raw); /* Inherit reading text color */
+    --text-fear-raw: 270 30% 40%;   /* Muted purple, less vibrant */
+    --text-joy-raw: 120 40% 35%;    /* Earthy green */
+    --text-anger-raw: 0 70% 40%;    /* Strong, but not neon, red */
+    --text-sadness-raw: 210 30% 45%; /* Muted blue/grey */
+    --text-fast-raw: var(--reading-foreground-raw);
+    --text-slow-raw: var(--reading-foreground-raw);
+    --text-stutter-raw: var(--reading-foreground-raw);
+    --text-pause-raw: var(--reading-foreground-raw);
+    --text-thought-raw: 30 10% 50%; /* Greyer brown */
+    --text-dream-raw: 190 40% 60%;  /* Softer, slightly muted blue */
+    --text-robotic-raw: 210 5% 45%; /* Grey, less metallic */
+    --text-weak-raw: 40 20% 70%;    /* Paler brown */
+    --text-ghostly-raw: 200 30% 75%;/* Paler, less saturated blue */
+    --text-emphasis-raw: var(--reading-accent-raw); /* Use reading accent color */
+    --text-fade-raw: var(--reading-foreground-raw);
+    --text-fadein-raw: var(--reading-foreground-raw);
+    --text-fadeout-raw: var(--reading-foreground-raw);
+    --text-echo-raw: var(--reading-muted-raw); /* Use reading muted for echo */
+    --text-distant-raw: 30 15% 70%; /* Lighter muted brown */
+    --text-hesitate-raw: var(--reading-foreground-raw);
+    --text-impact-raw: 15 60% 50%;  /* Stronger warm accent */
+    --text-underwater-raw: 190 40% 55%; /* Muted teal/blue */
+    --text-radio-raw: 45 30% 45%;   /* Muted olive/brown */
+  }
+  /* Apply dark reading theme overrides *if* .dark and .reading are both present */
+  .dark.reading {
+    /* Inherit from dark mode reading theme */
+    --reading-background-raw: 220 15% 18%; /* Dark Gray-Blue */
+    --reading-foreground-raw: 210 20% 85%; /* Off-White */
+    --reading-muted-raw: 210 10% 60%;      /* Grayish */
+    --reading-accent-raw: 30 60% 60%;      /* Muted Gold/Brown */
+
+    /* Override text effects for dark reading */
+    --text-shout-raw: 0 70% 75%;    /* Lighter, visible red */
+    --text-whisper-raw: var(--reading-muted-raw);
+    --text-loud-raw: 0 60% 80%;     /* Brighter red */
+    --text-quiet-raw: 210 10% 70%;   /* Lighter gray */
+    --text-tremble-raw: var(--reading-foreground-raw);
+    --text-fear-raw: 270 50% 75%;   /* Lighter purple */
+    --text-joy-raw: 120 50% 70%;    /* Brighter earthy green */
+    --text-anger-raw: 0 80% 80%;    /* Very visible red */
+    --text-sadness-raw: 210 50% 75%; /* Lighter muted blue */
+    --text-fast-raw: var(--reading-foreground-raw);
+    --text-slow-raw: var(--reading-foreground-raw);
+    --text-stutter-raw: var(--reading-foreground-raw);
+    --text-pause-raw: var(--reading-foreground-raw);
+    --text-thought-raw: 210 10% 75%; /* Light gray */
+    --text-dream-raw: 190 50% 80%;  /* Light teal */
+    --text-robotic-raw: 210 10% 70%; /* Medium gray */
+    --text-weak-raw: 40 20% 80%;    /* Very pale brown */
+    --text-ghostly-raw: 200 40% 85%;/* Very pale blue */
+    --text-emphasis-raw: var(--reading-accent-raw);
+    --text-fade-raw: var(--reading-foreground-raw);
+    --text-fadein-raw: var(--reading-foreground-raw);
+    --text-fadeout-raw: var(--reading-foreground-raw);
+    --text-echo-raw: var(--reading-muted-raw);
+    --text-distant-raw: 210 10% 70%; /* Light gray */
+    --text-hesitate-raw: var(--reading-foreground-raw);
+    --text-impact-raw: 15 70% 70%;  /* Brighter warm accent */
+    --text-underwater-raw: 190 50% 75%; /* Lighter muted teal */
+    --text-radio-raw: 45 40% 70%;   /* Lighter olive */
+  }
+
+
+  /* Base body styles */
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "liga" 1, "calt" 1;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    min-height: 100vh;
+    /* Smooth transition for theme changes */
+    transition: background-color var(--reading-transition-speed) ease, color var(--reading-transition-speed) ease;
+  }
+
+  /* Apply base border styles */
+  * {
+    @apply border-border;
+  }
+}
+
+/* Reading Mode Specific Styles (Applied via .reading class) */
+.reading {
+  /* Styles specific to the reading page wrapper if needed */
+}
+
+/* Base styles for prose content, independent of theme */
+.prose {
+  max-width: 72ch; /* Optimal line length */
+  margin-left: auto;
+  margin-right: auto;
+  line-height: var(--reading-line-height); /* Use CSS variable */
+  font-family: var(--reading-font-family); /* Use CSS variable */
+  hyphens: auto;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  font-size: var(--reading-font-size); /* Use CSS variable for base size */
+  color: var(--foreground); /* Inherit current theme's text color */
+}
+
+/* Theme-aware prose adjustments */
+.prose {
+  /* These variables are automatically adapted by Tailwind Typography based on theme */
+  --tw-prose-body: var(--foreground);
+  --tw-prose-headings: var(--foreground);
+  --tw-prose-lead: var(--muted-foreground);
+  --tw-prose-links: var(--primary);
+  --tw-prose-bold: var(--foreground);
+  --tw-prose-counters: var(--muted-foreground);
+  --tw-prose-bullets: var(--muted-foreground);
+  --tw-prose-hr: var(--border);
+  --tw-prose-quotes: var(--foreground);
+  --tw-prose-quote-borders: var(--border);
+  --tw-prose-captions: var(--muted-foreground);
+  --tw-prose-code: var(--foreground); /* Inline code */
+  --tw-prose-pre-code: var(--card-foreground); /* Code block text */
+  --tw-prose-pre-bg: var(--card); /* Code block bg */
+  --tw-prose-th-borders: var(--border);
+  --tw-prose-td-borders: var(--border);
+
+  /* Invert colors (applied by .dark class automatically by plugin) */
+  --tw-prose-invert-body: var(--foreground);
+  --tw-prose-invert-headings: var(--foreground);
+  --tw-prose-invert-lead: var(--muted-foreground);
+  --tw-prose-invert-links: var(--primary);
+  --tw-prose-invert-bold: var(--foreground);
+  --tw-prose-invert-counters: var(--muted-foreground);
+  --tw-prose-invert-bullets: var(--muted-foreground);
+  --tw-prose-invert-hr: var(--border);
+  --tw-prose-invert-quotes: var(--foreground);
+  --tw-prose-invert-quote-borders: var(--border);
+  --tw-prose-invert-captions: var(--muted-foreground);
+  --tw-prose-invert-code: var(--foreground);
+  --tw-prose-invert-pre-code: var(--card-foreground);
+  --tw-prose-invert-pre-bg: var(--card);
+  --tw-prose-invert-th-borders: var(--border);
+  --tw-prose-invert-td-borders: var(--border);
+}
+
+.prose p {
+  margin-bottom: 1.25em; /* Adjust spacing */
+  text-align: justify; /* Justify text for book-like feel */
+  text-indent: 1.5em; /* Indent paragraphs */
+}
+.prose p:first-of-type,
+.prose p:first-child { /* Also handle first child for safety */
+    text-indent: 0; /* No indent for first paragraph */
+}
+
+.prose a {
+  color: var(--primary); /* Use theme primary for links */
+  text-decoration: underline;
+  transition: color 0.2s ease;
+}
+.prose a:hover {
+  opacity: 0.8;
+}
+
+/* Dialogue specific styling */
+.dialogue {
+    /* Slightly different style for dialogue, e.g., less indent or different quote style */
+    /* Example: */
+    /* text-indent: 0.5em; */
+    /* font-style: italic; */
+}
+
+/* --- Text Effect Classes & Animations --- */
+
+/* Helper for inline-block display needed by many effects */
+.effect-base {
+  display: inline-block; /* Or inline-flex if needed */
+}
+
+/* Volume/Intensity */
+.effect-shout {
+  @apply effect-base;
+  font-weight: 900;
+  text-transform: uppercase;
+  color: var(--text-shout); /* Uses the theme-aware semantic variable */
+  animation: shout-shake 0.4s ease-in-out infinite alternate;
+}
+@keyframes shout-shake {
+  0% { transform: skewX(-2deg) scale(1.05); }
+  100% { transform: skewX(2deg) scale(1.05); }
+}
+
+.effect-whisper {
+  @apply effect-base;
+  opacity: 0.7;
+  font-size: 0.85em;
+  color: var(--text-whisper); /* Uses the theme-aware semantic variable */
+}
+
+.effect-loud {
+   @apply effect-base;
+   font-weight: 700;
+   transform: scale(1.03);
+   color: var(--text-loud); /* Uses the theme-aware semantic variable */
+}
+
+.effect-quiet {
+   @apply effect-base;
+   opacity: 0.8;
+   font-size: 0.9em;
+   color: var(--text-quiet); /* Uses the theme-aware semantic variable */
+}
+
+
+/* Emotion */
+.effect-tremble {
+  @apply effect-base;
+  animation: tremble 0.2s linear infinite;
+  color: var(--text-tremble); /* Uses the theme-aware semantic variable */
+}
+@keyframes tremble {
+  0% { transform: translate(1px, 1px) rotate(0deg); }
+  25% { transform: translate(-1px, -1px) rotate(0.1deg); }
+  50% { transform: translate(1px, -1px) rotate(-0.1deg); }
+  75% { transform: translate(-1px, 1px) rotate(0deg); }
+  100% { transform: translate(1px, 1px) rotate(0.1deg); }
+}
+
+.effect-fear {
+  @apply effect-base;
+  animation: fear-pulse 1.5s ease-in-out infinite;
+  font-style: italic;
+  color: var(--text-fear); /* Uses the theme-aware semantic variable */
+}
+@keyframes fear-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(0.98); }
+}
+
+.effect-joy {
+  @apply effect-base;
+  animation: joy-bounce 0.8s ease-out infinite;
+  color: var(--text-joy); /* Uses the theme-aware semantic variable */
+  font-weight: 500;
+}
+@keyframes joy-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px) scale(1.02); }
+}
+
+.effect-anger {
+  @apply effect-base;
+  animation: anger-shake 0.15s ease-in-out infinite;
+  color: var(--text-anger); /* Uses the theme-aware semantic variable */
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+@keyframes anger-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-1px); }
+  75% { transform: translateX(1px); }
+}
+
+.effect-sadness {
+   @apply effect-base;
+   color: var(--text-sadness); /* Uses the theme-aware semantic variable */
+   opacity: 0.85;
+   animation: sadness-fade 2s ease-in-out infinite alternate;
+}
+@keyframes sadness-fade {
+    0% { opacity: 0.85; }
+    100% { opacity: 0.7; }
+}
+
+/* Timing/Pacing */
+.effect-fast {
+  @apply effect-base;
+  letter-spacing: -0.05em;
+  font-style: italic;
+  color: var(--text-fast); /* Uses the theme-aware semantic variable */
+  /* No animation needed, just visual style */
+}
+
+.effect-slow {
+  @apply effect-base;
+  letter-spacing: 0.1em;
+  color: var(--text-slow); /* Uses the theme-aware semantic variable */
+  animation: slow-stretch 3s ease-in-out infinite alternate;
+}
+@keyframes slow-stretch {
+    0% { letter-spacing: 0.1em; }
+    100% { letter-spacing: 0.12em; }
+}
+
+.effect-stutter {
+  @apply effect-base;
+  animation: stutter 0.4s steps(2, jump-none) infinite;
+  color: var(--text-stutter); /* Uses the theme-aware semantic variable */
+}
+@keyframes stutter {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(-2px); }
+}
+
+.effect-pause {
+  @apply effect-base;
+  color: var(--text-pause); /* Uses the theme-aware semantic variable */
+  /* Uses pseudo-element for pause visualization */
+}
+.effect-pause::after {
+  content: '...';
+  display: inline-block;
+  animation: pause-fade 1.5s ease-in-out infinite;
+  margin-left: 0.2em;
+  opacity: 0.6;
+}
+@keyframes pause-fade {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 0.3; }
+}
+
+
+/* Mental State/Voice */
+.effect-thought {
+  @apply effect-base;
+  font-style: italic;
+  color: var(--text-thought); /* Uses the theme-aware semantic variable */
+  opacity: 0.9;
+}
+
+.effect-dream {
+  @apply effect-base;
+  color: var(--text-dream); /* Uses the theme-aware semantic variable */
+  animation: dream-wave 3s ease-in-out infinite alternate;
+  filter: blur(0.5px);
+}
+@keyframes dream-wave {
+  0% { transform: skewY(-1deg); }
+  100% { transform: skewY(1deg); }
+}
+
+.effect-robotic {
+  @apply effect-base;
+  font-family: monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-robotic); /* Uses the theme-aware semantic variable */
+}
+
+.effect-weak {
+  @apply effect-base;
+  color: var(--text-weak); /* Uses the theme-aware semantic variable */
+  opacity: 0.75;
+  transform: scaleY(0.95);
+}
+
+.effect-ghostly {
+  @apply effect-base;
+  color: var(--text-ghostly); /* Uses the theme-aware semantic variable */
+  opacity: 0.8;
+  text-shadow: 0 0 5px var(--text-ghostly);
+  animation: ghostly-float 4s ease-in-out infinite alternate;
+}
+@keyframes ghostly-float {
+  0% { transform: translateY(0); opacity: 0.8; }
+  100% { transform: translateY(-2px); opacity: 0.7; }
+}
+
+/* Stylistic */
+.effect-emphasis {
+  @apply effect-base;
+  font-style: italic;
+  font-weight: 600;
+  color: var(--text-emphasis); /* Uses the theme-aware semantic variable */
+}
+
+.effect-fade, .effect-fadeout { /* Combine fade and fadeout */
+  @apply effect-base;
+  animation: fade-out 1s ease-out forwards;
+  color: var(--text-fade); /* Uses the theme-aware semantic variable */
+}
+@keyframes fade-out {
+  from { opacity: 1; }
+  to { opacity: 0.3; }
+}
+
+.effect-fadein {
+  @apply effect-base;
+  opacity: 0.3;
+  animation: fade-in-effect 1s ease-in forwards; /* Renamed keyframe */
+  color: var(--text-fadein); /* Uses the theme-aware semantic variable */
+}
+@keyframes fade-in-effect { /* Renamed keyframe */
+  from { opacity: 0.3; }
+  to { opacity: 1; }
+}
+
+/* Simpler CSS-only echo using text-shadow */
+.effect-echo {
+   @apply effect-base;
+   color: var(--foreground); /* Main text color */
+   /* Use the theme-aware echo color variable */
+   text-shadow: 1px 1px 0 var(--text-echo), 2px 2px 0 color-mix(in srgb, var(--text-echo) 50%, transparent);
+}
+
+
+.effect-distant {
+  @apply effect-base;
+  color: var(--text-distant); /* Uses the theme-aware semantic variable */
+  transform: scale(0.9);
+  opacity: 0.8;
+}
+
+/* Special */
+.effect-hesitate {
+  @apply effect-base;
+  color: var(--text-hesitate); /* Uses the theme-aware semantic variable */
+}
+.effect-hesitate::after {
+  content: '..';
+  display: inline-block;
+  animation: hesitate-blink 1s step-end infinite;
+  margin-left: 0.1em;
+  opacity: 0.7;
+}
+@keyframes hesitate-blink {
+  50% { opacity: 0; }
+}
+
+.effect-impact {
+  @apply effect-base;
+  font-weight: 900;
+  color: var(--text-impact); /* Uses the theme-aware semantic variable */
+  animation: impact-shake 0.2s ease-in-out 1; /* Play once */
+}
+@keyframes impact-shake {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1) rotate(-2deg); }
+}
+
+.effect-underwater {
+  @apply effect-base;
+  color: var(--text-underwater); /* Uses the theme-aware semantic variable */
+  animation: underwater-wave 2.5s ease-in-out infinite alternate;
+  filter: blur(0.7px);
+}
+@keyframes underwater-wave {
+  0% { transform: skewY(-1.5deg) scaleY(1.02); }
+  100% { transform: skewY(1.5deg) scaleY(0.98); }
+}
+
+.effect-radio {
+  @apply effect-base;
+  color: var(--text-radio); /* Uses the theme-aware semantic variable */
+  animation: radio-static 0.1s linear infinite;
+  font-family: monospace;
+}
+@keyframes radio-static {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.9; transform: skewX(0.5deg); }
+}
+
+
+/* Animation Disabling */
+.disable-animations * {
+  animation: none !important;
+  transition: none !important;
+  /* Reset transforms that might be animation end states */
+  transform: none !important;
+  filter: none !important;
+  opacity: 1 !important; /* Reset opacity changes */
+  letter-spacing: normal !important; /* Reset letter spacing */
+  text-shadow: none !important; /* Reset text shadow */
+}
+/* Special handling for pseudo-elements if needed */
+.disable-animations .effect-pause::after,
+.disable-animations .effect-hesitate::after {
+  content: '' !important;
+  display: none !important;
+  animation: none !important;
+  margin: 0 !important;
+  opacity: 0 !important;
+}
+/* Reset specific styles applied by effects when disabled */
+.disable-animations .effect-shout { font-weight: normal; text-transform: none; }
+.disable-animations .effect-whisper { opacity: 1; font-size: inherit; }
+.disable-animations .effect-anger { font-weight: normal; letter-spacing: normal; }
+.disable-animations .effect-fast { letter-spacing: normal; font-style: normal; }
+.disable-animations .effect-slow { letter-spacing: normal; }
+.disable-animations .effect-thought { font-style: normal; opacity: 1; }
+.disable-animations .effect-robotic { font-family: inherit; text-transform: none; letter-spacing: normal; }
+.disable-animations .effect-weak { opacity: 1; }
+.disable-animations .effect-ghostly { opacity: 1; text-shadow: none; }
+.disable-animations .effect-emphasis { font-style: normal; font-weight: normal; }
+.disable-animations .effect-echo { text-shadow: none; }
+.disable-animations .effect-distant { opacity: 1; }
+.disable-animations .effect-impact { font-weight: normal; }
+.disable-animations .effect-radio { font-family: inherit; }
+
+/* --- Focus Mode Styles --- */
+.focus-mode .reading-header-container, /* Target the container if ReadingHeader has one */
+.focus-mode .chapter-navigation { /* Target navigation */
+  opacity: 0;
+  pointer-events: none; /* Prevent interaction when hidden */
+  transition: opacity 0.4s ease-in-out;
+}
+/* Show elements on hover within the focus mode container */
+.focus-mode-wrapper:hover .reading-header-container,
+.focus-mode-wrapper:hover .chapter-navigation {
+  opacity: 1;
+  pointer-events: auto;
+}
+/* Apply focus mode to a wrapper around the main content */
+.focus-mode-wrapper {
+  /* Base styles for the wrapper */
+}
+
+
+/* Custom Scrollbar (Optional) */
+/* Style scrollbars within the reading theme context */
+.reading ::-webkit-scrollbar { width: 8px; height: 8px; }
+.reading ::-webkit-scrollbar-track { background: color-mix(in srgb, var(--reading-muted) 10%, var(--reading-background)); border-radius: 4px; }
+.reading ::-webkit-scrollbar-thumb { background: var(--reading-muted); border-radius: 4px; }
+.reading ::-webkit-scrollbar-thumb:hover { background: var(--reading-accent); }
+/* General scrollbar styling for other themes (optional) */
+body::-webkit-scrollbar { width: 8px; height: 8px; }
+body::-webkit-scrollbar-track { background: var(--muted); border-radius: 4px; }
+body::-webkit-scrollbar-thumb { background: var(--secondary-foreground); border-radius: 4px; }
+body::-webkit-scrollbar-thumb:hover { background: var(--primary); }
+
+
+/* Fix contentEditable focus outline */
+[contenteditable]:focus {
+  outline: none;
+  box-shadow: none; /* Remove browser default focus ring */
+}
+[contenteditable] {
+  cursor: text;
+}
+
+/* General fade-in animation */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out forwards;
+}
+
+/* --- NProgress Styling --- */
+#nprogress {
+  pointer-events: none;
+}
+#nprogress .bar {
+  background: hsl(var(--primary)); /* Use theme's primary color */
+  position: fixed;
+  z-index: 99999; /* High z-index */
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 3px; /* Bar thickness */
+}
