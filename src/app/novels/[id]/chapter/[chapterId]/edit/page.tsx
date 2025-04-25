@@ -11,8 +11,10 @@ import { supabase } from '@/lib/supabase';
 import LoadingScreen from '@/components/ui/loading-screen';
 import NotFoundScreen from '@/components/ui/not-found-screen';
 import AdminRoleCheck from '@/components/auth/admin-role-check';
-import ChapterFullEditor from '@/components/chapter-full-editor'; // Import the new component
-import { useChapterActions } from '@/hooks/use-chapter-actions'; // Import the hook
+import ChapterFullEditor from '@/components/chapter-full-editor';
+// Import the new component
+import { useChapterActions } from '@/hooks/use-chapter-actions';
+// Import the hook
 
 const EditChapterPage = () => {
   // Destructure user, role, loading from useAuth
@@ -22,10 +24,10 @@ const EditChapterPage = () => {
   const novelId = Number(params.id);
   const chapterNumber = Number(params.chapterId);
   const [loading, setLoading] = useState(true); // Loading for novel/chapter data
-  const [loadError, setLoadError] = useState<string | null>(null); // Added loadError state
+  const [loadError, setLoadError] = useState<string | null>(null);
+  // Added loadError state
   const [chapter, setChapterState] = useState<ChapterType | null>(null);
   const [novel, setNovel] = useState<NovelType | null>(null);
-
   // Use the useChapterActions hook to manage editing state and get isAuthor (based on role === 'admin')
   // Pass user, role, and chapter to the hook
   const {
@@ -38,7 +40,10 @@ const EditChapterPage = () => {
       setIsLocked,
       saving, // Get saving state from the hook
       setSaving, // Get saving state setter from the hook
-  } = useChapterActions(chapter, user, role); // Corrected: Removed setChapterState and novel parameters
+      // Apply the fix here: pass novel ?? undefined
+  } = useChapterActions(chapter, user, role, setChapterState, novel ?? undefined);
+  // Removed setChapterState and novel parameters in hook call, applied fix for novel type
+
 
   // --- Fetch Data ---
   const loadData = useCallback(async () => {
@@ -52,9 +57,10 @@ const EditChapterPage = () => {
       return;
     }
     try {
-      const [fetchedChapter, fetchedNovel] = await Promise.all([
-        getChapter(novelId, chapterNumber),
-        getNovel(novelId)
+      const [fetchedChapter, fetchedNovel] = await
+        Promise.all([
+          getChapter(novelId, chapterNumber),
+          getNovel(novelId)
       ]);
       if (!fetchedNovel) throw new Error('Novel not found');
       if (!fetchedChapter) throw new Error('Chapter not found');
@@ -75,6 +81,7 @@ const EditChapterPage = () => {
       setLoading(false);
     }
   }, [novelId, chapterNumber, router]);
+
   useEffect(() => {
     loadData();
   }, [loadData]);
@@ -99,6 +106,7 @@ const EditChapterPage = () => {
               is_locked: isLocked, // Use state from hook
               newly_created: false // Mark as not newly created after first save
           });
+
           if (success) {
                // Update local state after successful save
                setChapterState(prev => prev ? {
@@ -123,7 +131,8 @@ const EditChapterPage = () => {
           toast.error('Failed to save chapter. Please check console for details.');
           return false;
       } finally {
-          setSaving(false); // Clear saving state for this page via hook setter
+          setSaving(false);
+          // Clear saving state for this page via hook setter
       }
   };
 
@@ -131,7 +140,8 @@ const EditChapterPage = () => {
   const handleCancel = () => {
     // Navigation logic remains here as it's page-specific
     // Check for unsaved changes using state from the hook
-    const hasChanges = editedTitle !== chapter?.title || editedContent !== (chapter?.content || '') ||
+    const hasChanges = editedTitle !== chapter?.title ||
+      editedContent !== (chapter?.content || '') ||
       isLocked !== chapter?.is_locked;
 
     if (hasChanges) {
@@ -154,11 +164,13 @@ const EditChapterPage = () => {
 
   // Handle invalid ID error specifically before checking !novel
   if (loadError?.includes("Invalid Novel ID")) { // Use loadError
-      return <NotFoundScreen message={loadError} returnUrl="/" returnText="Return to Home" />; // Use loadError
+      return <NotFoundScreen message={loadError} returnUrl="/" returnText="Return to Home" />;
+      // Use loadError
   }
 
   if (loadError || !novel || !chapter) { // Use loadError
-    return <NotFoundScreen message={loadError || "Chapter or Novel data missing."} returnUrl={`/novels/${novelId || ''}`} returnText="Back to Novel"/>; // Use loadError
+    return <NotFoundScreen message={loadError || "Chapter or Novel data missing."} returnUrl={`/novels/${novelId || ''}`} returnText="Back to Novel"/>;
+    // Use loadError
   }
 
   // AdminRoleCheck will handle the overall authorization for the page
