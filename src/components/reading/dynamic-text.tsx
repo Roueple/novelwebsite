@@ -72,9 +72,9 @@ const DynamicText = memo(function DynamicText({ content, isEnabled }: DynamicTex
     // IMPORTANT: Process double asterisks (italic) BEFORE single (bold)
     // to handle potential nesting or adjacent markers correctly.
     // Regex: \*\*(.*?)\*\* - Finds text wrapped in double asterisks, captures the inner text ($1)
-    processedText = processedText.replace(/\*\*(.*?)\*\*/g, '<span class="italic">$1</span>');
+    processedText = processedText.replace(/\*\*(.*?)\*\*/g, '<span class="font-bold">$1</span>');
     // Regex: \*(.*?)\* - Finds text wrapped in single asterisks, captures the inner text ($1)
-    processedText = processedText.replace(/\*(.*?)\*/g, '<span class="font-bold">$1</span>');
+    processedText = processedText.replace(/\*(.*?)\*/g, '<span class="italic">$1</span>');
     // --- END NEW LOGIC ---
 
     // --- Keep Existing [Effect] Logic (if you want to retain them) ---
