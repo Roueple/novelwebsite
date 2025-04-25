@@ -254,3 +254,33 @@ export async function updateChapter(
     return false;
   }
 }
+
+// NEW: Function to update the lock status for all chapters of a novel
+export async function updateAllChaptersLockStatus(
+  novelId: number,
+  isLocked: boolean
+): Promise<boolean> {
+  if (isNaN(novelId) || novelId <= 0) {
+    console.error('Invalid novel ID for bulk update:', novelId);
+    return false;
+  }
+
+  try {
+    console.log(`Attempting to set all chapters for novel ${novelId} to is_locked: ${isLocked}`);
+    const { error } = await supabase
+      .from('chapters')
+      .update({ is_locked: isLocked })
+      .eq('novel_id', novelId); // Update all chapters belonging to this novel
+
+    if (error) {
+      console.error('Supabase bulk update error:', error);
+      throw error;
+    }
+
+    console.log(`Bulk update successful for novel ${novelId}.`);
+    return true;
+  } catch (error) {
+    handleSupabaseError(error, `updateAllChaptersLockStatus (Novel ID: ${novelId})`);
+    return false;
+  }
+}
