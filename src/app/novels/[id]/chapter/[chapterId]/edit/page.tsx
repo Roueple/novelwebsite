@@ -23,7 +23,7 @@ const EditChapterPage = () => {
   const chapterNumber = Number(params.chapterId);
 
   const [loading, setLoading] = useState(true); // Loading for novel/chapter data
-  const [initialLoadError, setInitialLoadError] = useState<string | null>(null); // Added loadError state
+  const [loadError, setLoadError] = useState<string | null>(null); // Added loadError state
   const [chapter, setChapterState] = useState<ChapterType | null>(null);
   const [novel, setNovel] = useState<NovelType | null>(null);
 
@@ -45,9 +45,9 @@ const EditChapterPage = () => {
   // --- Fetch Data ---
   const loadData = useCallback(async () => {
     setLoading(true);
-    setInitialLoadError(null); // Reset error state on new load attempt
+    setLoadError(null); // Reset error state on new load attempt
     if (isNaN(novelId) || isNaN(chapterNumber)) {
-      setInitialLoadError('Invalid novel or chapter ID.');
+      setLoadError('Invalid novel or chapter ID.');
       setLoading(false);
       toast.error('Invalid URL parameters.');
       router.push('/');
@@ -68,7 +68,7 @@ const EditChapterPage = () => {
     } catch (error: any) {
       console.error('Error loading chapter data for edit:', error);
       const message = error.message || 'Failed to load chapter data.';
-      setInitialLoadError(message); // Set error state
+      setLoadError(message); // Set error state
       toast.error(`Error: ${message}`);
       if (message.includes('not found')) {
         router.push(`/novels/${novelId || ''}`);
@@ -158,19 +158,19 @@ const EditChapterPage = () => {
   }
 
   // Handle invalid ID error specifically before checking !novel
-  if (initialLoadError?.includes("Invalid Novel ID")) { // Use initialLoadError
-      return <NotFoundScreen message={initialLoadError} returnUrl="/" returnText="Return to Home" />; // Use initialLoadError
+  if (loadError?.includes("Invalid Novel ID")) { // Use loadError
+      return <NotFoundScreen message={loadError} returnUrl="/" returnText="Return to Home" />; // Use loadError
   }
 
-  if (initialLoadError || !novel || !chapter) { // Use initialLoadError
-    return <NotFoundScreen message={initialLoadError || "Chapter or Novel data missing."} returnUrl={`/novels/${novelId || ''}`} returnText="Back to Novel"/>; // Use initialLoadError
+  if (loadError || !novel || !chapter) { // Use loadError
+    return <NotFoundScreen message={loadError || "Chapter or Novel data missing."} returnUrl={`/novels/${novelId || ''}`} returnText="Back to Novel"/>; // Use loadError
   }
 
   // AdminRoleCheck will handle the overall authorization for the page
   // It checks if role is 'admin' because allowAuthor={true} is passed
   return (
     <AdminRoleCheck allowAuthor={true}> {/* Ensure this page is protected */}
-      {/* Render the full editor component, passing state and setters from the hook */}
+      {/* Render the full editor component, passing local state and setters */}
       <ChapterFullEditor
           chapter={chapter} // Pass initial chapter data for reference
           isAuthor={isAuthor} // Pass determined author status (admin or not)
@@ -180,8 +180,8 @@ const EditChapterPage = () => {
           setEditedContent={setEditedContent} // Pass setter from hook
           isLocked={isLocked} // Pass state from hook
           setIsLocked={setIsLocked} // Pass setter from hook
-          saving={saving} // Pass saving state from hook
-          setSaving={setSaving} // Pass saving state setter from hook
+          saving={saving} // Pass saving state from this page
+          setSaving={setSaving} // Pass saving state setter from this page
           onSave={handleSave} // Pass the save handler from this page
           onCancel={handleCancel} // Pass the cancel handler (navigation)
       />
