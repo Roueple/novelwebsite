@@ -20,6 +20,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import LoadingSpinner from '@/components/ui/loading-spinner'; // Import spinner
 import { cn } from '@/lib/utils'; // Import cn for conditional classes
+import ChapterTitleEditor from '@/components/chapter-title-editor'; // Import the new component
 
 export default function NovelPage() {
   // Destructure isCreator from useAuth
@@ -35,18 +36,20 @@ export default function NovelPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isAuthor, setIsAuthor] = useState(false);
   const [isEditingNovel, setIsEditingNovel] = useState(false);
-  const [isEditingChapter, setIsEditingChapter] = useState<number | null>(null);
+  const [isEditingChapterId, setIsEditingChapterId] = useState<number | null>(null); // Renamed for clarity
   const [editedNovelTitle, setEditedNovelTitle] = useState('');
   const [editedDescription, setEditedDescription] = useState('');
-  const [editedChapterTitle, setEditedChapterTitle] = useState('');
   const [showAddChapter, setShowAddChapter] = useState(false);
   const [savingNovel, setSavingNovel] = useState(false);
-  const [savingChapter, setSavingChapter] = useState(false);
-  const [deletingChapter, setDeletingChapter] = useState<number | null>(null);
+  // Moved savingChapter, deletingChapter, chapterLockLoadingId to local state in ChapterTitleEditor,
+  // but need to keep track of which chapter is being edited/deleted/toggling lock here
+  const [chapterOperationStatus, setChapterOperationStatus] = useState<{
+      id: number | null;
+      type: 'savingTitle' | 'deleting' | 'togglingLock' | null;
+  }>({ id: null, type: null });
+
   // State for bulk lock/unlock operations (single state for both)
   const [bulkLockLoading, setBulkLockLoading] = useState(false);
-  // State for individual chapter lock/unlock operations (track which chapter is loading)
-  const [chapterLockLoadingId, setChapterLockLoadingId] = useState<number | null>(null);
 
 
   // Validate novelIdParam on mount and when it changes
@@ -152,23 +155,26 @@ export default function NovelPage() {
     }
   };
 
+  // Handlers for ChapterTitleEditor
   const handleStartEditChapter = (chapter: ChapterType) => {
-    setEditedChapterTitle(chapter.title);
-    setIsEditingChapter(chapter.id);
+      // Only start editing if no other chapter operation is in progress
+      if (chapterOperationStatus.id !== null) {
+          toast.info("Please wait for the current chapter operation to complete.");
+          return;
+      }
+      setIsEditingChapterId(chapter.id);
   };
 
   const handleCancelEditChapter = () => {
-    setIsEditingChapter(null);
-    setEditedChapterTitle('');
+      setIsEditingChapterId(null);
   };
 
-  const handleSaveChapterTitle = async (chapterId: number) => {
+  const handleSaveChapterTitle = async (chapterId: number, newTitle: string) => {
      if (!novel || !isAuthor || novelId === null) return;
-    setSavingChapter(true);
+    setChapterOperationStatus({ id: chapterId, type: 'savingTitle' });
     toast.info("Saving chapter title...");
     try {
-      // Pass novelId here
-      const success = await updateChapter(novelId, chapterId, { title: editedChapterTitle.trim() });
+      const success = await updateChapter(novelId, chapterId, { title: newTitle });
       if (!success) throw new Error("API returned failure");
 
       setNovel(prev => {
@@ -176,39 +182,37 @@ export default function NovelPage() {
         return {
           ...prev,
           chapters: prev.chapters.map(ch =>
-            ch.id === chapterId ? { ...ch, title: editedChapterTitle.trim() } : ch
+            ch.id === chapterId ? { ...ch, title: newTitle } : ch
           )
         };
       });
-      setIsEditingChapter(null);
+      setIsEditingChapterId(null); // Exit edit mode on success
       toast.success("Chapter title updated!");
     } catch (error: any) {
       console.error('Error updating chapter title:', error);
       toast.error(`Failed to update chapter title: ${error.message}`);
     } finally {
-      setSavingChapter(false);
+      setChapterOperationStatus({ id: null, type: null });
     }
   };
 
-  const handleDeleteChapterClick = async (chapterId: number, chapterNumber: number) => {
+  const handleDeleteChapter = async (chapterId: number, chapterNumber: number) => {
     if (!novel || !isAuthor || novelId === null) return;
     if (!confirm(`Are you sure you want to permanently delete Chapter ${chapterNumber}? This cannot be undone.`)) {
       return;
     }
-    setDeletingChapter(chapterId);
+    setChapterOperationStatus({ id: chapterId, type: 'deleting' });
     toast.info(`Deleting Chapter ${chapterNumber}...`);
     try {
-       // Pass novelId here
        const success = await deleteChapter(novelId, chapterId);
        if (!success) throw new Error("API returned failure");
 
       setNovel(prev => {
         if (!prev) return null;
-        // Renumber subsequent chapters after deletion
         let chapterCounter = 1;
         const updatedChapters = prev.chapters
             .filter(ch => ch.id !== chapterId)
-            .sort((a, b) => a.chapter_number - b.chapter_number) // Ensure sorting before renumbering
+            .sort((a, b) => a.chapter_number - b.chapter_number)
             .map(ch => ({ ...ch, chapter_number: chapterCounter++ }));
 
         return {
@@ -217,71 +221,18 @@ export default function NovelPage() {
         };
       });
       toast.success(`Chapter ${chapterNumber} deleted successfully.`);
-       // Optional: Trigger API calls to update the chapter_number in the database for remaining chapters
-       // This can be complex and might be better handled via a backend function or delayed job.
-       // For now, the UI reflects the renumbering, but the DB might not immediately.
-
     } catch (error: any) {
       console.error('Error deleting chapter:', error);
       toast.error(`Failed to delete chapter: ${error.message}`);
     } finally {
-       setDeletingChapter(null);
+       setChapterOperationStatus({ id: null, type: null });
     }
   };
 
-  const handleChapterAdded = () => {
-      setShowAddChapter(false);
-      toast.success("Chapter added, reloading novel details...");
-      loadNovel(); // Reload to get updated chapter list and correct numbering
-  };
-
-  // NEW: Handle bulk lock/unlock
-  const handleBulkLockUnlock = async (lockStatus: boolean) => {
-      if (!novel || !isAuthor || novelId === null) return;
-      // Prevent multiple bulk operations or other saves simultaneously
-      if (bulkLockLoading || savingNovel || savingChapter || deletingChapter !== null || chapterLockLoadingId !== null) {
-          toast.info("Please wait for current operations to complete.");
-          return;
-      }
-
-      const action = lockStatus ? 'Locking' : 'Unlocking';
-      const confirmMessage = lockStatus
-          ? `Are you sure you want to lock all chapters for "${novel.title}"?`
-          : `Are you sure you want to unlock all chapters for "${novel.title}"?`;
-
-      if (!confirm(confirmMessage)) {
-          return;
-      }
-
-      setBulkLockLoading(true); // Use single state for both lock/unlock bulk loading
-      toast.info(`${action} all chapters...`);
-
-      try {
-          const success = await updateAllChaptersLockStatus(novelId, lockStatus);
-          if (!success) throw new Error("API returned failure");
-
-          // Update local state to reflect the change
-          setNovel(prev => {
-              if (!prev) return null;
-              return {
-                  ...prev,
-                  chapters: prev.chapters.map(ch => ({ ...ch, is_locked: lockStatus }))
-              };
-          });
-          toast.success(`All chapters successfully ${lockStatus ? 'locked' : 'unlocked'}.`);
-      } catch (error: any) {
-          console.error(`Error ${action.toLowerCase()} all chapters:`, error);
-          toast.error(`Failed to ${action.toLowerCase()} all chapters: ${error.message}`);
-      } finally {
-          setBulkLockLoading(false); // Use single state for both lock/unlock bulk loading
-      }
-  };
-
-  // NEW: Handle individual chapter lock/unlock
-  const handleToggleChapterLock = async (chapterId: number, currentLockedStatus: boolean) => {
+   const handleToggleChapterLock = async (chapterId: number, currentLockedStatus: boolean) => {
       if (!novel || !isAuthor || novelId === null) return;
        // Prevent individual toggle if bulk operation is running or another individual toggle is running
-      if (bulkLockLoading || savingNovel || savingChapter || deletingChapter !== null || (chapterLockLoadingId !== null && chapterLockLoadingId !== chapterId)) {
+      if (bulkLockLoading || chapterOperationStatus.id !== null) {
           toast.info("Please wait for current operations to complete.");
           return;
       }
@@ -289,15 +240,13 @@ export default function NovelPage() {
       const newLockedStatus = !currentLockedStatus;
       const action = newLockedStatus ? 'Locking' : 'Unlocking';
 
-      setChapterLockLoadingId(chapterId); // Set loading state for this specific chapter
+      setChapterOperationStatus({ id: chapterId, type: 'togglingLock' });
       toast.info(`${action} chapter...`);
 
       try {
-          // Reuse the existing updateChapter API function
           const success = await updateChapter(novelId, chapterId, { is_locked: newLockedStatus });
           if (!success) throw new Error("API returned failure");
 
-          // Update local state for the specific chapter
           setNovel(prev => {
               if (!prev) return null;
               return {
@@ -312,7 +261,55 @@ export default function NovelPage() {
           console.error(`Error toggling lock for chapter ${chapterId}:`, error);
           toast.error(`Failed to ${action.toLowerCase()} chapter: ${error.message}`);
       } finally {
-          setChapterLockLoadingId(null); // Clear loading state for this chapter
+          setChapterOperationStatus({ id: null, type: null });
+      }
+  };
+
+
+  const handleChapterAdded = () => {
+      setShowAddChapter(false);
+      toast.success("Chapter added, reloading novel details...");
+      loadNovel(); // Reload to get updated chapter list and correct numbering
+  };
+
+  // Handle bulk lock/unlock
+  const handleBulkLockUnlock = async (lockStatus: boolean) => {
+      if (!novel || !isAuthor || novelId === null) return;
+      // Prevent bulk operation if any other operation is in progress
+      if (bulkLockLoading || chapterOperationStatus.id !== null) {
+          toast.info("Please wait for current operations to complete.");
+          return;
+      }
+
+      const action = lockStatus ? 'Locking' : 'Unlocking';
+      const confirmMessage = lockStatus
+          ? `Are you sure you want to lock all chapters for "${novel.title}"?`
+          : `Are you sure you want to unlock all chapters for "${novel.title}"?`;
+
+      if (!confirm(confirmMessage)) {
+          return;
+      }
+
+      setBulkLockLoading(true);
+      toast.info(`${action} all chapters...`);
+
+      try {
+          const success = await updateAllChaptersLockStatus(novelId, lockStatus);
+          if (!success) throw new Error("API returned failure");
+
+          setNovel(prev => {
+              if (!prev) return null;
+              return {
+                  ...prev,
+                  chapters: prev.chapters.map(ch => ({ ...ch, is_locked: lockStatus }))
+              };
+          });
+          toast.success(`All chapters successfully ${lockStatus ? 'locked' : 'unlocked'}.`);
+      } catch (error: any) {
+          console.error(`Error ${action.toLowerCase()} all chapters:`, error);
+          toast.error(`Failed to ${action.toLowerCase()} all chapters: ${error.message}`);
+      } finally {
+          setBulkLockLoading(false);
       }
   };
 
@@ -335,6 +332,10 @@ export default function NovelPage() {
   if (novelId === null) {
       return <NotFoundScreen message="Invalid Novel ID." returnUrl="/" returnText="Return to Home" />;
   }
+
+  // Determine if any chapter-specific operation is happening
+  const isChapterOperationInProgress = chapterOperationStatus.id !== null;
+
 
   // --- Main Render ---
   console.log("[NovelPage] Rendering novel content for:", novel.title);
@@ -458,7 +459,7 @@ export default function NovelPage() {
                       disabled={savingNovel || !editedNovelTitle.trim()} // Disable if title is empty
                     >
                       {savingNovel ? <LoadingSpinner className="mr-2" size="sm"/> : null}
-                      {savingNovel ? 'Save Changes' : 'Save Changes'}
+                      {savingNovel ? 'Saving...' : 'Save Changes'}
                     </Button>
                   </div>
                 </div>
@@ -474,6 +475,7 @@ export default function NovelPage() {
                         onClick={handleStartEditNovel}
                         className="text-muted-foreground hover:text-foreground"
                         aria-label="Edit novel title and description"
+                        disabled={bulkLockLoading || isChapterOperationInProgress} // Disable if any chapter op or bulk op is active
                       >
                         <Edit size={18} />
                       </Button>
@@ -494,7 +496,7 @@ export default function NovelPage() {
                 <h2 className="text-xl font-semibold text-foreground">Chapters</h2>
                 {isAuthor && (
                    <div className="flex items-center gap-2">
-                       {/* NEW: Bulk Lock/Unlock Buttons */}
+                       {/* Bulk Lock/Unlock Buttons */}
                        {novel.chapters && novel.chapters.length > 0 && (
                            <>
                                <Button
@@ -502,7 +504,7 @@ export default function NovelPage() {
                                    size="sm"
                                    variant="outline"
                                    className="gap-1 text-destructive border-destructive hover:bg-destructive/10"
-                                   disabled={bulkLockLoading || savingNovel || savingChapter || deletingChapter !== null || chapterLockLoadingId !== null}
+                                   disabled={bulkLockLoading || isChapterOperationInProgress || savingNovel} // Disable if any chapter op or novel save is active
                                >
                                    {bulkLockLoading ? <LoadingSpinner className="mr-1" size="sm"/> : <Lock size={16} className="mr-1" />}
                                    Lock All
@@ -512,7 +514,7 @@ export default function NovelPage() {
                                    size="sm"
                                    variant="outline"
                                    className="gap-1 text-green-600 border-green-600 hover:bg-green-500/10"
-                                   disabled={bulkLockLoading || savingNovel || savingChapter || deletingChapter !== null || chapterLockLoadingId !== null}
+                                   disabled={bulkLockLoading || isChapterOperationInProgress || savingNovel} // Disable if any chapter op or novel save is active
                                >
                                    {bulkLockLoading ? <LoadingSpinner className="mr-1" size="sm"/> : <Unlock size={16} className="mr-1" />}
                                    Unlock All
@@ -524,7 +526,7 @@ export default function NovelPage() {
                          onClick={() => setShowAddChapter(true)}
                          size="sm"
                          variant="outline" // Changed variant
-                         disabled={bulkLockLoading || savingNovel || savingChapter || deletingChapter !== null || chapterLockLoadingId !== null}
+                         disabled={bulkLockLoading || isChapterOperationInProgress || savingNovel} // Disable if any chapter op or novel save is active
                        >
                          <Plus size={16} className="mr-1" />
                          Add Chapter
@@ -550,135 +552,22 @@ export default function NovelPage() {
                   [...novel.chapters]
                     .sort((a, b) => a.chapter_number - b.chapter_number)
                     .map((chapter) => (
-                      <div
-                        key={chapter.id}
-                        className="flex items-center justify-between p-2 rounded-md hover:bg-accent group" // Added group for hover effects
-                      >
-                        <div className="flex items-center gap-3 flex-1 min-w-0"> {/* Added min-w-0 */}
-                          <BookOpen size={18} className="text-muted-foreground flex-shrink-0" />
-                          {isEditingChapter === chapter.id ? (
-                            // Chapter Title Edit Input
-                            <div className="flex-1 flex items-center gap-2 min-w-0"> {/* Added min-w-0 */}
-                              <Input
-                                  type="text"
-                                  value={editedChapterTitle}
-                                  onChange={(e) => setEditedChapterTitle(e.target.value)}
-                                  className="flex-grow h-8 text-sm" // Smaller input
-                                  disabled={savingChapter}
-                                  aria-label={`Edit title for chapter ${chapter.chapter_number}`}
-                              />
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={handleCancelEditChapter}
-                                className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                                disabled={savingChapter}
-                                aria-label="Cancel editing chapter title"
-                              >
-                                <X size={16} />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleSaveChapterTitle(chapter.id)}
-                                className="h-7 w-7 text-green-600 hover:text-green-500 hover:bg-green-500/10" // Added hover text color
-                                disabled={savingChapter || editedChapterTitle.trim() === ''}
-                                aria-label="Save chapter title"
-                              >
-                                {savingChapter ? <LoadingSpinner size="sm" className="text-green-600"/> : <Check size={16} />}
-                              </Button>
-                            </div>
-                          ) : (
-                            // Chapter Title Display/Link
-                            <Link
-                              href={`/novels/${novelId}/chapter/${chapter.chapter_number}`}
-                              className="flex-1 flex items-center justify-between min-w-0 mr-2 group/link" // Add group name
-                            >
-                              <span className="text-sm text-foreground truncate group-hover/link:text-primary group-hover/link:underline underline-offset-2"> {/* Target specific group */}
-                                Chapter {chapter.chapter_number}: {chapter.title}
-                              </span>
-                              {/* Individual Lock Status Indicator */}
-                              {chapter.is_locked && (
-                                <span className="ml-2 px-1.5 py-0.5 text-xs rounded-full bg-secondary text-muted-foreground flex-shrink-0">
-                                  Locked
-                                </span>
-                              )}
-                            </Link>
-                          )}
-                        </div>
-
-                        {/* Author Controls for Chapter */}
-                        {isAuthor && (
-                          <div className="flex items-center gap-1 ml-2 flex-shrink-0">
-                             {/* Individual Lock Toggle Button */}
-                             <Button
-                                 variant="ghost"
-                                 size="icon"
-                                 onClick={() => handleToggleChapterLock(chapter.id, chapter.is_locked)}
-                                 className={cn(
-                                     "h-7 w-7 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity",
-                                     chapter.is_locked ? 'text-destructive' : 'text-green-600',
-                                     { 'opacity-100': chapterLockLoadingId === chapter.id } // Always show spinner if loading
-                                 )}
-                                 disabled={
-                                     isEditingChapter !== null || // Disable if editing title of any chapter
-                                     savingChapter || // Disable if saving title of any chapter
-                                     deletingChapter !== null || // Disable if deleting any chapter
-                                     bulkLockLoading || // Disable if bulk operation is running
-                                     (chapterLockLoadingId !== null && chapterLockLoadingId !== chapter.id) // Disable if another chapter is toggling lock
-                                 }
-                                 aria-label={chapter.is_locked ? `Unlock chapter ${chapter.chapter_number}` : `Lock chapter ${chapter.chapter_number}`}
-                             >
-                                 {chapterLockLoadingId === chapter.id ? (
-                                     <LoadingSpinner size="sm" className={chapter.is_locked ? 'text-destructive' : 'text-green-600'}/>
-                                 ) : chapter.is_locked ? (
-                                     <Lock size={16} />
-                                 ) : (
-                                     <Unlock size={16} />
-                                 )}
-                             </Button>
-
-                            {isEditingChapter !== chapter.id && ( // Show edit only if not currently editing this one
-                              <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleStartEditChapter(chapter)}
-                                  className="h-7 w-7 text-muted-foreground opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity" // Show on hover/focus
-                                  disabled={
-                                     isEditingChapter !== null || // Disable if editing title of any other chapter
-                                     savingChapter || // Disable if saving title of any chapter
-                                     deletingChapter !== null || // Disable if deleting any chapter
-                                     bulkLockLoading || // Disable if bulk operation is running
-                                     chapterLockLoadingId !== null // Disable if any chapter is toggling lock
-                                  }
-                                  aria-label={`Edit chapter ${chapter.chapter_number} title`}
-                              >
-                                  <Edit size={16} />
-                              </Button>
-                            )}
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleDeleteChapterClick(chapter.id, chapter.chapter_number)}
-                              className="h-7 w-7 text-destructive opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity" // Show on hover/focus
-                              disabled={
-                                  deletingChapter === chapter.id || // Disable while deleting this specific chapter
-                                  isEditingChapter !== null || // Disable if editing title of any chapter
-                                  savingChapter || // Disable if saving title of any chapter
-                                  bulkLockLoading || // Disable if bulk operation is running
-                                  chapterLockLoadingId !== null // Disable if any chapter is toggling lock
-                              }
-                              aria-label={`Delete chapter ${chapter.chapter_number}`}
-                            >
-                              {deletingChapter === chapter.id ? (
-                                  <LoadingSpinner size="sm" className="text-destructive"/>
-                              ) : (
-                                <Trash2 size={16} />
-                              )}
-                            </Button>
-                          </div>
-                        )}
-                      </div>
+                       <ChapterTitleEditor
+                           key={chapter.id}
+                           chapter={chapter}
+                           novelId={novelId}
+                           isAuthor={isAuthor}
+                           isEditing={isEditingChapterId === chapter.id}
+                           onStartEdit={handleStartEditChapter}
+                           onCancelEdit={handleCancelEditChapter}
+                           onSaveTitle={handleSaveChapterTitle}
+                           onToggleLock={handleToggleChapterLock}
+                           onDeleteChapter={handleDeleteChapter}
+                           savingTitle={chapterOperationStatus.id === chapter.id && chapterOperationStatus.type === 'savingTitle'}
+                           deletingChapter={chapterOperationStatus.id === chapter.id && chapterOperationStatus.type === 'deleting'}
+                           togglingLock={chapterOperationStatus.id === chapter.id && chapterOperationStatus.type === 'togglingLock'}
+                           bulkOperationInProgress={bulkLockLoading} // Pass bulk loading state down
+                       />
                   ))
                 ) : (
                   <p className="text-sm text-muted-foreground italic p-2">No chapters added yet.</p>
