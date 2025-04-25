@@ -17,8 +17,8 @@ export default function Header() {
   const router = useRouter();
   const pathname = usePathname();
   const { theme, cycleTheme } = useTheme(); // Keep theme access if logo depends on it
-  // Destructure isCreator from useAuth
-  const { user, role, isCreator } = useAuth();
+  // Destructure user, role, loading from useAuth
+  const { user, role, loading } = useAuth();
   const [username, setUsername] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -126,9 +126,9 @@ export default function Header() {
 
           {/* Action Buttons */}
           <div className="flex items-center flex-shrink-0 space-x-1 md:space-x-2">
-            {/* Add Novel Button (Admin/Creator) */}
-            {/* Show if role is admin OR if user is marked as a creator */}
-            {(role === 'admin' || isCreator) && (
+            {/* Add Novel Button (Admin only based on simplified logic) */}
+            {/* Show if role is admin */}
+            {role === 'admin' && (
               <Link href="/novels/create" passHref legacyBehavior>
                 <Button variant="ghost" size="icon" aria-label="Add New Novel">
                   <Plus size={20} />

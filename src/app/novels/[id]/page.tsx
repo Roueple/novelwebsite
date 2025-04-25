@@ -23,8 +23,8 @@ import { cn } from '@/lib/utils'; // Import cn for conditional classes
 import ChapterTitleEditor from '@/components/chapter-title-editor'; // Import the new component
 
 export default function NovelPage() {
-  // Destructure isCreator from useAuth
-  const { user, role, isCreator } = useAuth();
+  // Destructure user, role, loading from useAuth
+  const { user, role, loading: authLoading } = useAuth();
   const params = useParams();
   const router = useRouter();
   const novelIdParam = params.id; // Get raw param first
@@ -32,17 +32,16 @@ export default function NovelPage() {
   // State
   const [novelId, setNovelId] = useState<number | null>(null); // Store validated ID
   const [novel, setNovel] = useState<NovelType | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true); // Loading for novel data
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [isAuthor, setIsAuthor] = useState(false);
+  const [isAuthor, setIsAuthor] = useState(false); // Determined based on role === 'admin'
   const [isEditingNovel, setIsEditingNovel] = useState(false);
   const [isEditingChapterId, setIsEditingChapterId] = useState<number | null>(null); // Renamed for clarity
   const [editedNovelTitle, setEditedNovelTitle] = useState('');
   const [editedDescription, setEditedDescription] = useState('');
   const [showAddChapter, setShowAddChapter] = useState(false);
   const [savingNovel, setSavingNovel] = useState(false);
-  // Moved savingChapter, deletingChapter, chapterLockLoadingId to local state in ChapterTitleEditor,
-  // but need to keep track of which chapter is being edited/deleted/toggling lock here
+  // State to track any chapter-specific operation (editing title, deleting, toggling lock)
   const [chapterOperationStatus, setChapterOperationStatus] = useState<{
       id: number | null;
       type: 'savingTitle' | 'deleting' | 'togglingLock' | null;
@@ -98,21 +97,14 @@ export default function NovelPage() {
       }
   }, [novelId, loadNovel]);
 
-  // Determine Author Status using role and isCreator
+  // Determine Author Status based on role === 'admin'
   useEffect(() => {
-    // Check if user, novel, role, and isCreator status are available
-    if (user && novel && role !== null && isCreator !== null) {
-      const isAdmin = role === 'admin';
-      // A user is an author of THIS novel if they are a creator AND their user ID matches the novel's author_id
-      const isNovelAuthor = isCreator && novel.author_id === user.id;
-      // User has authoring privileges on this page if they are an admin OR the specific novel's author
-      setIsAuthor(isAdmin || isNovelAuthor);
-      console.log(`[NovelPage] Author status determined: ${isAdmin || isNovelAuthor} (Role: ${role}, Is Creator: ${isCreator}, User ID: ${user?.id}, Author ID: ${novel.author_id})`);
-    } else {
-      // Default to false if user, novel, role, or isCreator status is not fully loaded
-      setIsAuthor(false);
-    }
-  }, [novel, user, role, isCreator]); // Added isCreator as a dependency
+    // A user is considered an 'Author' (with editing privileges on this page) if their role is 'admin'.
+    const isAdmin = role === 'admin';
+    setIsAuthor(isAdmin);
+    console.log(`[NovelPage] Author status determined: ${isAdmin} (Role: ${role})`);
+  }, [role]); // Depend only on role
+
 
   // --- Handlers ---
   const handleStartEditNovel = () => {
@@ -315,7 +307,8 @@ export default function NovelPage() {
 
 
   // --- Render Logic ---
-  if (loading) {
+  // Show loading if novel data is loading OR auth status is loading
+  if (loading || authLoading) {
     return <LoadingScreen message="Loading novel details..." />;
   }
 
@@ -363,7 +356,7 @@ export default function NovelPage() {
                 />
             </div>
             {/* Author Edit: Image Upload */}
-            {isAuthor && (
+            {isAuthor && ( // Check if admin
                 <div className="mb-4">
                   <ImageUpload
                     onUploadComplete={async (url: string) => {
@@ -468,14 +461,14 @@ export default function NovelPage() {
                 <div>
                   <div className="flex justify-between items-start mb-2">
                     <h1 className="text-2xl md:text-3xl font-bold text-foreground">{novel.title}</h1>
-                    {isAuthor && (
+                    {isAuthor && ( // Check if admin
                       <Button
                         variant="ghost"
                         size="icon"
                         onClick={handleStartEditNovel}
                         className="text-muted-foreground hover:text-foreground"
                         aria-label="Edit novel title and description"
-                        disabled={bulkLockLoading || isChapterOperationInProgress} // Disable if any chapter op or bulk op is active
+                        disabled={bulkLockLoading || isChapterOperationInProgress || savingNovel} // Disable if any chapter op or bulk op or novel save is active
                       >
                         <Edit size={18} />
                       </Button>
@@ -494,7 +487,7 @@ export default function NovelPage() {
             <div className="bg-card rounded-lg shadow p-6 border border-border/10"> {/* Added border */}
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-semibold text-foreground">Chapters</h2>
-                {isAuthor && (
+                {isAuthor && ( // Check if admin
                    <div className="flex items-center gap-2">
                        {/* Bulk Lock/Unlock Buttons */}
                        {novel.chapters && novel.chapters.length > 0 && (
@@ -556,7 +549,7 @@ export default function NovelPage() {
                            key={chapter.id}
                            chapter={chapter}
                            novelId={novelId}
-                           isAuthor={isAuthor}
+                           isAuthor={isAuthor} // Pass determined author status (admin or not)
                            isEditing={isEditingChapterId === chapter.id}
                            onStartEdit={handleStartEditChapter}
                            onCancelEdit={handleCancelEditChapter}

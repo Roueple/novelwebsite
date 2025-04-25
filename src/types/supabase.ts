@@ -1,12 +1,12 @@
 // src/types/supabase.ts
 
-export type UserRole = 'admin' | 'reader'; // Removed 'author' as it's not used for roles
+export type UserRole = 'admin' | 'reader'; // Only 'admin' and 'reader' roles
 
 export type Profile = {
   id: string;
   username: string;
   role: UserRole; // 'admin' or 'reader'
-  is_creator: boolean; // Added boolean field for creator status
+  // Removed is_creator as per requirements
   is_guest: boolean;
   created_at: string;
   updated_at: string;
@@ -17,7 +17,7 @@ export type Novel = {
   title: string;
   cover_url: string | null;
   author: string;
-  author_id?: string;  // Make author_id optional with ?
+  author_id?: string;  // Keep author_id to link novels to users
   rating: number;
   status: 'Ongoing' | 'Completed';
   tags: string[];

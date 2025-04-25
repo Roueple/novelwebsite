@@ -6,8 +6,8 @@ import Link from 'next/link';
 import { useAuth } from '@/providers/auth-provider'; // Import useAuth
 
 export default function SearchNav() {
-  // Destructure role and isCreator from useAuth
-  const { role, isCreator } = useAuth();
+  // Destructure role from useAuth
+  const { role } = useAuth();
 
   return (
     <div className="bg-theme-card shadow sticky top-0 z-10">
@@ -25,8 +25,8 @@ export default function SearchNav() {
             <Filter size={20} className="text-theme-muted" />
           </button>
 
-          {/* Show Add Novel button if role is admin OR if user is a creator */}
-          {(role === 'admin' || isCreator) && (
+          {/* Show Add Novel button if role is admin */}
+          {role === 'admin' && (
             <Link
               href="/novels/create"
               className="p-2 rounded-lg border border-theme-border hover:bg-theme-hover flex items-center gap-2 text-theme-foreground"

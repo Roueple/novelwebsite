@@ -1,32 +1,23 @@
 // src/hooks/use-chapter-actions.ts
-// This hook is now simplified and primarily used for determining author status
-// and potentially holding shared state/logic if needed across different editing contexts.
-// The save logic has been moved to the components that use the full editor.
+// This hook now simply determines if the user has the 'admin' role.
 
 import { useMemo } from 'react';
 import { User } from '@supabase/supabase-js';
-import { ChapterType, NovelType, UserRole } from '@/types/supabase';
+import { UserRole } from '@/types/supabase';
 
 export function useChapterActions(
-  chapter: ChapterType | null,
   user: User | null,
-  role: UserRole | null,
-  novel: NovelType | null,
-  isCreator: boolean | null // Added isCreator here
+  role: UserRole | null
+  // Removed 'novel' parameter as it's no longer needed for the admin-only check
 ) {
-  // Determine if the user is an author of this specific novel
+  // Determine if the user is an admin.
+  // Access to editing is now solely based on the 'admin' role.
   const isAuthor = useMemo(() => {
-     if (!user || !novel || role === null || isCreator === null) return false;
-     const isAdmin = role === 'admin';
-     const isNovelAuthor = isCreator && novel.author_id === user.id;
-     return isAdmin || isNovelAuthor;
-  }, [user, novel, role, isCreator]); // Added isCreator as a dependency
-
-  // Removed state (editedTitle, editedContent, isLocked, saving)
-  // Removed handlers (handleSave, handleLockToggle)
+     // User is considered 'authorized' for editing if their role is 'admin'
+     return user !== null && role === 'admin';
+  }, [user, role]); // Depend on user and role
 
   return {
-    isAuthor, // Expose for potential UI elements specific to author status
-    // Removed other state and handlers
+    isAuthor, // Expose the 'admin' status
   };
 }

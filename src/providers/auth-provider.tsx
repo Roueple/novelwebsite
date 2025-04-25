@@ -8,7 +8,7 @@ import { UserRole } from '@/types/supabase'; // Import UserRole from your types
 interface AuthContextType {
   user: User | null;
   role: UserRole | null;
-  isCreator: boolean | null; // Added isCreator field
+  // Removed isCreator field
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string) => Promise<void>;
@@ -22,7 +22,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [role, setRole] = useState<UserRole | null>(null);
-  const [isCreator, setIsCreator] = useState<boolean | null>(null); // State for isCreator
+  // Removed isCreator state
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -30,10 +30,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       if (session?.user) {
-        fetchUserRoleAndCreatorStatus(session.user.id); // Fetch both role and is_creator
+        fetchUserRole(session.user.id); // Fetch only role
       } else {
          setRole(null);
-         setIsCreator(null);
       }
       setLoading(false); // Set loading to false after initial check
     });
@@ -42,10 +41,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setUser(session?.user ?? null);
       if (session?.user) {
-        fetchUserRoleAndCreatorStatus(session.user.id); // Fetch both on state change
+        fetchUserRole(session.user.id); // Fetch only role on state change
       } else {
         setRole(null);
-        setIsCreator(null);
       }
       // setLoading(false); // No need to set loading false here, initial check handles it
     });
@@ -53,23 +51,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  async function fetchUserRoleAndCreatorStatus(userId: string) {
+  async function fetchUserRole(userId: string) {
     const { data, error } = await supabase
       .from('profiles')
-      // Select both role and is_creator
-      .select('role, is_creator')
+      // Select only role
+      .select('role')
       .eq('id', userId)
       .single();
 
     if (error) {
-      console.error('Error fetching user role and creator status:', error);
+      console.error('Error fetching user role:', error);
       setRole(null);
-      setIsCreator(null);
       return;
     }
 
     setRole(data?.role ?? null); // Set role, default to null if data is null
-    setIsCreator(data?.is_creator ?? false); // Set isCreator, default to false if data is null
   }
 
   async function signInWithGoogle() {
@@ -119,7 +115,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         id: user.id,
         username,
         role: 'reader', // Guests are readers
-        is_creator: false, // Guests are not creators
         is_guest: true
       });
     }
@@ -134,7 +129,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     <AuthContext.Provider value={{
       user,
       role,
-      isCreator, // Expose isCreator
       loading,
       signInWithGoogle,
       signInWithEmail,

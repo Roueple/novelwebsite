@@ -20,25 +20,36 @@ import LoadingSpinner from '@/components/ui/loading-spinner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'; // Import Dialog components
 
 interface ChapterFullEditorProps {
-  chapter: ChapterType;
+  chapter: ChapterType; // Pass initial chapter data for reference
   isAuthor: boolean;
-  onSave: (title: string, content: string, isLocked: boolean) => Promise<boolean>; // Save returns success status
-  onCancel: () => void;
+  // Pass state and setters from the hook in the parent page
+  editedTitle: string;
+  setEditedTitle: (title: string) => void;
+  editedContent: string;
+  setEditedContent: (content: string | ((prev: string) => string)) => void; // Corrected type
+  isLocked: boolean;
+  setIsLocked: (locked: boolean) => void;
+  saving: boolean; // Pass saving state from the hook
+  setSaving: (saving: boolean) => void; // Pass saving state setter from the hook
+  onSave: () => Promise<boolean>; // Save handler from parent (calls API)
+  onCancel: () => void; // Cancel handler from parent (navigates)
 }
 
 export default function ChapterFullEditor({
   chapter,
   isAuthor,
+  editedTitle,
+  setEditedTitle,
+  editedContent,
+  setEditedContent,
+  isLocked,
+  setIsLocked,
+  saving,
+  setSaving, // Use the setter from the parent
   onSave,
   onCancel,
 }: ChapterFullEditorProps) {
-  // State for editing chapter data
-  const [editedTitle, setEditedTitle] = useState(chapter.title);
-  const [editedContent, setEditedContent] = useState(chapter.content || '');
-  const [isLocked, setIsLocked] = useState(chapter.is_locked);
-
-  // UI State
-  const [saving, setSaving] = useState(false);
+  // UI State (local to this component)
   const [viewMode, setViewMode] = useState<'raw' | 'preview' | 'split'>('raw');
   const [effectsEnabledInPreview, setEffectsEnabledInPreview] = useState(true);
   const [headerVisible, setHeaderVisible] = useState(true); // State for header visibility
@@ -49,10 +60,12 @@ export default function ChapterFullEditor({
   const previewRef = useRef<HTMLDivElement>(null);
 
   // Autosave Logic
+  // Use chapter.id and novel_id from the initial chapter prop
   const autosaveKey = `chapter_draft_${chapter.novel_id}_${chapter.id}`;
 
   useEffect(() => {
     // Load autosaved draft on mount if it's newer than the last updated chapter
+    // This logic remains here as it interacts with local storage
     try {
       const savedDraft = localStorage.getItem(autosaveKey);
       if (savedDraft) {
@@ -60,35 +73,38 @@ export default function ChapterFullEditor({
         const draftDate = new Date(timestamp);
         const chapterUpdateDate = chapter.updated_at ? new Date(chapter.updated_at) : new Date(0);
         if (draftDate > chapterUpdateDate) {
-          setEditedTitle(title);
-          setEditedContent(content);
-          setIsLocked(locked);
+          setEditedTitle(title); // Use setter from props
+          setEditedContent(content); // Use setter from props
+          setIsLocked(locked); // Use setter from props
           setLastSavedTime(draftDate);
         }
       }
     } catch (e) {
       console.error("Failed to load or parse draft", e);
     }
-  }, [chapter, autosaveKey]); // Depend on chapter and autosaveKey
+  }, [chapter, autosaveKey, setEditedTitle, setEditedContent, setIsLocked]); // Add setters to dependencies
 
   useEffect(() => {
     // Autosave timer
     const handler = setTimeout(() => {
-      try {
-        localStorage.setItem(autosaveKey, JSON.stringify({
-          title: editedTitle,
-          content: editedContent,
-          locked: isLocked,
-          timestamp: new Date().toISOString()
-        }));
-        setLastSavedTime(new Date());
-      } catch (e) {
-        console.error("Autosave failed", e);
+      // Only autosave if the editor is not currently saving
+      if (!saving) {
+           try {
+             localStorage.setItem(autosaveKey, JSON.stringify({
+               title: editedTitle,
+               content: editedContent,
+               locked: isLocked,
+               timestamp: new Date().toISOString()
+             }));
+             setLastSavedTime(new Date());
+           } catch (e) {
+             console.error("Autosave failed", e);
+           }
       }
     }, 3000); // Autosave every 3 seconds
 
     return () => clearTimeout(handler); // Clear timer on unmount or state change
-  }, [editedTitle, editedContent, isLocked, autosaveKey]); // Depend on editing states
+  }, [editedTitle, editedContent, isLocked, autosaveKey, saving]); // Depend on editing states and saving state
 
   // Scroll Synchronization
   const synchronizeScroll = useCallback((sourceElement: HTMLElement) => {
@@ -159,6 +175,7 @@ export default function ChapterFullEditor({
   // Remove All Effects
   const handleRemoveAllEffects = () => {
     if (confirm("Are you sure you want to remove ALL text effect tags (e.g., [shout]) from this chapter? This cannot be undone easily.")) {
+      // Corrected setEditedContent call to use the functional update form
       setEditedContent(currentContent => {
         const pattern = /\[[a-zA-Z]+\]/g;
         const newContent = currentContent.replace(pattern, '');
@@ -169,28 +186,14 @@ export default function ChapterFullEditor({
   };
 
   // Handle Save Action
-  const handleSave = async () => {
-    setSaving(true);
-    const success = await onSave(editedTitle.trim(), editedContent, isLocked);
-    if (success) {
-      localStorage.removeItem(autosaveKey); // Clear draft on successful save
-    }
-    setSaving(false);
+  const handleSaveClick = async () => {
+      // Call the onSave handler provided by the parent page
+      // The parent handler is responsible for setting/clearing the saving state
+      // and showing toasts based on the success result.
+      // The parent handler also clears the local storage draft on success.
+      await onSave();
   };
 
-  // Handle Cancel Action
-  const handleCancel = () => {
-    const hasChanges = editedTitle !== chapter.title ||
-      editedContent !== (chapter.content || '') ||
-      isLocked !== chapter.is_locked;
-
-    if (hasChanges) {
-      const discard = confirm("You have unsaved changes in this draft. Discard draft?");
-      if (!discard) return;
-    }
-    localStorage.removeItem(autosaveKey); // Clear draft on cancel
-    onCancel(); // Call the parent's cancel handler (navigation)
-  };
 
   // If not authorized, render nothing or a message (AdminRoleCheck handles redirection)
   if (!isAuthor) {
@@ -207,8 +210,8 @@ export default function ChapterFullEditor({
             <div className='flex flex-col w-full'>
               <h1 className="text-sm md:text-base font-semibold text-muted-foreground mb-1">Edit Chapter {chapter.chapter_number}</h1>
               <Input
-                value={editedTitle}
-                onChange={(e) => setEditedTitle(e.target.value)}
+                value={editedTitle} // Use state from props
+                onChange={(e) => setEditedTitle(e.target.value)} // Use setter from props
                 placeholder="Chapter Title"
                 className="text-lg font-semibold h-10"
                 disabled={saving}
@@ -219,7 +222,7 @@ export default function ChapterFullEditor({
               <div className="flex items-center mt-2">
                 <div className={cn(
                   "px-2 py-1 rounded-full text-xs font-medium",
-                  isLocked
+                  isLocked // Use state from props
                     ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
                     : "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
                 )}>
@@ -321,20 +324,20 @@ export default function ChapterFullEditor({
               )}
 
               <div className="flex items-center gap-2">
-                {/* Lock Toggle Button - Fixed position */}
+                {/* Lock Toggle Button */}
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setIsLocked(!isLocked)} // Direct state toggle for editor view
+                  onClick={() => setIsLocked(!isLocked)} // Use setter from props
                   disabled={saving}
                   className={cn(
                     "gap-1",
-                    isLocked
+                    isLocked // Use state from props
                       ? 'text-destructive border-destructive hover:bg-destructive/10'
                       : 'text-green-600 border-green-600 hover:bg-green-500/10'
                   )}
                 >
-                  {saving ? ( // Use saving state for spinner in editor
+                  {saving ? ( // Use saving state from props for spinner
                     <LoadingSpinner className="mr-1" size="sm"/>
                   ) : isLocked ? (
                     <Lock size={16} />
@@ -344,17 +347,17 @@ export default function ChapterFullEditor({
                   <span>{isLocked ? 'Locked' : 'Unlocked'}</span>
                 </Button>
 
-                {/* Cancel Button - Fixed position */}
-                <Button variant="outline" size="sm" onClick={handleCancel} disabled={saving}>
+                {/* Cancel Button */}
+                <Button variant="outline" size="sm" onClick={onCancel} disabled={saving}>
                   <X size={16} className="mr-1"/> Cancel
                 </Button>
 
-                {/* Save Button - Fixed position */}
-                <Button size="sm" onClick={handleSave} disabled={saving || editedTitle.trim() === ''} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+                {/* Save Button */}
+                <Button size="sm" onClick={handleSaveClick} disabled={saving || editedTitle.trim() === ''} className="bg-primary hover:bg-primary/90 text-primary-foreground">
                   <Save size={16} className="mr-1" /> {saving ? 'Saving...' : 'Save'}
                 </Button>
 
-                {/* Hide Header Button - Fixed position */}
+                {/* Hide Header Button */}
                 <Button
                   variant="ghost"
                   size="icon"
@@ -389,7 +392,7 @@ export default function ChapterFullEditor({
         <div className="relative bg-background py-2 mb-4">
           <TextEffectsToolbar
             editorRef={editorRef}
-            setContent={setEditedContent}
+            setContent={setEditedContent} // Use setter from props
             disabled={saving} // Disable toolbar while saving
           />
         </div>
@@ -404,8 +407,8 @@ export default function ChapterFullEditor({
             <Textarea
               id="chapter-content-editor-raw"
               ref={editorRef}
-              value={editedContent}
-              onChange={(e) => setEditedContent(e.target.value)}
+              value={editedContent} // Use state from props
+              onChange={(e) => setEditedContent(e.target.value)} // Use setter from props
               className="min-h-[60vh] lg:min-h-[70vh] font-mono text-base border-input focus:border-primary resize-y w-full bg-background"
               placeholder="Write your chapter content here..."
               disabled={saving}
@@ -423,7 +426,7 @@ export default function ChapterFullEditor({
                 ref={previewRef}
                 className="p-4 md:p-6 min-h-[60vh] lg:min-h-[70vh] overflow-y-auto prose prose-sm sm:prose-base max-w-none dark:prose-invert"
               >
-                <DynamicText content={editedContent} isEnabled={effectsEnabledInPreview} />
+                <DynamicText content={editedContent} isEnabled={effectsEnabledInPreview} /> {/* Use state from props */}
               </CardContent>
             </Card>
           </div>
@@ -438,8 +441,8 @@ export default function ChapterFullEditor({
               <Textarea
                 id="chapter-content-editor-split"
                 ref={editorRef}
-                value={editedContent}
-                onChange={(e) => setEditedContent(e.target.value)}
+                value={editedContent} // Use state from props
+                onChange={(e) => setEditedContent(e.target.value)} // Use setter from props
                 className="min-h-[60vh] lg:min-h-[70vh] font-mono text-base border-input focus:border-primary resize-y w-full bg-background"
                 placeholder="Write your chapter content here..."
                 disabled={saving}
@@ -453,7 +456,7 @@ export default function ChapterFullEditor({
                 ref={previewRef}
                 className="p-4 md:p-6 min-h-[60vh] lg:min-h-[70vh] overflow-y-auto prose prose-sm sm:prose-base max-w-none dark:prose-invert"
               >
-                <DynamicText content={editedContent} isEnabled={effectsEnabledInPreview} />
+                <DynamicText content={editedContent} isEnabled={effectsEnabledInPreview} /> {/* Use state from props */}
               </CardContent>
             </Card>
           </div>
