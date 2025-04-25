@@ -1,3 +1,19 @@
 #Untuk Bypass Admin Credentials
 Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process -Force
 
+git push --force
+git push origin main --force
+
+npm run dev
+
+. Core Priorities:
+
+    Excellent User Experience (UX): Intuitive navigation, clean interface, highly readable content presentation, seamless progress tracking, minimal friction.
+
+    High Performance: Fast page loads, quick API responses, efficient database queries, optimized resource delivery (images, scripts, styles). The site must feel snappy even with a large library and user base.
+
+    Code Quality & Reusability: Modular design (frontend components, backend services), adherence to DRY (Don't Repeat Yourself) principles, clear separation of concerns, well-documented code, easily testable units.
+
+    Scalability: The architecture should anticipate future growth in terms of content volume, user traffic, and feature additions.
+
+    Maintainability: Code should be easy to understand, debug, and extend by current and future developers.
