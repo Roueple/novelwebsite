@@ -21,7 +21,6 @@ const EditChapterPage = () => {
   const router = useRouter();
   const novelId = Number(params.id);
   const chapterNumber = Number(params.chapterId);
-
   const [loading, setLoading] = useState(true); // Loading for novel/chapter data
   const [loadError, setLoadError] = useState<string | null>(null); // Added loadError state
   const [chapter, setChapterState] = useState<ChapterType | null>(null);
@@ -39,8 +38,7 @@ const EditChapterPage = () => {
       setIsLocked,
       saving, // Get saving state from the hook
       setSaving, // Get saving state setter from the hook
-  } = useChapterActions(chapter, user, role); // Pass chapter to the hook
-
+  } = useChapterActions(chapter, user, role); // Corrected: Removed setChapterState and novel parameters
 
   // --- Fetch Data ---
   const loadData = useCallback(async () => {
@@ -77,15 +75,15 @@ const EditChapterPage = () => {
       setLoading(false);
     }
   }, [novelId, chapterNumber, router]);
-
   useEffect(() => {
     loadData();
   }, [loadData]);
 
-
   // Handle Save Action (calls the API directly or via a simple local function)
   const handleSave = async (): Promise<boolean> => { // No longer accepts data as arguments
       // Check authorization here before attempting to save
+      // isAuthor check is now handled by AdminRoleCheck wrapping the component,
+      // but a final check before the API call is also good practice.
       if (!user || role !== 'admin' || !chapter || !novel) {
           toast.error("Cannot save: Insufficient permissions or missing data.");
           return false;
@@ -93,7 +91,6 @@ const EditChapterPage = () => {
 
       setSaving(true); // Set saving state for this page via hook setter
       toast.info('Saving chapter...');
-
       try {
           // Direct API call for saving from this page, using state from the hook
           const success = await updateChapter(novel.id, chapter.id, {
@@ -102,7 +99,6 @@ const EditChapterPage = () => {
               is_locked: isLocked, // Use state from hook
               newly_created: false // Mark as not newly created after first save
           });
-
           if (success) {
                // Update local state after successful save
                setChapterState(prev => prev ? {
@@ -135,8 +131,7 @@ const EditChapterPage = () => {
   const handleCancel = () => {
     // Navigation logic remains here as it's page-specific
     // Check for unsaved changes using state from the hook
-    const hasChanges = editedTitle !== chapter?.title ||
-      editedContent !== (chapter?.content || '') ||
+    const hasChanges = editedTitle !== chapter?.title || editedContent !== (chapter?.content || '') ||
       isLocked !== chapter?.is_locked;
 
     if (hasChanges) {
