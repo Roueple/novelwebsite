@@ -1,7 +1,8 @@
 // src/lib/api.ts
 import { supabase } from './supabase';
-import type { NovelType, ChapterType, Novel, Chapter } from '@/types/supabase'; // Use specific types
-import { PostgrestError } from '@supabase/supabase-js'; // Import PostgrestError
+// Import specific types, including Novel without chapters baked in
+import type { Novel, Chapter, NovelType, ChapterType } from '@/types/supabase';
+import { PostgrestError } from '@supabase/supabase-js';
 
 // Type guard for PostgrestError
 function isPostgrestError(error: any): error is PostgrestError {
@@ -29,46 +30,39 @@ function handleSupabaseError(error: unknown, context: string): null {
 const NOVEL_SELECT = `
   id, title, cover_url, author, author_id, rating, status, tags, description, created_at, updated_at
 `;
-
 const CHAPTER_SELECT = `
   id, novel_id, chapter_number, title, content, is_locked, newly_created, created_at, updated_at
 `;
 
 
-export async function searchNovels(query: string): Promise<Novel[]> { // Return Novel[]
+export async function searchNovels(query: string): Promise<Novel[]> {
   try {
-    // Basic sanitization - consider more robust library if needed
-    const sanitizedQuery = query.replace(/[^a-zA-Z0-9\s\-_]/g, '').trim(); // Allow spaces, hyphens, underscores
-    if (!sanitizedQuery) return []; // Return empty if query is empty after sanitization
+    const sanitizedQuery = query.replace(/[^a-zA-Z0-9\s\-_]/g, '').trim();
+    if (!sanitizedQuery) return [];
 
     const { data, error } = await supabase
       .from('novels')
       .select(NOVEL_SELECT)
       .or(
-        `title.ilike.%${sanitizedQuery}%,author.ilike.%${sanitizedQuery}%,description.ilike.%${sanitizedQuery}%` // Search description too
-        // Searching within array tags like this is possible but less efficient.
-        // Consider a dedicated search function/index for tags if performance is critical.
-        // `tags.cs.{${sanitizedQuery}}`
+        `title.ilike.%${sanitizedQuery}%,author.ilike.%${sanitizedQuery}%,description.ilike.%${sanitizedQuery}%`
       )
-      .order('updated_at', { ascending: false }) // Order by update potentially more relevant
+      .order('updated_at', { ascending: false })
       .limit(50);
-
-    if (error) throw error; // Throw to be caught by outer try-catch
+    if (error) throw error;
     return data || [];
   } catch (error) {
     handleSupabaseError(error, 'searchNovels');
-    return []; // Return empty array on error
+    return [];
   }
 }
 
-export async function getLatestNovels(limit = 20): Promise<Novel[]> { // Return Novel[]
+export async function getLatestNovels(limit = 20): Promise<Novel[]> {
   try {
     const { data, error } = await supabase
       .from('novels')
       .select(NOVEL_SELECT)
       .order('created_at', { ascending: false })
       .limit(limit);
-
     if (error) throw error;
     return data || [];
   } catch (error) {
@@ -77,49 +71,53 @@ export async function getLatestNovels(limit = 20): Promise<Novel[]> { // Return 
   }
 }
 
-export async function getNovel(id: number): Promise<NovelType | null> { // Use NovelType
+// MODIFIED: Fetches only Novel metadata, no chapters
+export async function getNovel(id: number): Promise<Novel | null> { // Return type is now Novel
   if (isNaN(id) || id <= 0) {
      console.error('Invalid novel ID requested:', id);
      return null;
   }
   try {
-    const [novelResponse, chaptersResponse] = await Promise.all([
-      supabase
-        .from('novels')
-        .select(NOVEL_SELECT)
-        .eq('id', id)
-        .single(),
-      supabase
-        .from('chapters')
-        .select(CHAPTER_SELECT)
-        .eq('novel_id', id)
-        .order('chapter_number', { ascending: true })
-    ]);
+    const { data, error } = await supabase
+      .from('novels')
+      .select(NOVEL_SELECT)
+      .eq('id', id)
+      .single();
 
-    // Check novel first
-    if (novelResponse.error) {
-        // Handle 'PGRST116' (Row not found) specifically
-        if (novelResponse.error.code === 'PGRST116') {
-            console.log(`Novel with ID ${id} not found.`);
-            return null;
-        }
-        throw novelResponse.error; // Throw other errors
+    if (error) {
+      if (error.code === 'PGRST116') { // Handle "Row not found" gracefully
+        console.log(`Novel with ID ${id} not found.`);
+        return null;
+      }
+      throw error; // Throw other errors
     }
-     if (!novelResponse.data) return null; // Should be caught by .single() error, but safeguard
+    return data as Novel || null; // Return Novel data
+  } catch (error) {
+    // Note: context changed to reflect only fetching metadata
+    return handleSupabaseError(error, `getNovelMetadata (ID: ${id})`);
+  }
+}
 
-    // Check chapters (even if novel exists, chapter fetch might fail)
-    if (chaptersResponse.error) throw chaptersResponse.error;
+// NEW: Fetches only chapters for a given novel ID
+export async function getNovelChapters(novelId: number): Promise<ChapterType[]> {
+  if (isNaN(novelId) || novelId <= 0) {
+    console.error('Invalid novel ID for fetching chapters:', novelId);
+    return []; // Return empty array for invalid ID
+  }
+  try {
+    const { data, error } = await supabase
+      .from('chapters')
+      .select(CHAPTER_SELECT)
+      .eq('novel_id', novelId)
+      .order('chapter_number', { ascending: true });
+
+    if (error) throw error;
 
     // Ensure chapters is an array, even if empty
-    const chapters = chaptersResponse.data || [];
-
-    // Combine data - ensure chapters property exists
-    return {
-      ...novelResponse.data,
-      chapters: chapters as ChapterType[] // Assert type after fetching
-    };
+    return (data as ChapterType[]) || [];
   } catch (error) {
-    return handleSupabaseError(error, `getNovel (ID: ${id})`);
+    handleSupabaseError(error, `getNovelChapters (Novel ID: ${novelId})`);
+    return []; // Return empty array on error
   }
 }
 
@@ -127,7 +125,7 @@ export async function getNovel(id: number): Promise<NovelType | null> { // Use N
 export async function getChapter(
   novelId: number,
   chapterNumber: number
-): Promise<ChapterType | null> { // Use ChapterType
+): Promise<ChapterType | null> {
    if (isNaN(novelId) || novelId <= 0 || isNaN(chapterNumber) || chapterNumber <= 0) {
      console.error('Invalid novel or chapter ID requested:', { novelId, chapterNumber });
      return null;
@@ -162,7 +160,6 @@ export async function deleteChapter(
      return false;
   }
   try {
-    // Optional: Add permission checks here if needed before deleting
     const { error } = await supabase
       .from('chapters')
       .delete()
@@ -179,33 +176,28 @@ export async function deleteChapter(
 
 export async function addChapter(
   novelId: number,
-  chapterData: Partial<ChapterType> // Use ChapterType here
-): Promise<ChapterType | null> { // Return ChapterType
+  chapterData: Partial<ChapterType>
+): Promise<ChapterType | null> {
    if (isNaN(novelId) || novelId <= 0) {
      console.error('Invalid novel ID for adding chapter:', novelId);
      return null;
   }
-  // Basic validation for required fields
   if (!chapterData.chapter_number || chapterData.chapter_number <= 0) {
       console.error('Invalid chapter number provided for addChapter:', chapterData.chapter_number);
       return null;
   }
   try {
-    // Optional: Add permission checks here
     const { data, error } = await supabase
       .from('chapters')
       .insert({ ...chapterData, novel_id: novelId })
       .select(CHAPTER_SELECT) // Select the full chapter data after insert
       .single();
-
     if (error) throw error;
-    return data as ChapterType || null; // Assert type
+    return data as ChapterType || null;
   } catch (error) {
     return handleSupabaseError(error, `addChapter (Novel ID: ${novelId})`);
   }
 }
-
-// src/lib/api.ts
 
 export async function updateChapter(
   novelId: number,
@@ -216,19 +208,15 @@ export async function updateChapter(
     console.error('Invalid novel or chapter ID for update:', { novelId, chapterId });
     return false;
   }
-  
-  // Remove potentially harmful fields if necessary before update
+
   const cleanData = { ...updateData };
-  
   if (Object.keys(cleanData).length === 0) {
     console.warn("updateChapter called with empty data.");
-    return true; // No changes needed, technically successful
+    return true;
   }
 
   try {
-    // Add debug logging
     console.log(`Updating chapter ${chapterId} with data:`, cleanData);
-    
     const { error, data } = await supabase
       .from('chapters')
       .update(cleanData)
@@ -240,22 +228,19 @@ export async function updateChapter(
       console.error('Supabase update error:', error);
       throw error;
     }
-    
-    // Log success response
+
     console.log('Update success response:', data);
     return true;
   } catch (error) {
     console.error('Detailed error in updateChapter:', error);
-    // Provide more context in the error message
-    const errorMessage = error instanceof Error 
-      ? `${error.name}: ${error.message}` 
+    const errorMessage = error instanceof Error
+      ? `${error.name}: ${error.message}`
       : String(error);
     console.error(`Failed to update chapter ${chapterId}: ${errorMessage}`);
     return false;
   }
 }
 
-// NEW: Function to update the lock status for all chapters of a novel
 export async function updateAllChaptersLockStatus(
   novelId: number,
   isLocked: boolean
@@ -270,7 +255,7 @@ export async function updateAllChaptersLockStatus(
     const { error } = await supabase
       .from('chapters')
       .update({ is_locked: isLocked })
-      .eq('novel_id', novelId); // Update all chapters belonging to this novel
+      .eq('novel_id', novelId);
 
     if (error) {
       console.error('Supabase bulk update error:', error);

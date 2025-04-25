@@ -1,28 +1,26 @@
 // src/hooks/use-chapter-actions.ts
 import { useState, useEffect, useMemo } from 'react';
 import { User } from '@supabase/supabase-js';
-import { ChapterType, NovelType, UserRole } from '@/types/supabase';
-// Removed updateChapter and toast imports as save logic is handled by the component using the hook
+// *** FIX: Import Novel type ***
+import { ChapterType, Novel, UserRole } from '@/types/supabase';
 
 export function useChapterActions(
-  chapter: ChapterType | null, // Keep chapter to initialize state
+  chapter: ChapterType | null,
   user: User | null,
   role: UserRole | null,
-  setChapterState?: (chapter: ChapterType) => void,
-  novel?: NovelType
+  setChapterState?: (chapter: ChapterType | ((prevState: ChapterType | null) => ChapterType | null)) => void, // Allow functional updates
+  // *** FIX: Change expected type to Novel | undefined ***
+  novel?: Novel | undefined
 ) {
-  // Editing state - managed locally within the hook
   const [editedTitle, setEditedTitle] = useState('');
   const [editedContent, setEditedContent] = useState('');
   const [isLocked, setIsLocked] = useState(false);
-  const [saving, setSaving] = useState(false); // Keep saving state here
+  const [saving, setSaving] = useState(false);
 
   // Determine if the user is an admin.
-  // Access to editing is now solely based on the 'admin' role.
   const isAuthor = useMemo(() => {
-     // User is considered 'authorized' for editing if their role is 'admin'
      return user !== null && role === 'admin';
-  }, [user, role]); // Depend on user and role
+  }, [user, role]);
 
   // Initialize state when chapter data is loaded or changes
   useEffect(() => {
@@ -31,42 +29,39 @@ export function useChapterActions(
       setEditedContent(chapter.content || '');
       setIsLocked(chapter.is_locked);
     } else {
-      // Reset if chapter becomes null (e.g., during loading/error)
       setEditedTitle('');
       setEditedContent('');
       setIsLocked(false);
     }
-  }, [chapter]); // Depend only on chapter data
+  }, [chapter]);
 
-  // Add handleSave function to fix the build error
+  // Placeholder save function (actual save logic is in the parent component)
   const handleSave = async () => {
     setSaving(true);
+    console.warn('handleSave in useChapterActions is a placeholder and should be overridden by parent component logic.');
     try {
-      // This is a placeholder implementation that will be overridden by the actual implementation in the component
-      console.log('Chapter saving placeholder triggered');
-      
-      // If we have a setter and a chapter, we could update it here
+      // Simulate potential update if setter is provided
       if (setChapterState && chapter) {
-        setChapterState({
-          ...chapter,
+         // Using functional update form for safety
+         setChapterState((prev) => prev ? {
+          ...prev,
           title: editedTitle,
           content: editedContent,
           is_locked: isLocked,
-        });
+        } : null);
       }
-      
-      return true; // Return success
+      await new Promise(resolve => setTimeout(resolve, 500)); // Simulate async operation
+      setSaving(false);
+      return true;
     } catch (error) {
       console.error('Error in handleSave placeholder:', error);
-      return false; // Return failure
-    } finally {
       setSaving(false);
+      return false;
     }
   };
 
-  // Expose state and setters
   return {
-    isAuthor, // Expose the 'admin' status
+    isAuthor,
     editedTitle,
     setEditedTitle,
     editedContent,
@@ -74,7 +69,7 @@ export function useChapterActions(
     isLocked,
     setIsLocked,
     saving,
-    setSaving, // Expose setter for saving state
-    handleSave, // Add the handleSave function to the return object
+    setSaving,
+    handleSave, // Include the placeholder save handler
   };
 }
