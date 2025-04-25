@@ -33,7 +33,7 @@ export default function NovelPage() {
   const [novelId, setNovelId] = useState<number | null>(null); // Store validated ID
   const [novel, setNovel] = useState<NovelType | null>(null);
   const [loading, setLoading] = useState(true); // Loading for novel data
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null); // Corrected state variable name
   const [isAuthor, setIsAuthor] = useState(false); // Determined based on role === 'admin'
   const [isEditingNovel, setIsEditingNovel] = useState(false);
   const [isEditingChapterId, setIsEditingChapterId] = useState<number | null>(null); // Renamed for clarity
@@ -71,7 +71,7 @@ export default function NovelPage() {
       }
       console.log(`[NovelPage] Attempting to load novel ID: ${novelId}`);
       setLoading(true);
-      setLoadError(null);
+      setLoadError(null); // Reset error state on new load attempt
       try {
           const data = await getNovel(novelId);
           console.log("[NovelPage] Data received from getNovel:", data);
@@ -83,7 +83,7 @@ export default function NovelPage() {
           }
       } catch (err: any) {
           console.error("[NovelPage] Error during getNovel call:", err);
-          setLoadError(err.message || "An unexpected error occurred while loading the novel.");
+          setLoadError(err.message || "An unexpected error occurred while loading the novel."); // Set error state
       } finally {
           console.log("[NovelPage] Loading finished.");
           setLoading(false);
@@ -313,12 +313,12 @@ export default function NovelPage() {
   }
 
   // Handle invalid ID error specifically before checking !novel
-  if (loadError?.includes("Invalid Novel ID")) {
-      return <NotFoundScreen message={loadError} returnUrl="/" returnText="Return to Home" />;
+  if (loadError?.includes("Invalid Novel ID")) { // Use loadError
+      return <NotFoundScreen message={loadError} returnUrl="/" returnText="Return to Home" />; // Use loadError
   }
 
-  if (loadError || !novel) {
-    return <NotFoundScreen message={loadError || "Novel not found."} returnUrl="/" returnText="Return to Home" />;
+  if (loadError || !novel) { // Use loadError
+    return <NotFoundScreen message={loadError || "Novel not found."} returnUrl={`/novels/${novelId || ''}`} returnText="Back to Novel"/>; // Use loadError
   }
 
   // Ensure novelId is valid before rendering modal or other actions

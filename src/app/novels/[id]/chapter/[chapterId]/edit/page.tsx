@@ -27,19 +27,19 @@ const EditChapterPage = () => {
   const [chapter, setChapterState] = useState<ChapterType | null>(null);
   const [novel, setNovel] = useState<NovelType | null>(null);
 
-  // Use the useChapterActions hook to get isAuthor (based on role === 'admin')
-  // Pass only user and role to the hook - FIXED
+  // Use the useChapterActions hook to manage editing state and get isAuthor (based on role === 'admin')
+  // Pass user, role, and chapter to the hook
   const {
-      isAuthor,
-      // Removed editing state variables and their setters from here
-  } = useChapterActions(user, role);
-
-
-  // Editing state is now managed locally within this page component
-  const [editedTitle, setEditedTitle] = useState('');
-  const [editedContent, setEditedContent] = useState('');
-  const [isLocked, setIsLocked] = useState(false);
-  const [saving, setSaving] = useState(false); // Saving state for this page's save operation
+      isAuthor, // Get isAuthor from the hook
+      editedTitle,
+      setEditedTitle,
+      editedContent,
+      setEditedContent,
+      isLocked,
+      setIsLocked,
+      saving, // Get saving state from the hook
+      setSaving, // Get saving state setter from the hook
+  } = useChapterActions(chapter, user, role); // Pass chapter to the hook
 
 
   // --- Fetch Data ---
@@ -62,10 +62,8 @@ const EditChapterPage = () => {
       if (!fetchedChapter) throw new Error('Chapter not found');
       setNovel(fetchedNovel);
       setChapterState(fetchedChapter);
-       // Initialize local editing state with fetched data
-       setEditedTitle(fetchedChapter.title);
-       setEditedContent(fetchedChapter.content || '');
-       setIsLocked(fetchedChapter.is_locked);
+       // The useChapterActions hook will initialize its state when chapter changes
+       // No need to set local editing state here anymore.
 
     } catch (error: any) {
       console.error('Error loading chapter data for edit:', error);
@@ -93,15 +91,15 @@ const EditChapterPage = () => {
           return false;
       }
 
-      setSaving(true); // Set saving state for this page
+      setSaving(true); // Set saving state for this page via hook setter
       toast.info('Saving chapter...');
 
       try {
-          // Direct API call for saving from this page, using local state
+          // Direct API call for saving from this page, using state from the hook
           const success = await updateChapter(novel.id, chapter.id, {
-              title: editedTitle.trim(),
-              content: editedContent,
-              is_locked: isLocked,
+              title: editedTitle.trim(), // Use state from hook
+              content: editedContent, // Use state from hook
+              is_locked: isLocked, // Use state from hook
               newly_created: false // Mark as not newly created after first save
           });
 
@@ -109,13 +107,17 @@ const EditChapterPage = () => {
                // Update local state after successful save
                setChapterState(prev => prev ? {
                    ...prev,
-                   title: editedTitle.trim(),
-                   content: editedContent,
-                   is_locked: isLocked,
+                   title: editedTitle.trim(), // Update with state from hook
+                   content: editedContent, // Update with state from hook
+                   is_locked: isLocked, // Update with state from hook
                    newly_created: false,
                    updated_at: new Date().toISOString() // Reflect update time locally
                } : null);
                toast.success('Chapter saved successfully');
+           // Clear autosave draft on successful save
+           const autosaveKey = `chapter_draft_${novelId}_${chapter?.id ?? 'new'}`;
+           localStorage.removeItem(autosaveKey);
+
           } else {
                toast.error('Failed to save chapter. Please check console for details.');
           }
@@ -125,14 +127,14 @@ const EditChapterPage = () => {
           toast.error('Failed to save chapter. Please check console for details.');
           return false;
       } finally {
-          setSaving(false); // Clear saving state for this page
+          setSaving(false); // Clear saving state for this page via hook setter
       }
   };
 
   // Handle Cancel Action (navigates back)
   const handleCancel = () => {
     // Navigation logic remains here as it's page-specific
-    // Check for unsaved changes using local state
+    // Check for unsaved changes using state from the hook
     const hasChanges = editedTitle !== chapter?.title ||
       editedContent !== (chapter?.content || '') ||
       isLocked !== chapter?.is_locked;
@@ -168,18 +170,18 @@ const EditChapterPage = () => {
   // It checks if role is 'admin' because allowAuthor={true} is passed
   return (
     <AdminRoleCheck allowAuthor={true}> {/* Ensure this page is protected */}
-      {/* Render the full editor component, passing local state and setters */}
+      {/* Render the full editor component, passing state and setters from the hook */}
       <ChapterFullEditor
           chapter={chapter} // Pass initial chapter data for reference
           isAuthor={isAuthor} // Pass determined author status (admin or not)
-          editedTitle={editedTitle}
-          setEditedTitle={setEditedTitle}
-          editedContent={editedContent}
-          setEditedContent={setEditedContent}
-          isLocked={isLocked}
-          setIsLocked={setIsLocked}
-          saving={saving} // Pass saving state from this page
-          setSaving={setSaving} // Pass saving state setter from this page
+          editedTitle={editedTitle} // Pass state from hook
+          setEditedTitle={setEditedTitle} // Pass setter from hook
+          editedContent={editedContent} // Pass state from hook
+          setEditedContent={setEditedContent} // Pass setter from hook
+          isLocked={isLocked} // Pass state from hook
+          setIsLocked={setIsLocked} // Pass setter from hook
+          saving={saving} // Pass saving state from hook
+          setSaving={setSaving} // Pass saving state setter from hook
           onSave={handleSave} // Pass the save handler from this page
           onCancel={handleCancel} // Pass the cancel handler (navigation)
       />
