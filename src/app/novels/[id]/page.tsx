@@ -22,7 +22,8 @@ import LoadingSpinner from '@/components/ui/loading-spinner'; // Import spinner
 import { cn } from '@/lib/utils'; // Import cn for conditional classes
 
 export default function NovelPage() {
-  const { user, role } = useAuth();
+  // Destructure isCreator from useAuth
+  const { user, role, isCreator } = useAuth();
   const params = useParams();
   const router = useRouter();
   const novelIdParam = params.id; // Get raw param first
@@ -94,17 +95,21 @@ export default function NovelPage() {
       }
   }, [novelId, loadNovel]);
 
-  // Determine Author Status
+  // Determine Author Status using role and isCreator
   useEffect(() => {
-    if (novel && user) {
+    // Check if user, novel, role, and isCreator status are available
+    if (user && novel && role !== null && isCreator !== null) {
       const isAdmin = role === 'admin';
-      const isNovelAuthor = novel.author_id === user.id;
+      // A user is an author of THIS novel if they are a creator AND their user ID matches the novel's author_id
+      const isNovelAuthor = isCreator && novel.author_id === user.id;
+      // User has authoring privileges on this page if they are an admin OR the specific novel's author
       setIsAuthor(isAdmin || isNovelAuthor);
-      console.log(`[NovelPage] Author status determined: ${isAdmin || isNovelAuthor} (Role: ${role}, User ID: ${user?.id}, Author ID: ${novel.author_id})`);
+      console.log(`[NovelPage] Author status determined: ${isAdmin || isNovelAuthor} (Role: ${role}, Is Creator: ${isCreator}, User ID: ${user?.id}, Author ID: ${novel.author_id})`);
     } else {
+      // Default to false if user, novel, role, or isCreator status is not fully loaded
       setIsAuthor(false);
     }
-  }, [novel, user, role]);
+  }, [novel, user, role, isCreator]); // Added isCreator as a dependency
 
   // --- Handlers ---
   const handleStartEditNovel = () => {
@@ -234,7 +239,7 @@ export default function NovelPage() {
   const handleBulkLockUnlock = async (lockStatus: boolean) => {
       if (!novel || !isAuthor || novelId === null) return;
       // Prevent multiple bulk operations or other saves simultaneously
-      if (bulkLockLoading || savingNovel || savingChapter || deletingChapter || chapterLockLoadingId !== null) {
+      if (bulkLockLoading || savingNovel || savingChapter || deletingChapter !== null || chapterLockLoadingId !== null) {
           toast.info("Please wait for current operations to complete.");
           return;
       }
@@ -276,7 +281,7 @@ export default function NovelPage() {
   const handleToggleChapterLock = async (chapterId: number, currentLockedStatus: boolean) => {
       if (!novel || !isAuthor || novelId === null) return;
        // Prevent individual toggle if bulk operation is running or another individual toggle is running
-      if (bulkLockLoading || savingNovel || savingChapter || deletingChapter || (chapterLockLoadingId !== null && chapterLockLoadingId !== chapterId)) {
+      if (bulkLockLoading || savingNovel || savingChapter || deletingChapter !== null || (chapterLockLoadingId !== null && chapterLockLoadingId !== chapterId)) {
           toast.info("Please wait for current operations to complete.");
           return;
       }
@@ -453,7 +458,7 @@ export default function NovelPage() {
                       disabled={savingNovel || !editedNovelTitle.trim()} // Disable if title is empty
                     >
                       {savingNovel ? <LoadingSpinner className="mr-2" size="sm"/> : null}
-                      {savingNovel ? 'Saving...' : 'Save Changes'}
+                      {savingNovel ? 'Save Changes' : 'Save Changes'}
                     </Button>
                   </div>
                 </div>

@@ -1,11 +1,12 @@
 // src/types/supabase.ts
 
-export type UserRole = 'admin' | 'author' | 'reader';
+export type UserRole = 'admin' | 'reader'; // Removed 'author' as it's not used for roles
 
 export type Profile = {
   id: string;
   username: string;
-  role: UserRole;
+  role: UserRole; // 'admin' or 'reader'
+  is_creator: boolean; // Added boolean field for creator status
   is_guest: boolean;
   created_at: string;
   updated_at: string;
