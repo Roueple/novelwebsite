@@ -1,4 +1,4 @@
-// src/app/layout.tsx
+// src/app/layout.tsx (REVISED - NProgress removed)
 "use client";
 import { Suspense } from 'react';
 import { Merriweather, Roboto_Slab, Libre_Baskerville, Source_Sans_3, Open_Sans } from "next/font/google";
@@ -6,11 +6,10 @@ import { AuthProvider } from '@/providers/auth-provider';
 import { ThemeProvider } from "@/providers/theme-provider";
 import Header from '@/components/header';
 import "./globals.css";
-import 'nprogress/nprogress.css';
+// import 'nprogress/nprogress.css'; // <-- REMOVE THIS LINE
 import { Toaster } from '@/components/ui/sonner';
 import { useState, useEffect } from "react";
-// import { useNProgress } from '@/hooks/use-nprogress'; // <-- Remove direct hook import
-import NProgressWrapper from '@/components/nprogress-wrapper'; // <-- Import the wrapper component
+// import NProgressWrapper from '@/components/nprogress-wrapper'; // <-- REMOVE THIS LINE
 import LoadingSpinner from '@/components/ui/loading-spinner';
 
 // --- Font definitions ---
@@ -59,8 +58,6 @@ function HeaderFallback() {
 
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  // useNProgress(); // <-- REMOVE direct hook call here
-
   const [isMounted, setIsMounted] = useState(false);
   useEffect(() => {
     setIsMounted(true);
@@ -72,11 +69,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     libreBaskerville.variable,
     sourceSans.variable,
     openSans.variable,
-    'font-sans'
+    'font-sans' // Ensure a fallback sans font is always applied
   ].join(' ');
 
   // Return null or a basic structure until mounted
-  if (!isMounted) {
+  if (!isMounted) { // Assuming you need isMounted check for other reasons
       return (
           <html lang="en" suppressHydrationWarning>
               <body className={fontClasses}>
@@ -91,18 +88,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className={fontClasses}>
         <AuthProvider>
           <ThemeProvider>
-            {/* Header needs Suspense as it uses usePathname */}
+            {/* Header */}
             <Suspense fallback={<HeaderFallback />}>
               <Header />
             </Suspense>
 
-            {/* Main Content Area needs Suspense for potential client components */}
+            {/* Main Content Area */}
             <Suspense fallback={<RootLayoutFallback />}>
-               {/* Render the NProgress wrapper inside the main Suspense boundary */}
-               <NProgressWrapper />
+               {/* <NProgressWrapper /> */}{/* <-- REMOVE THIS LINE */}
                <main className="min-h-screen">
-                {children}
-              </main>
+                 {children}
+               </main>
             </Suspense>
 
             <Toaster />
