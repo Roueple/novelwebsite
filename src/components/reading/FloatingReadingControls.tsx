@@ -6,33 +6,32 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetClose } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"; // Import Tabs components
-import { ChevronLeft, ChevronRight, List, MessageSquare, X, BookOpen } from 'lucide-react'; // Added BookOpen
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ChevronLeft, ChevronRight, List, MessageSquare, X, BookOpen, Lock } from 'lucide-react'; // Added Lock
 import type { ChapterType } from '@/types/supabase';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import ChapterComments from './ChapterComments'; // Import ChapterComments
+import ChapterComments from './ChapterComments';
 
 interface FloatingReadingControlsProps {
   novelId: number;
   currentChapterNumber: number;
-  currentChapterId: number; // NEW: Need the actual chapter ID for comments
+  currentChapterId: number;
   allChapters: ChapterType[] | null;
-  // REMOVED: onToggleComments prop
   isScrolling?: boolean;
 }
 
 export default function FloatingReadingControls({
   novelId,
   currentChapterNumber,
-  currentChapterId, // Get chapter ID
+  currentChapterId,
   allChapters,
   isScrolling = false,
 }: FloatingReadingControlsProps) {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredChapters, setFilteredChapters] = useState<ChapterType[]>([]);
-  const [activeTab, setActiveTab] = useState<'chapters' | 'comments'>('chapters'); // State for active tab
+  const [activeTab, setActiveTab] = useState<'chapters' | 'comments'>('chapters');
   const listRef = useRef<HTMLDivElement>(null);
 
   // Find previous and next chapters
@@ -62,7 +61,7 @@ export default function FloatingReadingControls({
     );
   }, [searchTerm, allChapters]);
 
-  // Scroll to current chapter in the list when the sheet opens and chapters tab is active
+  // Scroll to current chapter
   useEffect(() => {
     if (isSheetOpen && activeTab === 'chapters' && listRef.current) {
       const currentChapterElement = listRef.current.querySelector(`[data-chapter-number="${currentChapterNumber}"]`) as HTMLElement;
@@ -70,7 +69,7 @@ export default function FloatingReadingControls({
         currentChapterElement.scrollIntoView({ behavior: 'auto', block: 'center' });
       }
     }
-  }, [isSheetOpen, activeTab, currentChapterNumber]); // Depend on activeTab
+  }, [isSheetOpen, activeTab, currentChapterNumber]);
 
   const handleChapterLinkClick = () => {
     setIsSheetOpen(false);
@@ -80,7 +79,7 @@ export default function FloatingReadingControls({
   useEffect(() => {
       if (!isSheetOpen) {
           setSearchTerm('');
-          setActiveTab('chapters'); // Reset to chapters tab on close
+          setActiveTab('chapters');
       }
   }, [isSheetOpen]);
 
@@ -105,7 +104,7 @@ export default function FloatingReadingControls({
       {/* Sheet Content (Panel) */}
       <SheetContent
         side="bottom"
-        className="h-[85vh] flex flex-col bg-background border-t border-border p-0" // Increased height slightly
+        className="h-[85vh] flex flex-col bg-background border-t border-border p-0"
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
         <SheetHeader className="p-4 border-b border-border flex flex-row justify-between items-center flex-shrink-0">
@@ -118,7 +117,7 @@ export default function FloatingReadingControls({
         </SheetHeader>
 
         {/* Quick Navigation */}
-        <div className="flex justify-between items-center p-3 border-b border-border flex-shrink-0"> {/* Reduced padding slightly */}
+        <div className="flex justify-between items-center p-3 border-b border-border flex-shrink-0">
           {prevChapter ? (
             <Button variant="outline" size="sm" onClick={handleChapterLinkClick} asChild>
               <Link href={`/novels/${novelId}/chapter/${prevChapter.chapter_number}`} className="flex items-center gap-1">
@@ -130,8 +129,6 @@ export default function FloatingReadingControls({
               <ChevronLeft size={16} /> Prev
             </Button>
           )}
-
-          {/* REMOVED Comments Button from here */}
 
           {nextChapter ? (
             <Button variant="outline" size="sm" onClick={handleChapterLinkClick} asChild>
@@ -167,7 +164,7 @@ export default function FloatingReadingControls({
               className="mb-3 h-9 flex-shrink-0"
             />
             <ScrollArea className="flex-grow" >
-              <div ref={listRef} className="space-y-1 pr-3"> {/* Added ref here */}
+              <div ref={listRef} className="space-y-1 pr-3">
                 {filteredChapters.length > 0 ? (
                   filteredChapters.map((chapter) => (
                     <Button
@@ -184,8 +181,16 @@ export default function FloatingReadingControls({
                       data-chapter-number={chapter.chapter_number}
                       asChild
                     >
-                      <Link href={`/novels/${novelId}/chapter/${chapter.chapter_number}`} className="block w-full truncate">
-                        {chapter.chapter_number}. {chapter.title}
+                      {/* Wrap content in a flex container */}
+                      <Link href={`/novels/${novelId}/chapter/${chapter.chapter_number}`} className="flex items-center justify-between w-full gap-2">
+                        {/* Truncate text */}
+                        <span className="truncate flex-grow">
+                           {chapter.chapter_number}. {chapter.title}
+                        </span>
+                        {/* Add Lock icon if chapter is locked */}
+                        {chapter.is_locked && (
+                          <Lock size={12} className="text-muted-foreground flex-shrink-0" />
+                        )}
                       </Link>
                     </Button>
                   ))
@@ -200,10 +205,8 @@ export default function FloatingReadingControls({
 
           {/* Comments Tab Content */}
           <TabsContent value="comments" className="flex-grow overflow-hidden mt-0 data-[state=inactive]:hidden">
-            {/* Render comments only when tab is active and sheet is open */}
-            {/* Pass chapterId */}
             {isSheetOpen && activeTab === 'comments' && (
-                 <ScrollArea className="h-full p-4"> {/* Wrap comments in ScrollArea */}
+                 <ScrollArea className="h-full p-4">
                     <ChapterComments chapterId={currentChapterId} novelId={novelId} />
                  </ScrollArea>
             )}

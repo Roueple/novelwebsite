@@ -15,7 +15,6 @@ import type { ChapterType, Novel } from '@/types/supabase';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import FloatingReadingControls from '@/components/reading/FloatingReadingControls';
-// REMOVED: ChapterComments import is no longer needed here
 
 export default function ChapterPage() {
   const { user, role } = useAuth();
@@ -32,8 +31,6 @@ export default function ChapterPage() {
   const [allChapters, setAllChapters] = useState<ChapterType[] | null>(null);
   const [headerVisible, setHeaderVisible] = useState(true);
   const [isFocusMode, setIsFocusMode] = useState(false);
-  // REMOVED: showComments state is no longer needed
-  // const [showComments, setShowComments] = useState(false);
   const [isScrolling, setIsScrolling] = useState(false);
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -101,7 +98,7 @@ export default function ChapterPage() {
     };
   }, [allChapters, chapterNumber]);
 
-  // Keyboard shortcuts (Removed 'c' key binding for comments)
+  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
        const target = e.target as HTMLElement;
@@ -109,13 +106,10 @@ export default function ChapterPage() {
        if (e.key === 'Escape') {
          if (showSettingsMenu) setShowSettingsMenu(false);
          else if (isFocusMode) setIsFocusMode(false);
-         // REMOVED: else if (showComments) setShowComments(false);
          else setHeaderVisible(true); return;
        }
        if (e.key === 's' && !e.ctrlKey && !e.metaKey && !e.altKey) { setShowSettingsMenu(prev => !prev); return; }
        if (e.key === 'f' && !e.ctrlKey && !e.metaKey && !e.altKey) { setIsFocusMode(prev => !prev); return; }
-       // REMOVED: 'c' key binding
-       // if (e.key === 'c' && !e.ctrlKey && !e.metaKey && !e.altKey) { setShowComments(prev => !prev); return; }
        if ((e.ctrlKey || e.metaKey) && !showSettingsMenu) {
          if (e.key === '+' || e.key === '=') { e.preventDefault(); if (textSize === 'sm') changeTextSize('md'); else if (textSize === 'md') changeTextSize('lg'); else if (textSize === 'lg') changeTextSize('xl'); }
          else if (e.key === '-') { e.preventDefault(); if (textSize === 'xl') changeTextSize('lg'); else if (textSize === 'lg') changeTextSize('md'); else if (textSize === 'md') changeTextSize('sm'); }
@@ -130,7 +124,6 @@ export default function ChapterPage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [
       showSettingsMenu, setShowSettingsMenu, textSize, changeTextSize, isFocusMode, setIsFocusMode,
-      // REMOVED: showComments dependency
       router, novelId, prevChapter, nextChapter
   ]);
 
@@ -179,19 +172,20 @@ export default function ChapterPage() {
 
         <main className="min-h-screen bg-background text-foreground pt-16 md:pt-20 pb-24">
           {chapter && (
-            <>
-              <div className="max-w-4xl mx-auto px-4 md:px-8 mb-8">
-                <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
-                  Chapter {chapter.chapter_number}: {chapter.title}
+            // FIX: Wrap title and content in a single container for consistent alignment
+            <div className="max-w-4xl mx-auto px-4 md:px-8">
+                {/* Chapter Title */}
+                <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-8"> {/* Keep margin-bottom */}
+                    Chapter {chapter.chapter_number}: {chapter.title}
                 </h1>
-              </div>
-              <ReadingView
-                content={chapter.content || ''} isLocked={chapter.is_locked} isAuthor={isAuthor}
-                isEditing={false} textSize={textSize} effectsEnabled={effectsEnabled}
-              />
-              {/* REMOVED: Direct rendering of ChapterComments */}
-              {/* {showComments && ( ... )} */}
-            </>
+
+                {/* Reading View (Content) */}
+                {/* ReadingView already contains the .prose class */}
+                <ReadingView
+                    content={chapter.content || ''} isLocked={chapter.is_locked} isAuthor={isAuthor}
+                    isEditing={false} textSize={textSize} effectsEnabled={effectsEnabled}
+                />
+            </div>
           )}
         </main>
 
@@ -199,9 +193,8 @@ export default function ChapterPage() {
              <FloatingReadingControls
                  novelId={novelId}
                  currentChapterNumber={chapterNumber}
-                 currentChapterId={chapter.id} // Pass the actual chapter ID
+                 currentChapterId={chapter.id}
                  allChapters={allChapters}
-                 // REMOVED: onToggleComments prop
                  isScrolling={isScrolling}
              />
          )}
