@@ -370,7 +370,6 @@
 .prose p {
   margin-bottom: 1.25em; /* Adjust spacing */ /* [cite: 440] */
   text-align: justify; /* Justify text for book-like feel */ /* [cite: 440] */
-  text-indent: 1.5em; /* Indent paragraphs */ /* [cite: 441] */
 }
 .prose p:first-of-type,
 .prose p:first-child { /* Also handle first child for safety */ /* [cite: 442] */
