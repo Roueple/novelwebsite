@@ -1,6 +1,8 @@
+// src/components/login-form.tsx
 "use client";
 
 import { useState } from 'react';
+// FIX: Get signInWithProvider instead of specific providers
 import { useAuth } from '@/providers/auth-provider';
 import { FcGoogle } from 'react-icons/fc';
 import { HiMail } from 'react-icons/hi';
@@ -8,12 +10,13 @@ import PhoneInput from 'react-phone-input-2';
 import 'react-phone-input-2/lib/style.css';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { X } from 'lucide-react'; // <-- IMPORT X from lucide-react
-import LoadingSpinner from '@/components/ui/loading-spinner'; // <-- IMPORT LoadingSpinner
+import { X } from 'lucide-react';
+import LoadingSpinner from '@/components/ui/loading-spinner';
+import { toast } from 'sonner'; // Import toast
 
 export default function LoginForm() {
-  // Removed theme imports as planned
-  const { user, signInWithGoogle, signInWithEmail, signInWithPhone, signInAsGuest, signOut } = useAuth();
+  // FIX: Destructure signInWithProvider, signInAnonymously instead of old names
+  const { user, signInWithProvider, signInWithEmail, signInWithPhone, signInAnonymously, signOut, loading, guestLoading } = useAuth();
 
   const [showModal, setShowModal] = useState(false);
   const [loginMethod, setLoginMethod] = useState<'email' | 'phone'>('email');
@@ -21,17 +24,19 @@ export default function LoginForm() {
   const [phone, setPhone] = useState('');
   const [emailSent, setEmailSent] = useState(false);
   const [phoneSent, setPhoneSent] = useState(false);
-  const [loading, setLoading] = useState(false);
+  // Use loading states from useAuth where appropriate
+  // const [loading, setLoading] = useState(false); // Remove local loading state if using context state
 
   const handleSignOut = async () => {
-      setLoading(true);
-      try { // Add try/catch for sign out as well
+      // setLoading(true); // Use context loading if needed, or keep local
+      try {
           await signOut();
+          toast.success("Signed out successfully.");
       } catch(error) {
           console.error("Sign out error:", error);
-          alert("Failed to sign out."); // Optional feedback
+          toast.error("Failed to sign out.");
       } finally {
-          setLoading(false);
+          // setLoading(false);
       }
   }
 
@@ -40,61 +45,64 @@ export default function LoginForm() {
       <Button
         variant="outline"
         onClick={handleSignOut}
-        disabled={loading}
+        disabled={loading || guestLoading} // Disable during any loading
         size="sm"
       >
-        {loading ? 'Logging out...' : 'Logout'}
+        {(loading || guestLoading) ? 'Logging out...' : 'Logout'}
       </Button>
     );
   }
 
   const handleContinue = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+    // setLoading(true); // Use context loading if needed
     setEmailSent(false);
     setPhoneSent(false);
     try {
       if (loginMethod === 'email') {
-        await signInWithEmail(email);
-        setEmailSent(true);
+        await signInWithEmail(email); // This function now handles linking/sign-in
+        setEmailSent(true); // Still useful to show confirmation message
       } else {
         const formattedPhone = phone.startsWith('+') ? phone : `+${phone}`;
-        await signInWithPhone(formattedPhone);
-        setPhoneSent(true);
+        await signInWithPhone(formattedPhone); // This function now handles linking/sign-in
+        setPhoneSent(true); // Still useful to show confirmation message
       }
     } catch (error) {
-      console.error('Error during login:', error);
-      const message = error instanceof Error ? error.message : 'Login failed. Please try again.';
-      alert(message); // Provide more specific error if available
+      // Error handling is mostly done within the auth provider functions now
+      console.error('Error during login/link trigger:', error);
+      // Toast errors are shown in the provider, maybe add a generic one here if needed
+      // toast.error("An error occurred. Please try again.");
     } finally {
-        setLoading(false);
+        // setLoading(false);
     }
   };
 
+  // FIX: Call signInWithProvider for Google
   const handleGoogleSignIn = async () => {
-      setLoading(true);
+      // setLoading(true); // Use context loading if needed
       try {
-          await signInWithGoogle();
-          // Successful sign-in will trigger auth state change, closing modal implicitly
+          await signInWithProvider('google');
+          // Successful sign-in/linking will trigger auth state change
+          setShowModal(false); // Close modal optimistically or wait for auth state change
       } catch (error) {
-          console.error('Google Sign in error:', error);
-          alert('Google Sign in failed. Please try again.');
-          setLoading(false); // Ensure loading is false on error
+          // Error handled in provider
+      } finally {
+          // setLoading(false);
       }
-      // No finally needed if modal closes automatically on auth change
   }
 
+  // FIX: Call signInAnonymously
   const handleGuestSignIn = async () => {
-      setLoading(true);
-      try {
-          await signInAsGuest();
-          // Successful sign-in will trigger auth state change, closing modal implicitly
+      // setLoading(true); // Use context guestLoading
+       try {
+          await signInAnonymously();
+          // Successful sign-in will trigger auth state change
+          setShowModal(false); // Close modal
       } catch (error) {
-           console.error('Guest Sign in error:', error);
-          alert('Guest Sign in failed. Please try again.');
-           setLoading(false); // Ensure loading is false on error
+          // Error handled in provider
+      } finally {
+          // setLoading(false);
       }
-       // No finally needed if modal closes automatically on auth change
   }
 
 
@@ -104,47 +112,47 @@ export default function LoginForm() {
         variant="outline"
         onClick={() => setShowModal(true)}
         size="sm"
+        disabled={loading || guestLoading} // Disable if loading anything
       >
         Login
       </Button>
 
       {showModal && (
         <div className="fixed inset-0 flex items-center justify-center z-50">
-          <div className="fixed inset-0 bg-black bg-opacity-50" onClick={() => !loading && setShowModal(false)} />
+          <div className="fixed inset-0 bg-black bg-opacity-50" onClick={() => !(loading || guestLoading) && setShowModal(false)} />
           <div className="relative bg-card p-8 rounded-lg shadow-xl max-w-sm w-full mx-4">
              <button
-                onClick={() => !loading && setShowModal(false)}
-                disabled={loading}
+                onClick={() => !(loading || guestLoading) && setShowModal(false)}
+                disabled={loading || guestLoading}
                 className="absolute top-3 right-3 p-1 rounded-full text-muted-foreground hover:bg-accent disabled:opacity-50"
                 aria-label="Close login modal"
              >
-                <X size={18} /> {/* X is now imported */}
+                <X size={18} />
              </button>
 
             <h2 className="text-2xl font-bold mb-6 text-foreground">
-              Login to Continue
+              Login or Register
             </h2>
 
+            {/* Confirmation messages remain the same */}
             {emailSent ? (
               <div className="text-center text-foreground">
-                <p className="mb-4">Check your email ({email}) for the magic link!</p>
-                <Button variant="link" onClick={() => setShowModal(false)}>
-                  Close
-                </Button>
+                <p className="mb-4">Check your email ({email}) for the verification link!</p>
+                <Button variant="link" onClick={() => setShowModal(false)}> Close </Button>
               </div>
             ) : phoneSent ? (
               <div className="text-center text-foreground">
                 <p className="mb-4">Check your phone ({phone}) for the verification code!</p>
-                 <Button variant="link" onClick={() => setShowModal(false)}>
-                  Close
-                </Button>
+                 <Button variant="link" onClick={() => setShowModal(false)}> Close </Button>
               </div>
             ) : (
+              // Main login options
               <div className="space-y-4">
+                {/* FIX: Use handleGoogleSignIn */}
                 <Button
                   variant="outline"
                   onClick={handleGoogleSignIn}
-                  disabled={loading}
+                  disabled={loading || guestLoading}
                   className="w-full"
                 >
                   <FcGoogle size={20} className="mr-2"/>
@@ -156,69 +164,55 @@ export default function LoginForm() {
                   <div className="absolute top-1/2 w-full h-px bg-border -z-10" />
                 </div>
 
+                {/* Email/Phone Toggle */}
                 <div className="flex gap-2 mb-4">
                   <Button
                      variant={loginMethod === 'email' ? 'secondary' : 'ghost'}
                      onClick={() => setLoginMethod('email')}
-                     disabled={loading}
+                     disabled={loading || guestLoading}
                      className="flex-1"
-                  >
-                    Email
-                  </Button>
+                  > Email </Button>
                    <Button
                      variant={loginMethod === 'phone' ? 'secondary' : 'ghost'}
                      onClick={() => setLoginMethod('phone')}
-                     disabled={loading}
+                     disabled={loading || guestLoading}
                      className="flex-1"
-                  >
-                    Phone
-                  </Button>
+                  > Phone </Button>
                 </div>
 
+                {/* Email/Phone Form */}
                 <form onSubmit={handleContinue}>
                   {loginMethod === 'email' ? (
                     <Input
-                      type="email"
-                      placeholder="Enter your email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="w-full mb-4"
-                      required
-                      disabled={loading}
+                      type="email" placeholder="Enter your email" value={email}
+                      onChange={(e) => setEmail(e.target.value)} className="w-full mb-4"
+                      required disabled={loading || guestLoading}
                     />
                   ) : (
                     <div className="mb-4 [&_.react-tel-input_.form-control]:w-full [&_.react-tel-input_.form-control]:bg-background [&_.react-tel-input_.form-control]:text-foreground [&_.react-tel-input_.form-control]:border-border">
                       <PhoneInput
-                        country={'us'}
-                        value={phone}
-                        onChange={setPhone}
-                        inputProps={{
-                            name: 'phone',
-                            required: true,
-                            disabled: loading
-                        }}
+                        country={'us'} value={phone} onChange={setPhone}
+                        inputProps={{ name: 'phone', required: true, disabled: loading || guestLoading }}
                       />
                     </div>
                   )}
                   <Button
                     type="submit"
-                    disabled={loading || (loginMethod === 'email' && !email) || (loginMethod === 'phone' && phone.length < 5)}
+                    disabled={loading || guestLoading || (loginMethod === 'email' && !email) || (loginMethod === 'phone' && phone.length < 5)}
                     className="w-full"
                   >
-                    {loading ? (
-                        <LoadingSpinner className="mr-2" size="sm"/> // LoadingSpinner is now imported
-                    ) : (
-                        <HiMail size={20} className="mr-2"/>
-                    )}
-                    {loading ? 'Sending...' : `Continue with ${loginMethod === 'email' ? 'Email' : 'Phone'}`}
+                    {(loading || guestLoading) ? <LoadingSpinner className="mr-2" size="sm"/> : <HiMail size={20} className="mr-2"/>}
+                    {(loading || guestLoading) ? 'Processing...' : `Continue with ${loginMethod === 'email' ? 'Email' : 'Phone'}`}
                   </Button>
                 </form>
 
+                {/* Guest Option */}
                 <div className="mt-4 text-center">
+                  {/* FIX: Use handleGuestSignIn */}
                   <Button
                     variant="link"
                     onClick={handleGuestSignIn}
-                    disabled={loading}
+                    disabled={loading || guestLoading}
                     className="text-sm text-muted-foreground"
                   >
                     Continue as Guest
