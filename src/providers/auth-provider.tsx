@@ -46,8 +46,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (isUserAnonymous && !profileCreationAttempted.current.has(userId)) {
                  profileCreationAttempted.current.add(userId);
                  console.log(`[AuthProvider] Creating profile for anonymous user ${userId}.`);
-                 // FIX: Use anon + UUID part for username (safer format)
-                 const username = `anon${userId.substring(0, 8)}`; // e.g., anon1234abcd
+                 // FIX: Generate compliant username (no underscore)
+                 const username = `guest${userId.substring(0, 8)}`; // e.g., guest1234abcd
 
                  const { error: insertError } = await supabase.from('profiles').insert({
                      id: userId,
@@ -56,9 +56,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                      is_guest: true
                  });
                  if (insertError) {
-                     // Log the specific constraint violation if possible
                      console.error(`[AuthProvider] Failed to create profile for ${userId}:`, insertError);
-                     toast.error(`Failed to initialize guest profile: ${insertError.message}`); // Show error
+                     toast.error(`Failed to initialize guest profile: ${insertError.message}`);
                      setRole(null); return null;
                  } else {
                      console.log(`[AuthProvider] Profile created for ${userId}. Role: reader, IsGuest: true, Username: ${username}`);
@@ -227,30 +226,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!anonUser) throw new Error("Anonymous sign in failed: No user object returned.");
         console.log("[AuthProvider] Anonymous user created/signed in:", anonUser.id);
 
-        // Explicitly fetch/create profile *now* and wait for it
         const profileRole = await fetchUserProfile(anonUser.id, true);
 
-        // Check if profile creation succeeded before setting state fully
         if (profileRole === null && !profileCreationAttempted.current.has(anonUser.id)) {
-            // This condition might be hit if fetchUserProfile failed to create the profile
-            // but didn't throw an error that was caught here.
              throw new Error("Failed to initialize profile for anonymous user.");
         }
 
-        // Update local state *after* profile check/creation attempt
         setUser(anonUser);
         setIsAnonymous(true);
         setRole(profileRole);
 
         console.log("[AuthProvider] Anonymous state set:", { user: anonUser.id, isAnonymous: true, role: profileRole });
         toast.success("Commenting as Guest");
-        return true; // Indicate success
+        return true;
 
     } catch (error: any) {
         console.error("Error in signInAnonymously:", error);
         toast.error(error.message || "Failed to sign in as guest.");
         setUser(null); setRole(null); setIsAnonymous(false);
-        return false; // Indicate failure
+        return false;
     } finally {
         setGuestLoading(false); setLoading(false);
         console.log("[AuthProvider] Anonymous sign in process finished.");
