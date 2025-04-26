@@ -1,7 +1,6 @@
 // src/app/novels/[id]/chapter/[chapterId]/page.tsx
 "use client";
 
-// FIX: Add useRef to the import from 'react'
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/providers/auth-provider';
@@ -16,7 +15,7 @@ import type { ChapterType, Novel } from '@/types/supabase';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import FloatingReadingControls from '@/components/reading/FloatingReadingControls';
-import ChapterComments from '@/components/reading/ChapterComments';
+// REMOVED: ChapterComments import is no longer needed here
 
 export default function ChapterPage() {
   const { user, role } = useAuth();
@@ -33,9 +32,10 @@ export default function ChapterPage() {
   const [allChapters, setAllChapters] = useState<ChapterType[] | null>(null);
   const [headerVisible, setHeaderVisible] = useState(true);
   const [isFocusMode, setIsFocusMode] = useState(false);
-  const [showComments, setShowComments] = useState(false);
+  // REMOVED: showComments state is no longer needed
+  // const [showComments, setShowComments] = useState(false);
   const [isScrolling, setIsScrolling] = useState(false);
-  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null); // useRef is now imported
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Reading Preferences Hook
   const {
@@ -101,7 +101,7 @@ export default function ChapterPage() {
     };
   }, [allChapters, chapterNumber]);
 
-  // Keyboard shortcuts
+  // Keyboard shortcuts (Removed 'c' key binding for comments)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
        const target = e.target as HTMLElement;
@@ -109,12 +109,13 @@ export default function ChapterPage() {
        if (e.key === 'Escape') {
          if (showSettingsMenu) setShowSettingsMenu(false);
          else if (isFocusMode) setIsFocusMode(false);
-         else if (showComments) setShowComments(false);
+         // REMOVED: else if (showComments) setShowComments(false);
          else setHeaderVisible(true); return;
        }
        if (e.key === 's' && !e.ctrlKey && !e.metaKey && !e.altKey) { setShowSettingsMenu(prev => !prev); return; }
        if (e.key === 'f' && !e.ctrlKey && !e.metaKey && !e.altKey) { setIsFocusMode(prev => !prev); return; }
-       if (e.key === 'c' && !e.ctrlKey && !e.metaKey && !e.altKey) { setShowComments(prev => !prev); return; }
+       // REMOVED: 'c' key binding
+       // if (e.key === 'c' && !e.ctrlKey && !e.metaKey && !e.altKey) { setShowComments(prev => !prev); return; }
        if ((e.ctrlKey || e.metaKey) && !showSettingsMenu) {
          if (e.key === '+' || e.key === '=') { e.preventDefault(); if (textSize === 'sm') changeTextSize('md'); else if (textSize === 'md') changeTextSize('lg'); else if (textSize === 'lg') changeTextSize('xl'); }
          else if (e.key === '-') { e.preventDefault(); if (textSize === 'xl') changeTextSize('lg'); else if (textSize === 'lg') changeTextSize('md'); else if (textSize === 'md') changeTextSize('sm'); }
@@ -129,7 +130,8 @@ export default function ChapterPage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [
       showSettingsMenu, setShowSettingsMenu, textSize, changeTextSize, isFocusMode, setIsFocusMode,
-      showComments, router, novelId, prevChapter, nextChapter
+      // REMOVED: showComments dependency
+      router, novelId, prevChapter, nextChapter
   ]);
 
   // Scroll Listener for FAB Opacity
@@ -187,19 +189,19 @@ export default function ChapterPage() {
                 content={chapter.content || ''} isLocked={chapter.is_locked} isAuthor={isAuthor}
                 isEditing={false} textSize={textSize} effectsEnabled={effectsEnabled}
               />
-              {showComments && (
-                 <div className="max-w-4xl mx-auto px-4 md:px-8">
-                    <ChapterComments chapterId={chapter.id} novelId={novelId} />
-                 </div>
-              )}
+              {/* REMOVED: Direct rendering of ChapterComments */}
+              {/* {showComments && ( ... )} */}
             </>
           )}
         </main>
 
          {novel && chapter && allChapters && (
              <FloatingReadingControls
-                 novelId={novelId} currentChapterNumber={chapterNumber} allChapters={allChapters}
-                 onToggleComments={() => setShowComments(prev => !prev)}
+                 novelId={novelId}
+                 currentChapterNumber={chapterNumber}
+                 currentChapterId={chapter.id} // Pass the actual chapter ID
+                 allChapters={allChapters}
+                 // REMOVED: onToggleComments prop
                  isScrolling={isScrolling}
              />
          )}
