@@ -1,13 +1,13 @@
 // src/app/novels/[id]/chapter/[chapterId]/page.tsx
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+// FIX: Add useRef to the import from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/providers/auth-provider';
 import { getChapter, getNovel, getNovelChapters } from '@/lib/api';
 import ReadingHeader from '@/components/reading/reading-header';
 import ReadingView from '@/components/reading/reading-view';
-// REMOVE: import ChapterNavigation from '@/components/reading/chapter-navigation';
 import ReadingSettingsMenu from '@/components/reading/reading-settings-menu';
 import LoadingScreen from '@/components/ui/loading-screen';
 import NotFoundScreen from '@/components/ui/not-found-screen';
@@ -15,7 +15,6 @@ import { useReadingPreferences } from '@/hooks/use-reading-preferences';
 import type { ChapterType, Novel } from '@/types/supabase';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-// NEW: Import the new components
 import FloatingReadingControls from '@/components/reading/FloatingReadingControls';
 import ChapterComments from '@/components/reading/ChapterComments';
 
@@ -34,78 +33,49 @@ export default function ChapterPage() {
   const [allChapters, setAllChapters] = useState<ChapterType[] | null>(null);
   const [headerVisible, setHeaderVisible] = useState(true);
   const [isFocusMode, setIsFocusMode] = useState(false);
-  // NEW: State for comments visibility
   const [showComments, setShowComments] = useState(false);
+  const [isScrolling, setIsScrolling] = useState(false);
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null); // useRef is now imported
 
-  // Reading Preferences Hook (remains the same)
+  // Reading Preferences Hook
   const {
-    textSize,
-    effectsEnabled,
-    animationsEnabled,
-    fontFamily,
-    lineSpacing,
-    showSettingsMenu,
-    settingsMenuRef,
-    setShowSettingsMenu,
-    changeTextSize,
-    toggleEffects,
-    toggleAnimations,
-    changeFontFamily,
-    changeLineSpacing,
+    textSize, effectsEnabled, animationsEnabled, fontFamily, lineSpacing,
+    showSettingsMenu, settingsMenuRef, setShowSettingsMenu, changeTextSize,
+    toggleEffects, toggleAnimations, changeFontFamily, changeLineSpacing,
     resetPreferences,
   } = useReadingPreferences();
 
-  // Check if the user is the author (admin role) (remains the same)
-  const isAuthor = useMemo(() => {
-    return user !== null && role === 'admin';
-  }, [user, role]);
+  // Check if the user is the author
+  const isAuthor = useMemo(() => user !== null && role === 'admin', [user, role]);
 
-  // Fetch Data: Chapter, Novel Metadata, and All Chapters list (remains the same)
+  // Fetch Data
   const loadData = useCallback(async () => {
     setLoading(true);
     setInitialLoadError(null);
     setAllChapters(null);
-
     if (isNaN(novelId) || isNaN(chapterNumber)) {
-      setInitialLoadError('Invalid novel or chapter ID.');
-      setLoading(false);
-      toast.error('Invalid URL parameters.');
-      router.push('/');
-      return;
+      setInitialLoadError('Invalid novel or chapter ID.'); setLoading(false); toast.error('Invalid URL parameters.'); router.push('/'); return;
     }
-
     try {
       const [novelData, chapterData, chaptersListData] = await Promise.all([
-        getNovel(novelId),
-        getChapter(novelId, chapterNumber),
-        getNovelChapters(novelId)
+        getNovel(novelId), getChapter(novelId, chapterNumber), getNovelChapters(novelId)
       ]);
-
       if (!novelData) throw new Error('Novel not found');
       if (!chapterData) throw new Error('Chapter not found');
-
-      setNovel(novelData);
-      setChapter(chapterData);
-      setAllChapters(chaptersListData || []);
-
+      setNovel(novelData); setChapter(chapterData); setAllChapters(chaptersListData || []);
     } catch (error: any) {
       console.error('Error loading chapter page data:', error);
       const message = error.message || 'Failed to load chapter data.';
-      setInitialLoadError(message);
-      toast.error(`Error: ${message}`);
-      if (message.includes('not found')) {
-         router.push(`/novels/${novelId || ''}`);
-      }
+      setInitialLoadError(message); toast.error(`Error: ${message}`);
+      if (message.includes('not found')) { router.push(`/novels/${novelId || ''}`); }
     } finally {
       setLoading(false);
     }
   }, [novelId, chapterNumber, router]);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  useEffect(() => { loadData(); }, [loadData]);
 
-  // Apply reading preference CSS variables and classes (remains the same)
+  // Apply reading preference CSS variables
   useEffect(() => {
     const root = document.documentElement;
     root.style.setProperty('--reading-line-height', lineSpacing.toString());
@@ -113,17 +83,13 @@ export default function ChapterPage() {
     root.style.setProperty('--reading-font-size', textSize === 'sm' ? '0.9rem' : textSize === 'md' ? '1rem' : textSize === 'lg' ? '1.1rem' : '1.2rem');
     root.classList.toggle('disable-animations', !animationsEnabled);
     document.body.classList.toggle('focus-mode-wrapper', isFocusMode);
-
     return () => {
-      root.style.removeProperty('--reading-line-height');
-      root.style.removeProperty('--reading-font-family');
-      root.style.removeProperty('--reading-font-size');
-      root.classList.remove('disable-animations');
-      document.body.classList.remove('focus-mode-wrapper');
+      root.style.removeProperty('--reading-line-height'); root.style.removeProperty('--reading-font-family'); root.style.removeProperty('--reading-font-size');
+      root.classList.remove('disable-animations'); document.body.classList.remove('focus-mode-wrapper');
     };
   }, [animationsEnabled, lineSpacing, fontFamily, textSize, isFocusMode]);
 
-  // Calculate previous and next chapter details (remains the same)
+  // Calculate previous and next chapter details
   const { prevChapter, nextChapter } = useMemo(() => {
     if (!allChapters) return { prevChapter: null, nextChapter: null };
     const sortedChapters = [...allChapters].sort((a, b) => a.chapter_number - b.chapter_number);
@@ -135,112 +101,81 @@ export default function ChapterPage() {
     };
   }, [allChapters, chapterNumber]);
 
-  // Keyboard shortcuts (remains the same, might add one for comments later)
+  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
        const target = e.target as HTMLElement;
        if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
-
-      if (e.key === 'Escape') {
+       if (e.key === 'Escape') {
          if (showSettingsMenu) setShowSettingsMenu(false);
          else if (isFocusMode) setIsFocusMode(false);
-         // NEW: Close comments if open
          else if (showComments) setShowComments(false);
-         else setHeaderVisible(true);
-         return;
-      }
-      if (e.key === 's' && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        setShowSettingsMenu(prev => !prev);
-        return;
-      }
-      if (e.key === 'f' && !e.ctrlKey && !e.metaKey && !e.altKey) {
-         setIsFocusMode(prev => !prev);
-         return;
-      }
-       // NEW: Toggle comments with 'c' key
-       if (e.key === 'c' && !e.ctrlKey && !e.metaKey && !e.altKey) {
-           setShowComments(prev => !prev);
-           return;
+         else setHeaderVisible(true); return;
        }
+       if (e.key === 's' && !e.ctrlKey && !e.metaKey && !e.altKey) { setShowSettingsMenu(prev => !prev); return; }
+       if (e.key === 'f' && !e.ctrlKey && !e.metaKey && !e.altKey) { setIsFocusMode(prev => !prev); return; }
+       if (e.key === 'c' && !e.ctrlKey && !e.metaKey && !e.altKey) { setShowComments(prev => !prev); return; }
        if ((e.ctrlKey || e.metaKey) && !showSettingsMenu) {
-         if (e.key === '+' || e.key === '=') {
-           e.preventDefault();
-           if (textSize === 'sm') changeTextSize('md');
-           else if (textSize === 'md') changeTextSize('lg');
-           else if (textSize === 'lg') changeTextSize('xl');
-         } else if (e.key === '-') {
-           e.preventDefault();
-           if (textSize === 'xl') changeTextSize('lg');
-           else if (textSize === 'lg') changeTextSize('md');
-           else if (textSize === 'md') changeTextSize('sm');
-         }
+         if (e.key === '+' || e.key === '=') { e.preventDefault(); if (textSize === 'sm') changeTextSize('md'); else if (textSize === 'md') changeTextSize('lg'); else if (textSize === 'lg') changeTextSize('xl'); }
+         else if (e.key === '-') { e.preventDefault(); if (textSize === 'xl') changeTextSize('lg'); else if (textSize === 'lg') changeTextSize('md'); else if (textSize === 'md') changeTextSize('sm'); }
          return;
-      }
+       }
        if (!e.ctrlKey && !e.metaKey && !e.altKey && !showSettingsMenu) {
-         if (e.key === 'ArrowLeft' && prevChapter) {
-           router.push(`/novels/${novelId}/chapter/${prevChapter.chapter_number}`);
-         } else if (e.key === 'ArrowRight' && nextChapter) {
-           router.push(`/novels/${novelId}/chapter/${nextChapter.chapter_number}`);
-         }
+         if (e.key === 'ArrowLeft' && prevChapter) { router.push(`/novels/${novelId}/chapter/${prevChapter.chapter_number}`); }
+         else if (e.key === 'ArrowRight' && nextChapter) { router.push(`/novels/${novelId}/chapter/${nextChapter.chapter_number}`); }
        }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [
-      showSettingsMenu, setShowSettingsMenu,
-      textSize, changeTextSize,
-      isFocusMode, setIsFocusMode,
-      showComments, // Add showComments dependency
-      router, novelId, prevChapter, nextChapter
+      showSettingsMenu, setShowSettingsMenu, textSize, changeTextSize, isFocusMode, setIsFocusMode,
+      showComments, router, novelId, prevChapter, nextChapter
   ]);
 
+  // Scroll Listener for FAB Opacity
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolling(true);
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+      scrollTimeoutRef.current = setTimeout(() => {
+        setIsScrolling(false);
+      }, 300);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
+  }, []);
+
   // --- Loading and Error Handling ---
-  if (loading) {
-    return <LoadingScreen message="Loading chapter..." />;
-  }
-  if (initialLoadError) {
-    return <NotFoundScreen message={initialLoadError} returnUrl={`/novels/${novelId || ''}`} returnText="Back to Novel" />;
-  }
-  if (!chapter || !novel) {
-    return <NotFoundScreen message="Chapter or Novel data could not be loaded." returnUrl={`/novels/${novelId || ''}`} returnText="Back to Novel"/>;
-  }
+  if (loading) return <LoadingScreen message="Loading chapter..." />;
+  if (initialLoadError) return <NotFoundScreen message={initialLoadError} returnUrl={`/novels/${novelId || ''}`} returnText="Back to Novel" />;
+  if (!chapter || !novel) return <NotFoundScreen message="Chapter or Novel data could not be loaded." returnUrl={`/novels/${novelId || ''}`} returnText="Back to Novel"/>;
 
   // --- Main Render ---
   return (
     <div className={cn("reading-page", { 'focus-mode': isFocusMode })}>
-        {/* Reading Header (remains the same) */}
         {!isFocusMode && novel && chapter && (
             <ReadingHeader
-                novel={novel}
-                chapter={chapter}
-                isAuthor={isAuthor}
-                visible={headerVisible}
-                setVisible={setHeaderVisible}
-                showSettingsMenu={showSettingsMenu}
-                setShowSettingsMenu={setShowSettingsMenu}
-                effectsEnabled={effectsEnabled}
+                novel={novel} chapter={chapter} isAuthor={isAuthor} visible={headerVisible}
+                setVisible={setHeaderVisible} showSettingsMenu={showSettingsMenu}
+                setShowSettingsMenu={setShowSettingsMenu} effectsEnabled={effectsEnabled}
             />
         )}
-
-        {/* Settings Menu (remains the same) */}
         <ReadingSettingsMenu
-          isOpen={showSettingsMenu}
-          onClose={() => setShowSettingsMenu(false)}
-          menuRef={settingsMenuRef}
-          textSize={textSize}
-          onChangeTextSize={changeTextSize}
-          effectsEnabled={effectsEnabled}
-          onToggleEffects={toggleEffects}
-          animationsEnabled={animationsEnabled}
-          onToggleAnimations={toggleAnimations}
-          fontFamily={fontFamily}
-          onChangeFontFamily={changeFontFamily}
-          lineSpacing={lineSpacing}
-          onChangeLineSpacing={changeLineSpacing}
-          onResetPreferences={resetPreferences}
+          isOpen={showSettingsMenu} onClose={() => setShowSettingsMenu(false)} menuRef={settingsMenuRef}
+          textSize={textSize} onChangeTextSize={changeTextSize} effectsEnabled={effectsEnabled}
+          onToggleEffects={toggleEffects} animationsEnabled={animationsEnabled} onToggleAnimations={toggleAnimations}
+          fontFamily={fontFamily} onChangeFontFamily={changeFontFamily} lineSpacing={lineSpacing}
+          onChangeLineSpacing={changeLineSpacing} onResetPreferences={resetPreferences}
         />
 
-        <main className="min-h-screen bg-background text-foreground pt-16 md:pt-20 pb-20"> {/* Increased pb for FAB */}
+        <main className="min-h-screen bg-background text-foreground pt-16 md:pt-20 pb-24">
           {chapter && (
             <>
               <div className="max-w-4xl mx-auto px-4 md:px-8 mb-8">
@@ -249,15 +184,9 @@ export default function ChapterPage() {
                 </h1>
               </div>
               <ReadingView
-                content={chapter.content || ''}
-                isLocked={chapter.is_locked}
-                isAuthor={isAuthor}
-                isEditing={false}
-                textSize={textSize}
-                effectsEnabled={effectsEnabled}
+                content={chapter.content || ''} isLocked={chapter.is_locked} isAuthor={isAuthor}
+                isEditing={false} textSize={textSize} effectsEnabled={effectsEnabled}
               />
-
-              {/* NEW: Comments Section (Conditionally Rendered) */}
               {showComments && (
                  <div className="max-w-4xl mx-auto px-4 md:px-8">
                     <ChapterComments chapterId={chapter.id} novelId={novelId} />
@@ -265,19 +194,13 @@ export default function ChapterPage() {
               )}
             </>
           )}
-
-          {/* REMOVE: Old Chapter Navigation */}
-          {/* <ChapterNavigation ... /> */}
-
         </main>
 
-         {/* NEW: Floating Controls (Render only when data is loaded) */}
          {novel && chapter && allChapters && (
              <FloatingReadingControls
-                 novelId={novelId}
-                 currentChapterNumber={chapterNumber}
-                 allChapters={allChapters}
+                 novelId={novelId} currentChapterNumber={chapterNumber} allChapters={allChapters}
                  onToggleComments={() => setShowComments(prev => !prev)}
+                 isScrolling={isScrolling}
              />
          )}
     </div>

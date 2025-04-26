@@ -5,13 +5,11 @@ import {
   ChevronLeft, Settings, Edit, Sparkles, Moon, Sun, BookOpen, ChevronUp,
 } from 'lucide-react';
 import { useTheme } from '@/providers/theme-provider';
-// *** CORRECT: Uses Novel type ***
 import { Novel, ChapterType } from '@/types/supabase';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 interface ReadingHeaderProps {
-  // *** CORRECT: novel prop type is Novel ***
   novel: Novel;
   chapter: ChapterType;
   isAuthor: boolean;
@@ -23,7 +21,7 @@ interface ReadingHeaderProps {
 }
 
 export default function ReadingHeader({
-  novel, // Expects Novel type
+  novel,
   chapter,
   isAuthor,
   visible,
@@ -46,16 +44,18 @@ export default function ReadingHeader({
         <div className="flex items-center justify-between py-2 md:py-3">
           {/* Left section */}
           <div className="flex items-center gap-2 md:gap-4 flex-shrink-0 min-w-0">
+            {/* FIX: Added title attribute for tooltip */}
             <Link
                href={`/novels/${novel.id}`}
               className="p-1 md:p-2 rounded-lg hover:bg-accent flex-shrink-0"
-              aria-label="Back to novel"
+              aria-label="Back to novel details"
+              title={`Back to ${novel.title}`} // Tooltip added
             >
               <ChevronLeft size={20} />
             </Link>
             <div className="hidden md:block overflow-hidden whitespace-nowrap min-w-0">
               <h1 className="text-sm font-medium truncate max-w-[200px] lg:max-w-xs">
-                {novel.title} {/* Still valid */}
+                {novel.title}
               </h1>
               <p className="text-xs text-muted-foreground truncate">
                 Chapter {chapter.chapter_number}: {chapter.title}

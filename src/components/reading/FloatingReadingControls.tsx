@@ -4,18 +4,19 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetClose } from '@/components/ui/sheet'; // Using Sheet for the panel
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetClose } from '@/components/ui/sheet';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { ChevronLeft, ChevronRight, List, MessageSquare, X } from 'lucide-react';
 import type { ChapterType } from '@/types/supabase';
 import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area'; // For scrollable chapter list
 import { cn } from '@/lib/utils';
 
 interface FloatingReadingControlsProps {
   novelId: number;
   currentChapterNumber: number;
   allChapters: ChapterType[] | null;
-  onToggleComments: () => void; // Callback to toggle comments section visibility
+  onToggleComments: () => void;
+  isScrolling?: boolean; // NEW: Prop to control opacity
 }
 
 export default function FloatingReadingControls({
@@ -23,13 +24,14 @@ export default function FloatingReadingControls({
   currentChapterNumber,
   allChapters,
   onToggleComments,
+  isScrolling = false, // Default to false
 }: FloatingReadingControlsProps) {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredChapters, setFilteredChapters] = useState<ChapterType[]>([]);
-  const listRef = useRef<HTMLDivElement>(null); // Ref for the scrollable list
+  const listRef = useRef<HTMLDivElement>(null);
 
-  // Find previous and next chapters
+  // Find previous and next chapters (logic remains the same)
   const { prevChapter, nextChapter } = React.useMemo(() => {
     if (!allChapters) return { prevChapter: null, nextChapter: null };
     const sortedChapters = [...allChapters].sort((a, b) => a.chapter_number - b.chapter_number);
@@ -41,7 +43,7 @@ export default function FloatingReadingControls({
     };
   }, [allChapters, currentChapterNumber]);
 
-  // Filter chapters based on search term
+  // Filter chapters (logic remains the same)
   useEffect(() => {
     if (!allChapters) {
       setFilteredChapters([]);
@@ -52,26 +54,26 @@ export default function FloatingReadingControls({
       allChapters.filter(ch =>
         ch.title.toLowerCase().includes(lowerSearchTerm) ||
         ch.chapter_number.toString().includes(lowerSearchTerm)
-      ).sort((a, b) => a.chapter_number - b.chapter_number) // Ensure sorted
+      ).sort((a, b) => a.chapter_number - b.chapter_number)
     );
   }, [searchTerm, allChapters]);
 
-  // Scroll to current chapter in the list when the sheet opens
+  // Scroll to current chapter (logic remains the same)
   useEffect(() => {
     if (isSheetOpen && listRef.current) {
       const currentChapterElement = listRef.current.querySelector(`[data-chapter-number="${currentChapterNumber}"]`) as HTMLElement;
       if (currentChapterElement) {
-        // Scroll into view, centered if possible
         currentChapterElement.scrollIntoView({ behavior: 'auto', block: 'center' });
       }
     }
   }, [isSheetOpen, currentChapterNumber]);
 
-
+  // Handler to close sheet when navigating
   const handleChapterLinkClick = () => {
-    setIsSheetOpen(false); // Close sheet on chapter navigation
+    setIsSheetOpen(false);
   };
 
+  // Handler for the Comments button
   const handleToggleCommentsClick = () => {
      onToggleComments();
      setIsSheetOpen(false); // Close sheet after toggling comments
@@ -82,9 +84,13 @@ export default function FloatingReadingControls({
       {/* Floating Action Button (FAB) Trigger */}
       <SheetTrigger asChild>
         <Button
-          variant="default" // Use primary color
+          variant="default"
           size="icon"
-          className="fixed bottom-6 right-6 z-50 rounded-full shadow-lg h-14 w-14"
+          className={cn(
+            "fixed bottom-6 right-6 z-50 rounded-full shadow-lg h-14 w-14",
+            "transition-opacity duration-300 ease-in-out", // Add transition
+            isScrolling ? "opacity-40 hover:opacity-90" : "opacity-100" // Apply opacity based on prop
+          )}
           aria-label="Open reading controls"
         >
           <List size={24} />
@@ -92,20 +98,28 @@ export default function FloatingReadingControls({
       </SheetTrigger>
 
       {/* Sheet Content (Panel) */}
-      <SheetContent side="bottom" className="h-[75vh] flex flex-col bg-background border-t border-border p-0"> {/* Adjust height, remove padding */}
-        <SheetHeader className="p-4 border-b border-border flex flex-row justify-between items-center">
+      {/* Use `onOpenAutoFocus={(e) => e.preventDefault()}` to prevent focus stealing */}
+      <SheetContent
+        side="bottom"
+        className="h-[75vh] flex flex-col bg-background border-t border-border p-0"
+        onOpenAutoFocus={(e) => e.preventDefault()} // Prevent auto-focusing first element
+      >
+        <SheetHeader className="p-4 border-b border-border flex flex-row justify-between items-center flex-shrink-0"> {/* Added flex-shrink-0 */}
           <SheetTitle className="text-lg font-semibold text-foreground">Reading Controls</SheetTitle>
+          {/* Use SheetClose for the primary close button */}
           <SheetClose asChild>
             <Button variant="ghost" size="icon" className="h-8 w-8">
               <X size={20} />
+              <span className="sr-only">Close</span>
             </Button>
           </SheetClose>
         </SheetHeader>
 
         {/* Quick Navigation */}
-        <div className="flex justify-between items-center p-4 border-b border-border">
+        <div className="flex justify-between items-center p-4 border-b border-border flex-shrink-0"> {/* Added flex-shrink-0 */}
           {prevChapter ? (
-            <Button asChild variant="outline" size="sm" onClick={handleChapterLinkClick}>
+            // FIX: Use standard Button with Link inside for better click handling
+            <Button variant="outline" size="sm" onClick={handleChapterLinkClick}>
               <Link href={`/novels/${novelId}/chapter/${prevChapter.chapter_number}`} className="flex items-center gap-1">
                 <ChevronLeft size={16} /> Prev
               </Link>
@@ -116,12 +130,14 @@ export default function FloatingReadingControls({
             </Button>
           )}
 
+          {/* FIX: Ensure this button is directly clickable */}
           <Button variant="secondary" size="sm" onClick={handleToggleCommentsClick} className="flex items-center gap-1">
              <MessageSquare size={16} /> Comments
           </Button>
 
           {nextChapter ? (
-            <Button asChild variant="outline" size="sm" onClick={handleChapterLinkClick}>
+            // FIX: Use standard Button with Link inside
+            <Button variant="outline" size="sm" onClick={handleChapterLinkClick}>
               <Link href={`/novels/${novelId}/chapter/${nextChapter.chapter_number}`} className="flex items-center gap-1">
                 Next <ChevronRight size={16} />
               </Link>
@@ -134,22 +150,25 @@ export default function FloatingReadingControls({
         </div>
 
         {/* Chapter List */}
+        {/* Ensure this container allows content to grow and ScrollArea works */}
         <div className="flex flex-col flex-grow overflow-hidden p-4">
-          <h3 className="text-base font-medium mb-2 text-foreground">Chapters</h3>
+          <h3 className="text-base font-medium mb-2 text-foreground flex-shrink-0">Chapters</h3>
           <Input
             type="text"
             placeholder="Search chapters..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="mb-3 h-9"
+            className="mb-3 h-9 flex-shrink-0"
           />
-          <ScrollArea className="flex-grow" ref={listRef}> {/* Make list scrollable */}
-            <div className="space-y-1 pr-3"> {/* Add padding-right for scrollbar */}
+          {/* ScrollArea needs a defined height parent or flex-grow */}
+          <ScrollArea className="flex-grow" >
+            {/* Removed listRef here, ScrollArea handles its own scroll */}
+            <div className="space-y-1 pr-3">
               {filteredChapters.length > 0 ? (
                 filteredChapters.map((chapter) => (
+                  // FIX: Use standard Button with Link inside
                   <Button
                     key={chapter.id}
-                    asChild
                     variant="ghost"
                     size="sm"
                     className={cn(
@@ -159,7 +178,8 @@ export default function FloatingReadingControls({
                         : "text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground"
                     )}
                     onClick={handleChapterLinkClick}
-                    data-chapter-number={chapter.chapter_number} // Add data attribute for scrolling
+                    data-chapter-number={chapter.chapter_number}
+                    asChild // Allow Link to control navigation
                   >
                     <Link href={`/novels/${novelId}/chapter/${chapter.chapter_number}`} className="block w-full truncate">
                       {chapter.chapter_number}. {chapter.title}
