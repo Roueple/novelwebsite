@@ -4,19 +4,20 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/providers/auth-provider';
-// Import Novel, ChapterType separately
 import { getChapter, getNovel, getNovelChapters } from '@/lib/api';
 import ReadingHeader from '@/components/reading/reading-header';
 import ReadingView from '@/components/reading/reading-view';
-import ChapterNavigation from '@/components/reading/chapter-navigation';
+// REMOVE: import ChapterNavigation from '@/components/reading/chapter-navigation';
 import ReadingSettingsMenu from '@/components/reading/reading-settings-menu';
 import LoadingScreen from '@/components/ui/loading-screen';
 import NotFoundScreen from '@/components/ui/not-found-screen';
 import { useReadingPreferences } from '@/hooks/use-reading-preferences';
-// Use Novel and ChapterType here
 import type { ChapterType, Novel } from '@/types/supabase';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+// NEW: Import the new components
+import FloatingReadingControls from '@/components/reading/FloatingReadingControls';
+import ChapterComments from '@/components/reading/ChapterComments';
 
 export default function ChapterPage() {
   const { user, role } = useAuth();
@@ -29,14 +30,14 @@ export default function ChapterPage() {
   const [loading, setLoading] = useState(true);
   const [initialLoadError, setInitialLoadError] = useState<string | null>(null);
   const [chapter, setChapter] = useState<ChapterType | null>(null);
-  // *** FIX: State type is now Novel | null ***
   const [novel, setNovel] = useState<Novel | null>(null);
-  // *** NEW: State for the full chapter list for navigation ***
   const [allChapters, setAllChapters] = useState<ChapterType[] | null>(null);
   const [headerVisible, setHeaderVisible] = useState(true);
   const [isFocusMode, setIsFocusMode] = useState(false);
+  // NEW: State for comments visibility
+  const [showComments, setShowComments] = useState(false);
 
-  // Reading Preferences Hook
+  // Reading Preferences Hook (remains the same)
   const {
     textSize,
     effectsEnabled,
@@ -54,17 +55,16 @@ export default function ChapterPage() {
     resetPreferences,
   } = useReadingPreferences();
 
-  // Check if the user is the author (admin role)
+  // Check if the user is the author (admin role) (remains the same)
   const isAuthor = useMemo(() => {
-    // No need to check novel.author_id if only admin can edit
     return user !== null && role === 'admin';
   }, [user, role]);
 
-  // Fetch Data: Chapter, Novel Metadata, and All Chapters list
+  // Fetch Data: Chapter, Novel Metadata, and All Chapters list (remains the same)
   const loadData = useCallback(async () => {
     setLoading(true);
     setInitialLoadError(null);
-    setAllChapters(null); // Reset chapter list on new load
+    setAllChapters(null);
 
     if (isNaN(novelId) || isNaN(chapterNumber)) {
       setInitialLoadError('Invalid novel or chapter ID.');
@@ -75,20 +75,18 @@ export default function ChapterPage() {
     }
 
     try {
-      // Fetch all required data concurrently
       const [novelData, chapterData, chaptersListData] = await Promise.all([
-        getNovel(novelId), // Fetches Novel metadata
-        getChapter(novelId, chapterNumber), // Fetches current chapter details
-        getNovelChapters(novelId) // Fetches list of all chapters for navigation
+        getNovel(novelId),
+        getChapter(novelId, chapterNumber),
+        getNovelChapters(novelId)
       ]);
 
       if (!novelData) throw new Error('Novel not found');
       if (!chapterData) throw new Error('Chapter not found');
-      // chaptersListData can be empty, but should not throw error unless API fails
 
       setNovel(novelData);
       setChapter(chapterData);
-      setAllChapters(chaptersListData || []); // Set chapter list, ensure it's an array
+      setAllChapters(chaptersListData || []);
 
     } catch (error: any) {
       console.error('Error loading chapter page data:', error);
@@ -107,7 +105,7 @@ export default function ChapterPage() {
     loadData();
   }, [loadData]);
 
-  // Apply reading preference CSS variables and classes
+  // Apply reading preference CSS variables and classes (remains the same)
   useEffect(() => {
     const root = document.documentElement;
     root.style.setProperty('--reading-line-height', lineSpacing.toString());
@@ -125,25 +123,19 @@ export default function ChapterPage() {
     };
   }, [animationsEnabled, lineSpacing, fontFamily, textSize, isFocusMode]);
 
-  // Calculate previous and next chapter details using the separate `allChapters` state
+  // Calculate previous and next chapter details (remains the same)
   const { prevChapter, nextChapter } = useMemo(() => {
-    // Use the separately fetched allChapters list
     if (!allChapters) return { prevChapter: null, nextChapter: null };
-
-    // Ensure chapters are sorted (API should already do this, but double-check)
     const sortedChapters = [...allChapters].sort((a, b) => a.chapter_number - b.chapter_number);
     const currentIndex = sortedChapters.findIndex(ch => ch.chapter_number === chapterNumber);
-
     if (currentIndex === -1) return { prevChapter: null, nextChapter: null };
-
     return {
       prevChapter: currentIndex > 0 ? sortedChapters[currentIndex - 1] : null,
       nextChapter: currentIndex < sortedChapters.length - 1 ? sortedChapters[currentIndex + 1] : null
     };
-  // Depend on the allChapters state now
   }, [allChapters, chapterNumber]);
 
-  // Keyboard shortcuts (logic remains mostly the same)
+  // Keyboard shortcuts (remains the same, might add one for comments later)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
        const target = e.target as HTMLElement;
@@ -152,6 +144,8 @@ export default function ChapterPage() {
       if (e.key === 'Escape') {
          if (showSettingsMenu) setShowSettingsMenu(false);
          else if (isFocusMode) setIsFocusMode(false);
+         // NEW: Close comments if open
+         else if (showComments) setShowComments(false);
          else setHeaderVisible(true);
          return;
       }
@@ -163,6 +157,11 @@ export default function ChapterPage() {
          setIsFocusMode(prev => !prev);
          return;
       }
+       // NEW: Toggle comments with 'c' key
+       if (e.key === 'c' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+           setShowComments(prev => !prev);
+           return;
+       }
        if ((e.ctrlKey || e.metaKey) && !showSettingsMenu) {
          if (e.key === '+' || e.key === '=') {
            e.preventDefault();
@@ -191,7 +190,8 @@ export default function ChapterPage() {
       showSettingsMenu, setShowSettingsMenu,
       textSize, changeTextSize,
       isFocusMode, setIsFocusMode,
-      router, novelId, prevChapter, nextChapter // Keep dependencies
+      showComments, // Add showComments dependency
+      router, novelId, prevChapter, nextChapter
   ]);
 
   // --- Loading and Error Handling ---
@@ -201,7 +201,6 @@ export default function ChapterPage() {
   if (initialLoadError) {
     return <NotFoundScreen message={initialLoadError} returnUrl={`/novels/${novelId || ''}`} returnText="Back to Novel" />;
   }
-  // Check for novel metadata and current chapter data
   if (!chapter || !novel) {
     return <NotFoundScreen message="Chapter or Novel data could not be loaded." returnUrl={`/novels/${novelId || ''}`} returnText="Back to Novel"/>;
   }
@@ -209,10 +208,11 @@ export default function ChapterPage() {
   // --- Main Render ---
   return (
     <div className={cn("reading-page", { 'focus-mode': isFocusMode })}>
-        {!isFocusMode && novel && chapter && ( // Ensure novel and chapter are loaded before rendering header
+        {/* Reading Header (remains the same) */}
+        {!isFocusMode && novel && chapter && (
             <ReadingHeader
-                novel={novel} // Pass Novel metadata
-                chapter={chapter} // Pass current chapter data
+                novel={novel}
+                chapter={chapter}
                 isAuthor={isAuthor}
                 visible={headerVisible}
                 setVisible={setHeaderVisible}
@@ -222,6 +222,7 @@ export default function ChapterPage() {
             />
         )}
 
+        {/* Settings Menu (remains the same) */}
         <ReadingSettingsMenu
           isOpen={showSettingsMenu}
           onClose={() => setShowSettingsMenu(false)}
@@ -239,8 +240,8 @@ export default function ChapterPage() {
           onResetPreferences={resetPreferences}
         />
 
-        <main className="min-h-screen bg-background text-foreground pt-16 md:pt-20 pb-8">
-          {chapter && ( // Ensure chapter exists before rendering title/view
+        <main className="min-h-screen bg-background text-foreground pt-16 md:pt-20 pb-20"> {/* Increased pb for FAB */}
+          {chapter && (
             <>
               <div className="max-w-4xl mx-auto px-4 md:px-8 mb-8">
                 <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
@@ -255,18 +256,30 @@ export default function ChapterPage() {
                 textSize={textSize}
                 effectsEnabled={effectsEnabled}
               />
+
+              {/* NEW: Comments Section (Conditionally Rendered) */}
+              {showComments && (
+                 <div className="max-w-4xl mx-auto px-4 md:px-8">
+                    <ChapterComments chapterId={chapter.id} novelId={novelId} />
+                 </div>
+              )}
             </>
           )}
 
-          {/* Render navigation only if not in focus mode and chapter list is loaded */}
-          {!isFocusMode && allChapters && (
-                <ChapterNavigation
-                    novelId={novelId}
-                    prevChapter={prevChapter} // Use calculated prev/next based on allChapters
-                    nextChapter={nextChapter}
-                />
-            )}
+          {/* REMOVE: Old Chapter Navigation */}
+          {/* <ChapterNavigation ... /> */}
+
         </main>
+
+         {/* NEW: Floating Controls (Render only when data is loaded) */}
+         {novel && chapter && allChapters && (
+             <FloatingReadingControls
+                 novelId={novelId}
+                 currentChapterNumber={chapterNumber}
+                 allChapters={allChapters}
+                 onToggleComments={() => setShowComments(prev => !prev)}
+             />
+         )}
     </div>
   );
 }
