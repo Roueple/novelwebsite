@@ -16,7 +16,7 @@ interface AuthContextType {
   signInWithProvider: (provider: Provider) => Promise<void>;
   signInWithEmail: (email: string) => Promise<void>;
   signInWithPhone: (phone: string) => Promise<void>;
-  signInAnonymously: () => Promise<void>;
+  signInAnonymously: () => Promise<boolean>; // Changed return type to indicate success/failure
   signOut: () => Promise<void>;
 }
 
@@ -35,11 +35,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log("[AuthProvider] Initial session:", session);
       const initialUser = session?.user ?? null;
       setUser(initialUser);
-      // FIX: Provide default value for is_anonymous if undefined
       const initialAnonymity = initialUser?.is_anonymous ?? false;
       setIsAnonymous(initialAnonymity);
       if (initialUser) {
-        fetchUserProfile(initialUser.id, initialAnonymity); // Pass initial anonymity
+        fetchUserProfile(initialUser.id, initialAnonymity);
       } else {
          setRole(null);
       }
@@ -52,18 +51,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const currentUser = session?.user ?? null;
       const currentAnonymity = currentUser?.is_anonymous ?? false;
 
-      setUser(currentUser);
-      setIsAnonymous(currentAnonymity);
+      // Only update state if user or anonymity actually changed
+      let userChanged = currentUser?.id !== user?.id;
+      let anonymityChanged = currentAnonymity !== isAnonymous;
+
+      if (userChanged) setUser(currentUser);
+      if (anonymityChanged) setIsAnonymous(currentAnonymity);
 
       if (currentUser) {
-          await fetchUserProfile(currentUser.id, currentAnonymity); // Fetch profile on change
-
-          // Linking is primarily handled by Supabase Auth session changes now.
-          // The fetchUserProfile logic will update the is_guest flag in the profile
-          // when a non-anonymous user is detected.
-
+          // Fetch profile if user exists or anonymity changed
+          if (userChanged || anonymityChanged) {
+             await fetchUserProfile(currentUser.id, currentAnonymity);
+          }
+          // Linking is handled by Supabase session changes + profile update in fetchUserProfile
       } else {
-        setRole(null);
+        // Clear role only if user is actually null now
+        if (user !== null) setRole(null);
         console.log("[AuthProvider] User signed out. Role cleared.");
       }
        if (loading) setLoading(false);
@@ -74,10 +77,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         subscription.unsubscribe();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading]);
+  }, [loading, user, isAnonymous]); // Added user/isAnonymous to deps for more precise updates
 
 
-  async function fetchUserProfile(userId: string, isUserAnonymous: boolean) {
+  async function fetchUserProfile(userId: string, isUserAnonymous: boolean): Promise<UserRole | null> { // Return role
     console.log(`[AuthProvider] Fetching profile for user ID: ${userId}, IsAnonymous: ${isUserAnonymous}`);
     try {
         const { data, error } = await supabase
@@ -87,28 +90,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             .single();
 
         if (error && error.code === 'PGRST116') {
-            console.log(`[AuthProvider] Profile not found for ${userId}. Creating profile.`);
-            const username = `anon#${Math.floor(1000 + Math.random() * 900000)}`;
-            const { error: insertError } = await supabase.from('profiles').insert({
-                id: userId, username: username, role: 'reader', is_guest: isUserAnonymous
-            });
-            if (insertError) {
-                console.error(`[AuthProvider] Failed to create profile for ${userId}:`, insertError);
-                setRole(null);
-            } else {
-                console.log(`[AuthProvider] Profile created for ${userId}. Role: reader, IsGuest: ${isUserAnonymous}`);
-                setRole('reader');
-            }
-            return;
+            console.log(`[AuthProvider] Profile not found for ${userId}.`);
+             // If profile doesn't exist AND user is anonymous, create it now.
+             if (isUserAnonymous) {
+                 console.log(`[AuthProvider] Creating profile for anonymous user ${userId}.`);
+                 const username = `anon#${Math.floor(1000 + Math.random() * 900000)}`;
+                 const { error: insertError } = await supabase.from('profiles').insert({
+                     id: userId, username: username, role: 'reader', is_guest: true
+                 });
+                 if (insertError) {
+                     console.error(`[AuthProvider] Failed to create profile for ${userId}:`, insertError);
+                     setRole(null); // Set role to null on creation failure
+                     return null;
+                 } else {
+                     console.log(`[AuthProvider] Profile created for ${userId}. Role: reader, IsGuest: true`);
+                     setRole('reader'); // Set role after successful creation
+                     return 'reader';
+                 }
+             } else {
+                 // Profile not found for a non-anonymous user (shouldn't usually happen after login)
+                 console.warn(`[AuthProvider] Profile not found for non-anonymous user ${userId}.`);
+                 setRole(null);
+                 return null;
+             }
         } else if (error) {
             console.error(`[AuthProvider] Error fetching profile for ${userId}:`, error);
             setRole(null);
-            return;
+            return null;
         }
 
+        // Profile exists
         const fetchedRole = data?.role ?? null;
         const fetchedIsGuest = data?.is_guest ?? false;
-        setRole(fetchedRole);
+        setRole(fetchedRole); // Update role state
 
         // Update profile if user is no longer anonymous but profile still says guest
         if (!isUserAnonymous && fetchedIsGuest) {
@@ -124,25 +138,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
         }
         console.log(`[AuthProvider] Profile fetched for ${userId}:`, { role: fetchedRole, isGuest: fetchedIsGuest });
+        return fetchedRole; // Return the fetched/set role
 
     } catch (error) {
          console.error(`[AuthProvider] Exception fetching/creating profile for ${userId}:`, error);
          setRole(null);
+         return null;
     }
   }
 
   // --- Sign-in Methods ---
 
-  // Combined OAuth provider function (Handles linking or sign-in)
   async function signInWithProvider(provider: Provider) {
+      // ... (implementation remains the same)
       if (user && isAnonymous) {
           console.log(`[AuthProvider] Linking ${provider} to anonymous user ${user.id}`);
           try {
-              // Use linkIdentity for OAuth providers
-              const { error } = await supabase.auth.linkIdentity({
-                  provider: provider, // Provider type is correct here
-                  options: { redirectTo: `${window.location.origin}/auth/callback` }
-              });
+              const { error } = await supabase.auth.linkIdentity({ provider: provider, options: { redirectTo: `${window.location.origin}/auth/callback` } });
               if (error) throw error;
               toast.info(`Redirecting to ${provider} to link account...`);
           } catch (error: any) {
@@ -152,10 +164,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
           console.log(`[AuthProvider] Signing in with ${provider}`);
           try {
-              const { error } = await supabase.auth.signInWithOAuth({
-                  provider: provider,
-                  options: { redirectTo: `${window.location.origin}/auth/callback` }
-              });
+              const { error } = await supabase.auth.signInWithOAuth({ provider: provider, options: { redirectTo: `${window.location.origin}/auth/callback` } });
               if (error) throw error;
           } catch (error: any) {
               console.error(`Error signing in with ${provider}:`, error);
@@ -164,24 +173,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
   }
 
-  // Kept signInWithGoogle for backward compatibility
   async function signInWithGoogle() {
       await signInWithProvider('google');
   }
 
-
-  // FIX: Remove linkIdentity for email/phone. Use standard signInWithOtp.
-  // Supabase handles replacing the anonymous session upon successful OTP verification.
   async function signInWithEmail(email: string) {
      console.log(`[AuthProvider] Signing in/verifying with email: ${email}`);
      try {
-        const { error } = await supabase.auth.signInWithOtp({
-            email,
-            options: {
-                emailRedirectTo: `${window.location.origin}/auth/callback`
-                // Supabase handles session upgrade from anonymous automatically
-            }
-        });
+        const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: `${window.location.origin}/auth/callback` } });
         if (error) throw error;
         toast.info(`Verification link sent to ${email}. Check your inbox.`);
      } catch (error: any) {
@@ -193,48 +192,57 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   async function signInWithPhone(phone: string) {
      console.log(`[AuthProvider] Signing in/verifying with phone: ${phone}`);
      try {
-        const { error } = await supabase.auth.signInWithOtp({
-            phone
-            // Supabase handles session upgrade from anonymous automatically
-            // Need UI for OTP entry after this call
-        });
+        const { error } = await supabase.auth.signInWithOtp({ phone });
         if (error) throw error;
         toast.info(`OTP sent to ${phone}. Please enter it.`);
-         // Implement UI for OTP entry here or in the calling component
      } catch (error: any) {
           console.error("Phone Sign in error:", error);
          toast.error(`Phone sign in failed: ${error.message}`);
      }
   }
 
-  // Use signInAnonymously
-  async function signInAnonymously() {
-    if (user) { console.log("[AuthProvider] User already signed in."); return; }
+  // FIX: Await profile creation/check within signInAnonymously
+  async function signInAnonymously(): Promise<boolean> { // Return boolean success
+    if (user) {
+        console.log("[AuthProvider] User already signed in.");
+        return true; // Already signed in (might be anon or registered)
+    }
     console.log("[AuthProvider] Attempting anonymous sign in...");
-    setGuestLoading(true); setLoading(true);
+    setGuestLoading(true); setLoading(true); // Indicate loading
     try {
         const { data: { user: anonUser }, error: anonError } = await supabase.auth.signInAnonymously();
+
         if (anonError) throw anonError;
         if (!anonUser) throw new Error("Anonymous sign in failed: No user object returned.");
+
         console.log("[AuthProvider] Anonymous user created/signed in:", anonUser.id);
-        // Manually set state immediately - fetchUserProfile handles profile creation/check
+
+        // Explicitly fetch/create profile *now* and wait for it
+        const profileRole = await fetchUserProfile(anonUser.id, true); // Pass true for isAnonymous
+
+        // Update local state *after* profile check/creation attempt
         setUser(anonUser);
         setIsAnonymous(true);
-        await fetchUserProfile(anonUser.id, true);
-        console.log("[AuthProvider] Anonymous state set manually:", { user: anonUser.id, isAnonymous: true });
+        setRole(profileRole); // Set role based on fetchUserProfile result
+
+        console.log("[AuthProvider] Anonymous state set:", { user: anonUser.id, isAnonymous: true, role: profileRole });
         toast.success("Commenting as Guest");
+        return true; // Indicate success
+
     } catch (error: any) {
         console.error("Error in signInAnonymously:", error);
         toast.error(error.message || "Failed to sign in as guest.");
-        setUser(null); setRole(null); setIsAnonymous(false);
+        setUser(null); setRole(null); setIsAnonymous(false); // Reset state on failure
+        return false; // Indicate failure
     } finally {
-        setGuestLoading(false); setLoading(false);
+        setGuestLoading(false); setLoading(false); // Stop loading indicators
         console.log("[AuthProvider] Anonymous sign in process finished.");
     }
   }
 
 
   async function signOut() {
+    // ... (implementation remains the same)
     console.log("[AuthProvider] Signing out...");
     try {
         const { error } = await supabase.auth.signOut();
@@ -253,9 +261,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       loading,
       guestLoading,
       isAnonymous,
-      signInWithProvider, // Use this for OAuth
-      signInWithEmail,    // Use this for Email OTP
-      signInWithPhone,    // Use this for Phone OTP
+      signInWithProvider,
+      signInWithEmail,
+      signInWithPhone,
       signInAnonymously,
       signOut
     }}>

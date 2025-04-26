@@ -2,7 +2,6 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
-// Import signInAnonymously instead of signInAsGuest
 import { useAuth } from '@/providers/auth-provider';
 import { getChapterComments, addComment, deleteComment } from '@/lib/api';
 import type { Comment } from '@/types/supabase';
@@ -18,14 +17,12 @@ interface ChapterCommentsProps {
   novelId: number;
 }
 
-// generateAnonName might not be needed if profile stores it, but keep as fallback
 const generateAnonName = () => {
     const num = Math.floor(1000 + Math.random() * 900000);
     return `anon#${num}`;
 };
 
 export default function ChapterComments({ chapterId, novelId }: ChapterCommentsProps) {
-  // Get signInAnonymously and isAnonymous
   const { user, role, loading: authLoading, guestLoading, isAnonymous, signInAnonymously } = useAuth();
   const [comments, setComments] = useState<Comment[]>([]);
   const [loadingComments, setLoadingComments] = useState(true);
@@ -33,11 +30,10 @@ export default function ChapterComments({ chapterId, novelId }: ChapterCommentsP
   const [newComment, setNewComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
-  const [anonSignInAttempted, setAnonSignInAttempted] = useState(false); // Track attempt
+  // No need for anonSignInAttempted anymore
 
   useEffect(() => {
-    console.log("[ChapterComments] User object:", user, "Is Anonymous:", isAnonymous);
-    console.log("[ChapterComments] Auth loading:", authLoading, "Guest loading:", guestLoading);
+    console.log("[ChapterComments] User:", user?.id, "Is Anonymous:", isAnonymous, "Auth Loading:", authLoading, "Guest Loading:", guestLoading);
   }, [user, authLoading, guestLoading, isAnonymous]);
 
   const fetchComments = useCallback(async () => {
@@ -61,30 +57,37 @@ export default function ChapterComments({ chapterId, novelId }: ChapterCommentsP
     fetchComments();
   }, [fetchComments]);
 
-  // --- Auto Anonymous Sign-In Logic ---
+  // --- Auto Guest Sign-In Logic ---
   const handleCommentInteraction = async () => {
-      // Trigger only if not logged in, not loading, and haven't attempted
-      if (!user && !authLoading && !guestLoading && !anonSignInAttempted) {
+      // Trigger only if not logged in and not currently loading auth/guest
+      if (!user && !authLoading && !guestLoading) {
           console.log("[ChapterComments] User not logged in, attempting auto anonymous sign-in...");
-          setAnonSignInAttempted(true); // Mark attempt
-          try {
-              await signInAnonymously(); // Call the renamed function
-              // Success message handled in AuthProvider
-          } catch (err) {
-              // Error toast handled in AuthProvider
-              setAnonSignInAttempted(false); // Allow retry on failure
+          // No need for anonSignInAttempted state, guestLoading handles this
+          const success = await signInAnonymously(); // Await the result
+          if (!success) {
+              console.error("[ChapterComments] Auto anonymous sign-in failed.");
+              // Error toast is handled within signInAnonymously
+          } else {
+              console.log("[ChapterComments] Auto anonymous sign-in successful.");
+              // State updates will trigger re-render, enabling the form
           }
       }
   };
 
   const handleSubmitComment = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Check user *after* potential auto-signin attempt
     if (!user) {
-        toast.error("Please wait or click the text box again to comment anonymously.");
+        toast.error("Cannot comment: Please try interacting with the text box again.");
         return;
     }
      if (!newComment.trim()) {
         toast.warning("Comment cannot be empty.");
+        return;
+    }
+    // Prevent submission if guest sign-in is still somehow loading
+    if (guestLoading) {
+        toast.info("Please wait while guest session is prepared.");
         return;
     }
 
@@ -98,17 +101,19 @@ export default function ChapterComments({ chapterId, novelId }: ChapterCommentsP
         console.log("[ChapterComments] Comment submitted, awaiting approval:", addedComment);
         if (role === 'admin') fetchComments();
       } else {
-        throw new Error("Failed to add comment via API.");
+        // Throw error if addComment returns null/false
+        throw new Error("Failed to add comment: API returned unsuccessful.");
       }
-    } catch (err) {
+    } catch (err: any) { // Catch specific error type
       console.error("[ChapterComments] Error submitting comment:", err);
-      toast.error("Failed to post comment. Please try again.");
+      toast.error(`Failed to post comment: ${err.message || 'Please try again.'}`);
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleDeleteComment = async (commentId: number) => {
+    // ... (delete logic remains the same)
     if (!user) return;
     if (!confirm("Are you sure you want to delete this comment?")) return;
     setDeletingId(commentId);
@@ -130,19 +135,13 @@ export default function ChapterComments({ chapterId, novelId }: ChapterCommentsP
     }
   };
 
-  // Use isAnonymous flag from auth context primarily
   const getDisplayName = (comment: Comment): string => {
-      // If profile exists and is_guest is explicitly true, use that username
       if (comment.profiles?.is_guest && comment.profiles.username) {
           return comment.profiles.username;
       }
-      // If no profile or not marked as guest in profile, but user IS anonymous in auth state
-      // (this case might occur briefly before profile syncs), generate name.
-      // OR if profile exists but has no username (fallback)
       if (comment.user_id === user?.id && isAnonymous) {
            return comment.profiles?.username || `anon#${comment.user_id?.substring(0, 6) || '????'}`;
       }
-      // Otherwise, use the registered username or fallback
       return comment.profiles?.username || 'Unknown User';
   };
 
@@ -151,7 +150,7 @@ export default function ChapterComments({ chapterId, novelId }: ChapterCommentsP
   const getPlaceholderText = () => {
       if (authLoading) return "Loading user...";
       if (guestLoading) return "Preparing anonymous comment...";
-      if (!user) return "Click or type here to comment anonymously..."; // Updated placeholder
+      if (!user) return "Click or type here to comment anonymously...";
       return "Write your comment...";
   };
 
@@ -185,17 +184,16 @@ export default function ChapterComments({ chapterId, novelId }: ChapterCommentsP
         </div>
       </form>
 
-
       {/* Display Comments */}
       {loadingComments ? (
-        <div className="flex justify-center items-center py-8">
-          <LoadingSpinner size="md" />
-          <span className="ml-2 text-muted-foreground">Loading comments...</span>
-        </div>
+         <div className="flex justify-center items-center py-8">
+           <LoadingSpinner size="md" />
+           <span className="ml-2 text-muted-foreground">Loading comments...</span>
+         </div>
       ) : error ? (
-        <p className="text-destructive text-center">{error}</p>
+         <p className="text-destructive text-center">{error}</p>
       ) : comments.length === 0 ? (
-        <p className="text-muted-foreground text-center text-sm py-4">No comments yet. Be the first!</p>
+         <p className="text-muted-foreground text-center text-sm py-4">No comments yet. Be the first!</p>
       ) : (
         <div className="space-y-4">
           {comments.map((comment) => (
