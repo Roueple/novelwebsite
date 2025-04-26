@@ -1,7 +1,6 @@
 // src/providers/auth-provider.tsx
 "use client";
 
-// FIX: Add useRef to the import
 import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { User, Provider } from '@supabase/supabase-js';
@@ -29,8 +28,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [guestLoading, setGuestLoading] = useState(false);
   const [isAnonymous, setIsAnonymous] = useState(false);
-  // Flag to prevent multiple profile creation attempts for the same user ID
-  const profileCreationAttempted = useRef<Set<string>>(new Set()); // useRef is now imported
+  const profileCreationAttempted = useRef<Set<string>>(new Set());
 
   // Memoized fetchUserProfile
   const fetchUserProfile = useCallback(async (userId: string, isUserAnonymous: boolean): Promise<UserRole | null> => {
@@ -48,14 +46,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (isUserAnonymous && !profileCreationAttempted.current.has(userId)) {
                  profileCreationAttempted.current.add(userId);
                  console.log(`[AuthProvider] Creating profile for anonymous user ${userId}.`);
-                 const randomPart = Math.random().toString(36).substring(2, 8);
-                 const username = `anon_${randomPart}`;
+                 // FIX: Use anon + UUID part for username (safer format)
+                 const username = `anon${userId.substring(0, 8)}`; // e.g., anon1234abcd
 
                  const { error: insertError } = await supabase.from('profiles').insert({
-                     id: userId, username: username, role: 'reader', is_guest: true
+                     id: userId,
+                     username: username, // Use compliant username
+                     role: 'reader',
+                     is_guest: true
                  });
                  if (insertError) {
+                     // Log the specific constraint violation if possible
                      console.error(`[AuthProvider] Failed to create profile for ${userId}:`, insertError);
+                     toast.error(`Failed to initialize guest profile: ${insertError.message}`); // Show error
                      setRole(null); return null;
                  } else {
                      console.log(`[AuthProvider] Profile created for ${userId}. Role: reader, IsGuest: true, Username: ${username}`);
@@ -224,21 +227,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!anonUser) throw new Error("Anonymous sign in failed: No user object returned.");
         console.log("[AuthProvider] Anonymous user created/signed in:", anonUser.id);
 
+        // Explicitly fetch/create profile *now* and wait for it
         const profileRole = await fetchUserProfile(anonUser.id, true);
 
+        // Check if profile creation succeeded before setting state fully
+        if (profileRole === null && !profileCreationAttempted.current.has(anonUser.id)) {
+            // This condition might be hit if fetchUserProfile failed to create the profile
+            // but didn't throw an error that was caught here.
+             throw new Error("Failed to initialize profile for anonymous user.");
+        }
+
+        // Update local state *after* profile check/creation attempt
         setUser(anonUser);
         setIsAnonymous(true);
         setRole(profileRole);
 
         console.log("[AuthProvider] Anonymous state set:", { user: anonUser.id, isAnonymous: true, role: profileRole });
         toast.success("Commenting as Guest");
-        return true;
+        return true; // Indicate success
 
     } catch (error: any) {
         console.error("Error in signInAnonymously:", error);
         toast.error(error.message || "Failed to sign in as guest.");
         setUser(null); setRole(null); setIsAnonymous(false);
-        return false;
+        return false; // Indicate failure
     } finally {
         setGuestLoading(false); setLoading(false);
         console.log("[AuthProvider] Anonymous sign in process finished.");
