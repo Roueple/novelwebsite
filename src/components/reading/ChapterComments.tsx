@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
+// Import signInAnonymously instead of signInAsGuest
 import { useAuth } from '@/providers/auth-provider';
 import { getChapterComments, addComment, deleteComment } from '@/lib/api';
 import type { Comment } from '@/types/supabase';
@@ -17,28 +18,27 @@ interface ChapterCommentsProps {
   novelId: number;
 }
 
+// generateAnonName might not be needed if profile stores it, but keep as fallback
 const generateAnonName = () => {
     const num = Math.floor(1000 + Math.random() * 900000);
     return `anon#${num}`;
 };
 
 export default function ChapterComments({ chapterId, novelId }: ChapterCommentsProps) {
-  // Get guestLoading and signInAsGuest from useAuth
-  const { user, role, loading: authLoading, guestLoading, signInAsGuest } = useAuth();
+  // Get signInAnonymously and isAnonymous
+  const { user, role, loading: authLoading, guestLoading, isAnonymous, signInAnonymously } = useAuth();
   const [comments, setComments] = useState<Comment[]>([]);
   const [loadingComments, setLoadingComments] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [newComment, setNewComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
-  // State to track if guest sign-in has been attempted for this session
-  const [guestSignInAttempted, setGuestSignInAttempted] = useState(false);
+  const [anonSignInAttempted, setAnonSignInAttempted] = useState(false); // Track attempt
 
   useEffect(() => {
-    console.log("[ChapterComments] User object from context:", user);
-    console.log("[ChapterComments] Auth loading state:", authLoading);
-    console.log("[ChapterComments] Guest loading state:", guestLoading);
-  }, [user, authLoading, guestLoading]);
+    console.log("[ChapterComments] User object:", user, "Is Anonymous:", isAnonymous);
+    console.log("[ChapterComments] Auth loading:", authLoading, "Guest loading:", guestLoading);
+  }, [user, authLoading, guestLoading, isAnonymous]);
 
   const fetchComments = useCallback(async () => {
     console.log(`[ChapterComments] Fetching comments for chapter ${chapterId}`);
@@ -61,29 +61,26 @@ export default function ChapterComments({ chapterId, novelId }: ChapterCommentsP
     fetchComments();
   }, [fetchComments]);
 
-  // --- Auto Guest Sign-In Logic ---
+  // --- Auto Anonymous Sign-In Logic ---
   const handleCommentInteraction = async () => {
-      // Trigger only if not logged in, not currently loading auth,
-      // not currently signing in as guest, and haven't attempted yet
-      if (!user && !authLoading && !guestLoading && !guestSignInAttempted) {
-          console.log("[ChapterComments] User not logged in, attempting auto guest sign-in...");
-          setGuestSignInAttempted(true); // Mark attempt
+      // Trigger only if not logged in, not loading, and haven't attempted
+      if (!user && !authLoading && !guestLoading && !anonSignInAttempted) {
+          console.log("[ChapterComments] User not logged in, attempting auto anonymous sign-in...");
+          setAnonSignInAttempted(true); // Mark attempt
           try {
-              await signInAsGuest();
-              // Success message is handled within signInAsGuest
-              // The user state will update via onAuthStateChange, enabling the form
+              await signInAnonymously(); // Call the renamed function
+              // Success message handled in AuthProvider
           } catch (err) {
-              // Error toast is handled within signInAsGuest
-              setGuestSignInAttempted(false); // Allow retry on failure
+              // Error toast handled in AuthProvider
+              setAnonSignInAttempted(false); // Allow retry on failure
           }
       }
   };
 
   const handleSubmitComment = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Ensure user exists before submitting (should be true after auto-guest)
     if (!user) {
-        toast.error("Please wait or try interacting with the text box again to comment as guest.");
+        toast.error("Please wait or click the text box again to comment anonymously.");
         return;
     }
      if (!newComment.trim()) {
@@ -92,14 +89,14 @@ export default function ChapterComments({ chapterId, novelId }: ChapterCommentsP
     }
 
     setSubmitting(true);
-    console.log(`[ChapterComments] Submitting comment for user: ${user.id}`);
+    console.log(`[ChapterComments] Submitting comment for user: ${user.id} (Is Anonymous: ${isAnonymous})`);
     try {
       const addedComment = await addComment(user.id, chapterId, newComment);
       if (addedComment) {
         setNewComment('');
-        toast.success("Comment submitted successfully!"); // User sees success, admin approves later
+        toast.success("Comment submitted successfully!");
         console.log("[ChapterComments] Comment submitted, awaiting approval:", addedComment);
-        if (role === 'admin') fetchComments(); // Admin refetches to see unapproved
+        if (role === 'admin') fetchComments();
       } else {
         throw new Error("Failed to add comment via API.");
       }
@@ -112,7 +109,6 @@ export default function ChapterComments({ chapterId, novelId }: ChapterCommentsP
   };
 
   const handleDeleteComment = async (commentId: number) => {
-    // ... (delete logic remains the same)
     if (!user) return;
     if (!confirm("Are you sure you want to delete this comment?")) return;
     setDeletingId(commentId);
@@ -134,21 +130,28 @@ export default function ChapterComments({ chapterId, novelId }: ChapterCommentsP
     }
   };
 
+  // Use isAnonymous flag from auth context primarily
   const getDisplayName = (comment: Comment): string => {
-      if (comment.profiles?.is_guest) {
-          return comment.profiles?.username || generateAnonName();
+      // If profile exists and is_guest is explicitly true, use that username
+      if (comment.profiles?.is_guest && comment.profiles.username) {
+          return comment.profiles.username;
       }
+      // If no profile or not marked as guest in profile, but user IS anonymous in auth state
+      // (this case might occur briefly before profile syncs), generate name.
+      // OR if profile exists but has no username (fallback)
+      if (comment.user_id === user?.id && isAnonymous) {
+           return comment.profiles?.username || `anon#${comment.user_id?.substring(0, 6) || '????'}`;
+      }
+      // Otherwise, use the registered username or fallback
       return comment.profiles?.username || 'Unknown User';
   };
 
   // Determine if the comment form should be enabled
-  // Enabled if auth isn't loading, guest sign-in isn't loading, AND user exists
   const isCommentFormEnabled = !authLoading && !guestLoading && !!user;
-  // Determine placeholder text based on state
   const getPlaceholderText = () => {
       if (authLoading) return "Loading user...";
-      if (guestLoading) return "Preparing guest comment...";
-      if (!user) return "Click here to comment as guest...";
+      if (guestLoading) return "Preparing anonymous comment...";
+      if (!user) return "Click or type here to comment anonymously..."; // Updated placeholder
       return "Write your comment...";
   };
 
@@ -161,21 +164,18 @@ export default function ChapterComments({ chapterId, novelId }: ChapterCommentsP
         <Textarea
           value={newComment}
           onChange={(e) => setNewComment(e.target.value)}
-          placeholder={getPlaceholderText()} // Dynamic placeholder
+          placeholder={getPlaceholderText()}
           rows={3}
           className="mb-2 bg-input border-border text-foreground placeholder:text-muted-foreground"
           maxLength={1000}
-          // Disable textarea during auth loading, guest loading, or submission
           disabled={authLoading || guestLoading || submitting}
-          // Trigger auto-guest sign-in on focus or click if not logged in
           onFocus={handleCommentInteraction}
-          onClick={handleCommentInteraction} // Also trigger on click
+          onClick={handleCommentInteraction}
         />
         <div className="flex justify-end items-center">
            <span className="text-xs text-muted-foreground mr-2">{newComment.length}/1000</span>
            <Button
              type="submit"
-             // Disable button if form isn't enabled, or submitting, or comment is empty
              disabled={!isCommentFormEnabled || submitting || !newComment.trim()}
              size="sm"
            >
