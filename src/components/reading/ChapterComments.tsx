@@ -17,34 +17,43 @@ interface ChapterCommentsProps {
   novelId: number;
 }
 
-// Helper function to generate random anon name
 const generateAnonName = () => {
-    const num = Math.floor(1000 + Math.random() * 900000); // 4 to 6 digits
+    const num = Math.floor(1000 + Math.random() * 900000);
     return `anon#${num}`;
 };
 
 export default function ChapterComments({ chapterId, novelId }: ChapterCommentsProps) {
-  const { user, role } = useAuth();
+  // Get guestLoading and signInAsGuest from useAuth
+  const { user, role, loading: authLoading, guestLoading, signInAsGuest } = useAuth();
   const [comments, setComments] = useState<Comment[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loadingComments, setLoadingComments] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [newComment, setNewComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  // State to track if guest sign-in has been attempted for this session
+  const [guestSignInAttempted, setGuestSignInAttempted] = useState(false);
 
-  // Fetch comments (RLS handles filtering approved ones for non-admins)
+  useEffect(() => {
+    console.log("[ChapterComments] User object from context:", user);
+    console.log("[ChapterComments] Auth loading state:", authLoading);
+    console.log("[ChapterComments] Guest loading state:", guestLoading);
+  }, [user, authLoading, guestLoading]);
+
   const fetchComments = useCallback(async () => {
-    setLoading(true);
+    console.log(`[ChapterComments] Fetching comments for chapter ${chapterId}`);
+    setLoadingComments(true);
     setError(null);
     try {
       const fetchedComments = await getChapterComments(chapterId);
+      console.log(`[ChapterComments] Fetched ${fetchedComments.length} comments.`);
       setComments(fetchedComments);
     } catch (err) {
-      console.error("Error fetching comments:", err);
+      console.error("[ChapterComments] Error fetching comments:", err);
       setError("Failed to load comments.");
       toast.error("Could not load comments.");
     } finally {
-      setLoading(false);
+      setLoadingComments(false);
     }
   }, [chapterId]);
 
@@ -52,110 +61,133 @@ export default function ChapterComments({ chapterId, novelId }: ChapterCommentsP
     fetchComments();
   }, [fetchComments]);
 
-  // Handle comment submission (works for logged-in and guest users)
+  // --- Auto Guest Sign-In Logic ---
+  const handleCommentInteraction = async () => {
+      // Trigger only if not logged in, not currently loading auth,
+      // not currently signing in as guest, and haven't attempted yet
+      if (!user && !authLoading && !guestLoading && !guestSignInAttempted) {
+          console.log("[ChapterComments] User not logged in, attempting auto guest sign-in...");
+          setGuestSignInAttempted(true); // Mark attempt
+          try {
+              await signInAsGuest();
+              // Success message is handled within signInAsGuest
+              // The user state will update via onAuthStateChange, enabling the form
+          } catch (err) {
+              // Error toast is handled within signInAsGuest
+              setGuestSignInAttempted(false); // Allow retry on failure
+          }
+      }
+  };
+
   const handleSubmitComment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !newComment.trim()) {
-        // Allow guests - user object exists for guests too
-        if (!newComment.trim()) {
-             toast.warning("Comment cannot be empty.");
-             return;
-        }
-        if (!user) {
-            toast.error("An authentication error occurred. Please refresh.");
-            return
-        }
+    // Ensure user exists before submitting (should be true after auto-guest)
+    if (!user) {
+        toast.error("Please wait or try interacting with the text box again to comment as guest.");
+        return;
+    }
+     if (!newComment.trim()) {
+        toast.warning("Comment cannot be empty.");
+        return;
     }
 
-
     setSubmitting(true);
+    console.log(`[ChapterComments] Submitting comment for user: ${user.id}`);
     try {
-      // Pass the user ID (even for guests)
       const addedComment = await addComment(user.id, chapterId, newComment);
-
       if (addedComment) {
-        // Don't add to list immediately as it needs approval
-        // setComments(prev => [...prev, addedComment]); // REMOVED optimistic update
-
         setNewComment('');
-        // Give generic success message - DON'T mention review
-        toast.success("Comment submitted successfully!");
+        toast.success("Comment submitted successfully!"); // User sees success, admin approves later
+        console.log("[ChapterComments] Comment submitted, awaiting approval:", addedComment);
+        if (role === 'admin') fetchComments(); // Admin refetches to see unapproved
       } else {
         throw new Error("Failed to add comment via API.");
       }
     } catch (err) {
-      console.error("Error submitting comment:", err);
+      console.error("[ChapterComments] Error submitting comment:", err);
       toast.error("Failed to post comment. Please try again.");
     } finally {
       setSubmitting(false);
     }
   };
 
-  // Handle comment deletion (remains the same, relies on RLS)
   const handleDeleteComment = async (commentId: number) => {
+    // ... (delete logic remains the same)
     if (!user) return;
     if (!confirm("Are you sure you want to delete this comment?")) return;
     setDeletingId(commentId);
+    console.log(`[ChapterComments] Deleting comment ${commentId} by user: ${user.id}`);
     try {
       const success = await deleteComment(commentId);
       if (success) {
         setComments(prev => prev.filter(c => c.id !== commentId));
         toast.success("Comment deleted.");
+        console.log(`[ChapterComments] Comment ${commentId} deleted.`);
       } else {
         throw new Error("Failed to delete comment via API.");
       }
     } catch (err) {
-      console.error("Error deleting comment:", err);
+      console.error("[ChapterComments] Error deleting comment:", err);
       toast.error("Failed to delete comment.");
     } finally {
       setDeletingId(null);
     }
   };
 
-  // Helper to display username or generated guest name
   const getDisplayName = (comment: Comment): string => {
       if (comment.profiles?.is_guest) {
-          // Generate a consistent guest name based on user_id if needed,
-          // or use the profile username which might already be the anon# format.
-          // For simplicity, let's assume the profile username for guests IS the anon format.
-          return comment.profiles?.username || generateAnonName(); // Fallback just in case
+          return comment.profiles?.username || generateAnonName();
       }
       return comment.profiles?.username || 'Unknown User';
+  };
+
+  // Determine if the comment form should be enabled
+  // Enabled if auth isn't loading, guest sign-in isn't loading, AND user exists
+  const isCommentFormEnabled = !authLoading && !guestLoading && !!user;
+  // Determine placeholder text based on state
+  const getPlaceholderText = () => {
+      if (authLoading) return "Loading user...";
+      if (guestLoading) return "Preparing guest comment...";
+      if (!user) return "Click here to comment as guest...";
+      return "Write your comment...";
   };
 
   return (
     <div className="mt-8 pt-6 border-t border-border">
       <h3 className="text-xl font-semibold mb-4 text-foreground">Comments</h3>
 
-      {/* Comment Submission Form (Now available to guests too if user object exists) */}
-      {user ? (
-        <form onSubmit={handleSubmitComment} className="mb-6">
-          <Textarea
-            value={newComment}
-            onChange={(e) => setNewComment(e.target.value)}
-            placeholder="Write your comment..."
-            rows={3}
-            className="mb-2 bg-input border-border text-foreground placeholder:text-muted-foreground"
-            maxLength={1000}
-            disabled={submitting}
-          />
-          <div className="flex justify-end items-center">
-             <span className="text-xs text-muted-foreground mr-2">{newComment.length}/1000</span>
-             <Button type="submit" disabled={submitting || !newComment.trim()} size="sm">
-               {submitting ? <LoadingSpinner size="sm" className="mr-1" /> : <Send size={16} className="mr-1" />}
-               {submitting ? 'Posting...' : 'Post Comment'}
-             </Button>
-          </div>
-        </form>
-      ) : (
-         // Show login prompt if truly no user (not even guest)
-        <p className="text-muted-foreground text-sm mb-6">
-          Please log in or continue as guest to post comments.
-        </p>
-      )}
+      {/* Comment Submission Form */}
+      <form onSubmit={handleSubmitComment} className="mb-6">
+        <Textarea
+          value={newComment}
+          onChange={(e) => setNewComment(e.target.value)}
+          placeholder={getPlaceholderText()} // Dynamic placeholder
+          rows={3}
+          className="mb-2 bg-input border-border text-foreground placeholder:text-muted-foreground"
+          maxLength={1000}
+          // Disable textarea during auth loading, guest loading, or submission
+          disabled={authLoading || guestLoading || submitting}
+          // Trigger auto-guest sign-in on focus or click if not logged in
+          onFocus={handleCommentInteraction}
+          onClick={handleCommentInteraction} // Also trigger on click
+        />
+        <div className="flex justify-end items-center">
+           <span className="text-xs text-muted-foreground mr-2">{newComment.length}/1000</span>
+           <Button
+             type="submit"
+             // Disable button if form isn't enabled, or submitting, or comment is empty
+             disabled={!isCommentFormEnabled || submitting || !newComment.trim()}
+             size="sm"
+           >
+             {(submitting || guestLoading) ? <LoadingSpinner size="sm" className="mr-1" /> : <Send size={16} className="mr-1" />}
+             {submitting ? 'Posting...' : guestLoading ? 'Loading...' : 'Post Comment'}
+           </Button>
+        </div>
+      </form>
 
-      {/* Display Comments (Only approved comments shown to non-admins via RLS) */}
-      {loading ? (
+
+      {/* Display Comments */}
+      {loadingComments ? (
         <div className="flex justify-center items-center py-8">
           <LoadingSpinner size="md" />
           <span className="ml-2 text-muted-foreground">Loading comments...</span>
@@ -169,21 +201,18 @@ export default function ChapterComments({ chapterId, novelId }: ChapterCommentsP
           {comments.map((comment) => (
             <div key={comment.id} className="flex space-x-3 bg-card p-3 rounded-lg border border-border/50">
               <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center text-secondary-foreground font-bold text-sm flex-shrink-0 mt-1">
-                {/* Display first letter of generated name for guests */}
                 {getDisplayName(comment).charAt(0).toUpperCase()}
               </div>
               <div className="flex-1">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="font-medium text-sm text-foreground">
-                    {getDisplayName(comment)} {/* Use helper function */}
+                <div className="flex items-center justify-between mb-1 flex-wrap gap-x-2">
+                  <span className="font-medium text-sm text-foreground break-words">
+                    {getDisplayName(comment)}
                   </span>
-                  <span className="text-xs text-muted-foreground" title={new Date(comment.created_at).toLocaleString()}>
+                  <span className="text-xs text-muted-foreground flex-shrink-0" title={new Date(comment.created_at).toLocaleString()}>
                     {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
                   </span>
                 </div>
                 <p className="text-sm text-foreground whitespace-pre-wrap">{comment.content}</p>
-                {/* Delete Button - Show only for comment owner or admin */}
-                {/* RLS handles whether the comment is visible for deletion check */}
                 {(user?.id === comment.user_id || role === 'admin') && (
                     <div className="mt-1 text-right">
                         <Button
@@ -203,7 +232,6 @@ export default function ChapterComments({ chapterId, novelId }: ChapterCommentsP
                         </Button>
                     </div>
                 )}
-                {/* Optional: Show 'Pending Approval' badge for Admins */}
                 {role === 'admin' && !comment.is_approved && (
                     <span className="ml-2 text-xs font-semibold text-orange-500">(Pending Approval)</span>
                 )}

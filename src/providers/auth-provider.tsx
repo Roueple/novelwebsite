@@ -5,11 +5,16 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { User } from '@supabase/supabase-js';
 import { UserRole } from '@/types/supabase';
+import { toast } from 'sonner';
+
+const GUEST_ID_STORAGE_KEY = 'pending_guest_merge_id';
 
 interface AuthContextType {
   user: User | null;
   role: UserRole | null;
   loading: boolean;
+  guestLoading: boolean;
+  isGuest: boolean;
   signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string) => Promise<void>;
   signInWithPhone: (phone: string) => Promise<void>;
@@ -23,137 +28,229 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [role, setRole] = useState<UserRole | null>(null);
   const [loading, setLoading] = useState(true);
+  const [guestLoading, setGuestLoading] = useState(false);
+  const [isGuest, setIsGuest] = useState(false);
 
   useEffect(() => {
+    console.log("[AuthProvider] Initializing...");
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchUserRole(session.user.id);
+      console.log("[AuthProvider] Initial session:", session);
+      const initialUser = session?.user ?? null;
+      setUser(initialUser);
+      if (initialUser) {
+        fetchUserProfile(initialUser.id);
       } else {
          setRole(null);
+         setIsGuest(false);
       }
       setLoading(false);
+      console.log("[AuthProvider] Initial load finished.");
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchUserRole(session.user.id);
+      console.log("[AuthProvider] Auth state changed:", event, session);
+      const currentUser = session?.user ?? null;
+      setUser(currentUser); // Update user state first
+      if (currentUser) {
+          await fetchUserProfile(currentUser.id); // Fetch profile on change
+
+          // --- Merge Check ---
+          const oldGuestUserId = sessionStorage.getItem(GUEST_ID_STORAGE_KEY);
+          // FIX: Check if session exists before accessing session.access_token
+          if (oldGuestUserId && oldGuestUserId !== currentUser.id && event === 'SIGNED_IN' && session) {
+              console.log(`[AuthProvider] New user signed in (${currentUser.id}), attempting merge with old guest (${oldGuestUserId}).`);
+              sessionStorage.removeItem(GUEST_ID_STORAGE_KEY);
+              // Pass the access token from the non-null session
+              invokeMergeFunction(oldGuestUserId, session.access_token);
+          } else if (oldGuestUserId && oldGuestUserId === currentUser.id) {
+              console.log("[AuthProvider] New user is the same as stored guest ID. Clearing storage.");
+              sessionStorage.removeItem(GUEST_ID_STORAGE_KEY);
+          }
+          // --- End Merge Check ---
+
       } else {
         setRole(null);
+        setIsGuest(false);
+        sessionStorage.removeItem(GUEST_ID_STORAGE_KEY);
+        console.log("[AuthProvider] User signed out. Role/Guest status cleared.");
       }
+       if (loading) setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
-  }, []);
-
-  async function fetchUserRole(userId: string) {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', userId)
-      .single();
-
-    if (error && error.code !== 'PGRST116') { // Ignore not found error during fetch
-      console.error('Error fetching user role:', error);
-      setRole(null); // Set role to null on error
-      return;
+    return () => {
+        console.log("[AuthProvider] Unsubscribing from auth changes.");
+        subscription.unsubscribe();
     }
-    // If profile doesn't exist yet (e.g., right after guest signup), role will be null
-    setRole(data?.role ?? null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading]);
+
+  async function invokeMergeFunction(oldGuestUserId: string, accessToken?: string) {
+      if (!accessToken) {
+          console.error("[AuthProvider] Cannot invoke merge function: Missing access token.");
+          toast.warning("Could not link guest activity (auth error).");
+          return;
+      }
+      console.log("[AuthProvider] Invoking merge-guest-account function...");
+      try {
+          const { data: mergeResult, error: mergeError } = await supabase.functions.invoke(
+              'merge-guest-account',
+              {
+                  body: { old_guest_user_id: oldGuestUserId },
+                  headers: { Authorization: `Bearer ${accessToken}` }
+              }
+          );
+          if (mergeError || !mergeResult?.success) {
+              console.error("[AuthProvider] Merge function invocation failed:", mergeError, mergeResult);
+              toast.error("Failed to link previous guest activity.");
+          } else {
+              console.log("[AuthProvider] Account merge successful:", mergeResult.message);
+              toast.success("Guest activity linked successfully!");
+              if(user) await fetchUserProfile(user.id); // Re-fetch profile after successful merge
+          }
+      } catch (invokeError) {
+           console.error("[AuthProvider] Error invoking merge function:", invokeError);
+           toast.error("An error occurred while linking guest activity.");
+      }
   }
 
 
-  async function signInWithGoogle() {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`
+  async function fetchUserProfile(userId: string) {
+    console.log(`[AuthProvider] Fetching profile for user ID: ${userId}`);
+    try {
+        const { data, error } = await supabase
+        .from('profiles')
+        .select('role, is_guest')
+        .eq('id', userId)
+        .single();
+
+        if (error && error.code === 'PGRST116') {
+            console.log(`[AuthProvider] Profile not found for ${userId}. Setting role/guest status to null/false.`);
+            setRole(null);
+            setIsGuest(false);
+            return;
+        } else if (error) {
+            console.error(`[AuthProvider] Error fetching profile for ${userId}:`, error);
+            setRole(null);
+            setIsGuest(false);
+            return;
+        }
+
+        const fetchedRole = data?.role ?? null;
+        const fetchedIsGuest = data?.is_guest ?? false;
+        setRole(fetchedRole);
+        setIsGuest(fetchedIsGuest);
+        console.log(`[AuthProvider] Profile fetched for ${userId}:`, { role: fetchedRole, isGuest: fetchedIsGuest });
+    } catch (error) {
+         console.error(`[AuthProvider] Exception fetching profile for ${userId}:`, error);
+         setRole(null);
+         setIsGuest(false);
+    }
+  }
+
+  const prepareForMerge = () => {
+      if (user && isGuest) {
+          console.log(`[AuthProvider] Storing guest ID ${user.id} for potential merge.`);
+          sessionStorage.setItem(GUEST_ID_STORAGE_KEY, user.id);
+      } else {
+          console.log("[AuthProvider] Clearing potential guest merge ID (not a guest or no user).");
+          sessionStorage.removeItem(GUEST_ID_STORAGE_KEY);
       }
-    });
-    if (error) throw error;
+  }
+
+  async function signInWithGoogle() {
+    prepareForMerge();
+    try {
+        const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: `${window.location.origin}/auth/callback` } });
+        if (error) throw error;
+    } catch (error) {
+        console.error("Google Sign in error:", error);
+        toast.error('Google Sign in failed. Please try again.');
+        sessionStorage.removeItem(GUEST_ID_STORAGE_KEY);
+    }
   }
 
   async function signInWithEmail(email: string) {
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`
-      }
-    });
-    if (error) throw error;
+     prepareForMerge();
+     try {
+        const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: `${window.location.origin}/auth/callback` } });
+        if (error) throw error;
+        toast.info(`Magic link sent to ${email}`);
+     } catch (error) {
+         console.error("Email Sign in error:", error);
+         toast.error('Email Sign in failed. Please try again.');
+         sessionStorage.removeItem(GUEST_ID_STORAGE_KEY);
+     }
   }
 
   async function signInWithPhone(phone: string) {
-    const { error } = await supabase.auth.signInWithOtp({
-      phone,
-    });
-    if (error) throw error;
+     prepareForMerge();
+     try {
+        const { error } = await supabase.auth.signInWithOtp({ phone });
+        if (error) throw error;
+        toast.info(`OTP sent to ${phone}`);
+     } catch (error) {
+          console.error("Phone Sign in error:", error);
+         toast.error('Phone Sign in failed. Please try again.');
+         sessionStorage.removeItem(GUEST_ID_STORAGE_KEY);
+     }
   }
 
   async function signInAsGuest() {
-    setLoading(true); // Indicate loading during guest creation
+    console.log("[AuthProvider] Attempting guest sign in...");
+    setGuestLoading(true);
+    setLoading(true);
     try {
-        // Generate the anon username
-        const randomNum = Math.floor(1000 + Math.random() * 900000); // 4 to 6 digits
+        const randomNum = Math.floor(1000 + Math.random() * 900000);
         const username = `anon#${randomNum}`;
-        const tempEmail = `${username}@guest.novelwebsite.com`; // Use anon name for temp email
-        const tempPassword = crypto.randomUUID(); // Secure random password
+        const tempEmail = `${username}@guest.novelwebsite.com`;
+        const tempPassword = crypto.randomUUID();
 
-        // Sign up the guest user with Supabase Auth
-        const { data: { user }, error: signUpError } = await supabase.auth.signUp({
-            email: tempEmail,
-            password: tempPassword,
+        console.log(`[AuthProvider] Signing up guest with email: ${tempEmail}`);
+        const { data: { user: guestUser }, error: signUpError } = await supabase.auth.signUp({
+            email: tempEmail, password: tempPassword,
         });
 
-        if (signUpError) {
-            // Handle potential errors like email rate limits if testing heavily
-            console.error("Guest signup error:", signUpError);
-            throw new Error(`Failed to create guest account: ${signUpError.message}`);
-        }
+        if (signUpError) throw new Error(`Guest signup error: ${signUpError.message}`);
+        if (!guestUser) throw new Error("Guest user creation failed in Supabase Auth.");
+        console.log("[AuthProvider] Guest user created in Auth:", guestUser.id);
 
-        if (!user) {
-            throw new Error("Guest user creation failed in Supabase Auth.");
-        }
-
-        // Insert the profile immediately after successful auth signup
+        console.log(`[AuthProvider] Inserting guest profile for ${guestUser.id} with username ${username}`);
         const { error: profileError } = await supabase.from('profiles').insert({
-            id: user.id,
-            username: username, // Store the generated anon# username
-            role: 'reader',
-            is_guest: true
+            id: guestUser.id, username: username, role: 'reader', is_guest: true
         });
 
-        if (profileError) {
-            // If profile insert fails, maybe try to clean up the auth user? (More complex)
-            console.error("Guest profile creation error:", profileError);
-            // Attempt to sign out the partially created user to avoid confusion
-            await supabase.auth.signOut().catch(e => console.error("Error signing out failed guest:", e));
-            throw new Error(`Failed to save guest profile: ${profileError.message}`);
-        }
+        if (profileError) throw new Error(`Guest profile creation error: ${profileError.message}`);
+        console.log("[AuthProvider] Guest profile created successfully.");
 
-        // Manually set user and role state after successful profile creation
-        // This ensures the UI updates correctly without waiting for onAuthStateChange
-        setUser(user);
+        // Manually set state immediately
+        setUser(guestUser);
         setRole('reader');
+        setIsGuest(true);
+        console.log("[AuthProvider] Guest state set manually:", { user: guestUser.id, role: 'reader', isGuest: true });
+        toast.success("Signed in as Guest!");
 
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error in signInAsGuest:", error);
-        // Provide feedback to the user
-        alert(error instanceof Error ? error.message : "Failed to sign in as guest.");
-        // Reset state if necessary
-        setUser(null);
-        setRole(null);
+        toast.error(error.message || "Failed to sign in as guest.");
+        setUser(null); setRole(null); setIsGuest(false);
     } finally {
-        setLoading(false); // Stop loading indicator
+        setGuestLoading(false);
+        setLoading(false);
+        console.log("[AuthProvider] Guest sign in process finished.");
     }
-}
+  }
 
 
   async function signOut() {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
-    // State updates (user=null, role=null) are handled by onAuthStateChange
+    console.log("[AuthProvider] Signing out...");
+    try {
+        const { error } = await supabase.auth.signOut();
+        if (error) throw error;
+        console.log("[AuthProvider] Sign out successful.");
+    } catch (error: any) {
+         console.error("Sign out error:", error);
+         toast.error(`Sign out failed: ${error.message}`);
+    }
   }
 
   return (
@@ -161,6 +258,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user,
       role,
       loading,
+      guestLoading,
+      isGuest,
       signInWithGoogle,
       signInWithEmail,
       signInWithPhone,
