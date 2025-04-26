@@ -6,7 +6,7 @@ import { createContext, useContext, useEffect, useState, useCallback } from 'rea
 type Theme = 'light' | 'dark' | 'reading';
 const THEME_STORAGE_KEY = 'novel-website-theme';
 const THEME_ORDER: Theme[] = ['light', 'dark', 'reading'];
-const DEFAULT_THEME: Theme = 'light';
+const DEFAULT_THEME: Theme = 'dark';
 
 interface ThemeContextType {
   theme: Theme;
