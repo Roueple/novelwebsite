@@ -1,7 +1,9 @@
 // src/app/novels/[id]/chapter/[chapterId]/page.tsx
 "use client";
-
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+// --- MODIFIED IMPORTS ---
+import { useState, useEffect, useMemo, useCallback, useRef, Suspense } from 'react'; // Added Suspense
+import dynamic from 'next/dynamic'; // Added dynamic
+// --- END MODIFIED IMPORTS ---
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/providers/auth-provider';
 import { getChapter, getNovel, getNovelChapters } from '@/lib/api';
@@ -15,15 +17,37 @@ import type { ChapterType, Novel } from '@/types/supabase';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import FloatingReadingControls from '@/components/reading/FloatingReadingControls';
+// --- LAZY LOADED COMPONENT ---
+// Removed direct import: import ChapterComments from '@/components/reading/ChapterComments';
+import LoadingSpinner from '@/components/ui/loading-spinner'; // Keep for fallback
+
+const ChapterComments = dynamic(() => import('@/components/reading/ChapterComments'), {
+  // Optional: Specify a loading component directly for this dynamic import
+  // loading: () => <div className="py-8 flex justify-center"><LoadingSpinner /> <span className="ml-2">Loading Comments...</span></div>,
+  ssr: false // Disable SSR for the comments component as it relies heavily on client-side auth and interaction
+});
+
+// --- Fallback for Suspense ---
+function CommentsFallback() {
+    return (
+        <div className="mt-8 pt-6 border-t border-border">
+            <h3 className="text-xl font-semibold mb-4 text-foreground">Comments</h3>
+            <div className="flex justify-center items-center py-8">
+                <LoadingSpinner size="md" />
+                <span className="ml-2 text-muted-foreground">Loading comments section...</span>
+            </div>
+        </div>
+    );
+}
+
 
 export default function ChapterPage() {
+  // --- Hooks and State (No changes needed here) ---
   const { user, role } = useAuth();
   const params = useParams();
   const router = useRouter();
   const novelId = Number(params.id);
   const chapterNumber = Number(params.chapterId);
-
-  // State management
   const [loading, setLoading] = useState(true);
   const [initialLoadError, setInitialLoadError] = useState<string | null>(null);
   const [chapter, setChapter] = useState<ChapterType | null>(null);
@@ -33,19 +57,15 @@ export default function ChapterPage() {
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [isScrolling, setIsScrolling] = useState(false);
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Reading Preferences Hook
   const {
     textSize, effectsEnabled, animationsEnabled, fontFamily, lineSpacing,
     showSettingsMenu, settingsMenuRef, setShowSettingsMenu, changeTextSize,
     toggleEffects, toggleAnimations, changeFontFamily, changeLineSpacing,
     resetPreferences,
   } = useReadingPreferences();
-
-  // Check if the user is the author
   const isAuthor = useMemo(() => user !== null && role === 'admin', [user, role]);
 
-  // Fetch Data
+  // --- Data Fetching (loadData) remains the same ---
   const loadData = useCallback(async () => {
     setLoading(true);
     setInitialLoadError(null);
@@ -70,9 +90,9 @@ export default function ChapterPage() {
     }
   }, [novelId, chapterNumber, router]);
 
+  // --- useEffect hooks remain the same ---
   useEffect(() => { loadData(); }, [loadData]);
 
-  // Apply reading preference CSS variables
   useEffect(() => {
     const root = document.documentElement;
     root.style.setProperty('--reading-line-height', lineSpacing.toString());
@@ -86,7 +106,6 @@ export default function ChapterPage() {
     };
   }, [animationsEnabled, lineSpacing, fontFamily, textSize, isFocusMode]);
 
-  // Calculate previous and next chapter details
   const { prevChapter, nextChapter } = useMemo(() => {
     if (!allChapters) return { prevChapter: null, nextChapter: null };
     const sortedChapters = [...allChapters].sort((a, b) => a.chapter_number - b.chapter_number);
@@ -98,7 +117,6 @@ export default function ChapterPage() {
     };
   }, [allChapters, chapterNumber]);
 
-  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
        const target = e.target as HTMLElement;
@@ -127,7 +145,6 @@ export default function ChapterPage() {
       router, novelId, prevChapter, nextChapter
   ]);
 
-  // Scroll Listener for FAB Opacity
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolling(true);
@@ -147,7 +164,7 @@ export default function ChapterPage() {
     };
   }, []);
 
-  // --- Loading and Error Handling ---
+  // --- Loading and Error Handling (No changes needed) ---
   if (loading) return <LoadingScreen message="Loading chapter..." />;
   if (initialLoadError) return <NotFoundScreen message={initialLoadError} returnUrl={`/novels/${novelId || ''}`} returnText="Back to Novel" />;
   if (!chapter || !novel) return <NotFoundScreen message="Chapter or Novel data could not be loaded." returnUrl={`/novels/${novelId || ''}`} returnText="Back to Novel"/>;
@@ -155,6 +172,7 @@ export default function ChapterPage() {
   // --- Main Render ---
   return (
     <div className={cn("reading-page", { 'focus-mode': isFocusMode })}>
+        {/* Header */}
         {!isFocusMode && novel && chapter && (
             <ReadingHeader
                 novel={novel} chapter={chapter} isAuthor={isAuthor} visible={headerVisible}
@@ -162,6 +180,7 @@ export default function ChapterPage() {
                 setShowSettingsMenu={setShowSettingsMenu} effectsEnabled={effectsEnabled}
             />
         )}
+        {/* Settings Menu */}
         <ReadingSettingsMenu
           isOpen={showSettingsMenu} onClose={() => setShowSettingsMenu(false)} menuRef={settingsMenuRef}
           textSize={textSize} onChangeTextSize={changeTextSize} effectsEnabled={effectsEnabled}
@@ -172,23 +191,28 @@ export default function ChapterPage() {
 
         <main className="min-h-screen bg-background text-foreground pt-16 md:pt-20 pb-24">
           {chapter && (
-            // FIX: Wrap title and content in a single container for consistent alignment
             <div className="max-w-4xl mx-auto px-4 md:px-8">
                 {/* Chapter Title */}
-                <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-8"> {/* Keep margin-bottom */}
+                <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-8">
                     Chapter {chapter.chapter_number}: {chapter.title}
                 </h1>
 
                 {/* Reading View (Content) */}
-                {/* ReadingView already contains the .prose class */}
                 <ReadingView
                     content={chapter.content || ''} isLocked={chapter.is_locked} isAuthor={isAuthor}
                     isEditing={false} textSize={textSize} effectsEnabled={effectsEnabled}
                 />
+
+                {/* --- MODIFIED: Lazy Load Comments --- */}
+                <Suspense fallback={<CommentsFallback />}>
+                    <ChapterComments chapterId={chapter.id} novelId={novelId} />
+                </Suspense>
+                {/* --- END MODIFIED --- */}
             </div>
           )}
         </main>
 
+         {/* Floating Controls */}
          {novel && chapter && allChapters && (
              <FloatingReadingControls
                  novelId={novelId}
