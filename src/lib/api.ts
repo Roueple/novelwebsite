@@ -1,60 +1,47 @@
 // src/lib/api.ts
 import { supabase } from './supabase';
-import type { Novel, Chapter, NovelType, ChapterType, Comment, Profile } from '@/types/supabase';
+import type { Novel, Chapter, NovelType, ChapterType, Comment, Profile } from '@/types/supabase'; // [cite: 1800]
 import { PostgrestError } from '@supabase/supabase-js';
 
-// Type guard for PostgrestError
+// Type guard for PostgrestError (Keep as is)
 function isPostgrestError(error: any): error is PostgrestError {
-  // Basic check for Supabase error structure
-  return error && typeof error.message === 'string' && typeof error.code === 'string';
+  return error && typeof error.message === 'string' && typeof error.code === 'string'; // [cite: 1801]
 }
 
-// Error handling utility with improved logging
+// Error handling utility with improved logging (Keep as is)
 function handleSupabaseError(error: unknown, context: string): null {
-  let message = 'An unknown error occurred';
+  let message = 'An unknown error occurred'; // [cite: 1802]
   if (isPostgrestError(error)) {
-    // Log specific Supabase error details
-    message = `Supabase Error (${context}): ${error.message} (Code: ${error.code})`;
-    console.error(message, { details: error.details, hint: error.hint });
+    message = `Supabase Error (${context}): ${error.message} (Code: ${error.code})`; // [cite: 1803]
+    console.error(message, { details: error.details, hint: error.hint }); // [cite: 1803]
   } else if (error instanceof Error) {
-    // Log standard JavaScript error
-    message = `Error (${context}): ${error.message}`;
-    console.error(message, error.stack);
+    message = `Error (${context}): ${error.message}`; // [cite: 1804]
+    console.error(message, error.stack); // [cite: 1804]
   } else {
-     // Log any other type of error
-     console.error(`Unknown Error (${context}):`, error);
+     console.error(`Unknown Error (${context}):`, error); // [cite: 1805]
   }
-  // Return null to indicate failure in API functions that expect an object/array
-  return null;
+  return null; // [cite: 1806]
 }
 
 
-// Common select fields for consistency and maintainability
+// Common select fields (Keep as is)
 const NOVEL_SELECT = `
   id, title, cover_url, author, author_id, rating, status, tags, description, created_at, updated_at
-`;
+`; // [cite: 1807]
 const CHAPTER_SELECT = `
   id, novel_id, chapter_number, title, content, is_locked, newly_created, created_at, updated_at
-`;
+`; // [cite: 1808]
 const COMMENT_SELECT = `
   id, created_at, updated_at, user_id, chapter_id, parent_comment_id, content, is_approved,
   profiles ( username, is_guest )
-`;
+`; // [cite: 1809]
 
-// --- Novel Functions ---
-
-/**
- * Searches novels based on title, author, or description.
- * @param query - The search term.
- * @returns A promise resolving to an array of Novels or an empty array.
- */
+// --- Novel Functions --- (Keep as is)
 export async function searchNovels(query: string): Promise<Novel[]> {
   try {
-    // Basic sanitization and check for empty query
-    const sanitizedQuery = query.replace(/[^a-zA-Z0-9\s\-_]/g, '').trim();
-    if (!sanitizedQuery) return [];
+    const sanitizedQuery = query.replace(/[^a-zA-Z0-9\s\-_]/g, '').trim(); // [cite: 1812]
+    if (!sanitizedQuery) return []; // [cite: 1812]
 
-    // Perform the search query
     const { data, error } = await supabase
       .from('novels')
       .select(NOVEL_SELECT)
@@ -62,102 +49,76 @@ export async function searchNovels(query: string): Promise<Novel[]> {
         `title.ilike.%${sanitizedQuery}%,author.ilike.%${sanitizedQuery}%,description.ilike.%${sanitizedQuery}%`
       )
       .order('updated_at', { ascending: false })
-      .limit(50); // Limit results for performance
+      .limit(50); // [cite: 1813]
 
-    if (error) throw error; // Throw Supabase errors to be caught below
-    return data || []; // Return fetched data or empty array
+    if (error) throw error; // [cite: 1814]
+    return data || []; // [cite: 1815]
   } catch (error) {
-    // Handle errors and return an empty array as fallback
-    return handleSupabaseError(error, 'searchNovels') ?? [];
+    return handleSupabaseError(error, 'searchNovels') ?? []; // [cite: 1816]
   }
 }
 
-/**
- * Fetches the latest novels.
- * @param limit - Maximum number of novels to fetch (default: 20).
- * @returns A promise resolving to an array of Novels or an empty array.
- */
 export async function getLatestNovels(limit = 20): Promise<Novel[]> {
   try {
     const { data, error } = await supabase
       .from('novels')
       .select(NOVEL_SELECT)
-      .order('created_at', { ascending: false }) // Order by creation date, newest first
-      .limit(limit);
-    if (error) throw error;
-    return data || [];
+      .order('created_at', { ascending: false })
+      .limit(limit); // [cite: 1819]
+    if (error) throw error; // [cite: 1819]
+    return data || []; // [cite: 1820]
   } catch (error) {
-    return handleSupabaseError(error, 'getLatestNovels') ?? [];
+    return handleSupabaseError(error, 'getLatestNovels') ?? []; // [cite: 1820]
   }
 }
 
-/**
- * Fetches metadata for a single novel by its ID.
- * @param id - The ID of the novel.
- * @returns A promise resolving to the Novel object or null if not found or error.
- */
 export async function getNovel(id: number): Promise<Novel | null> {
-  // Validate ID
   if (isNaN(id) || id <= 0) {
-     console.error('[api.getNovel] Invalid novel ID requested:', id);
-     return null;
+     console.error('[api.getNovel] Invalid novel ID requested:', id); // [cite: 1823]
+     return null; // [cite: 1823]
   }
   try {
-    // Fetch a single row
     const { data, error } = await supabase
         .from('novels')
         .select(NOVEL_SELECT)
         .eq('id', id)
-        .single();
-
-    // Handle specific "Row not found" error gracefully
+        .single(); // [cite: 1824]
     if (error && error.code === 'PGRST116') {
-        console.log(`[api.getNovel] Novel with ID ${id} not found.`);
-        return null;
+        console.log(`[api.getNovel] Novel with ID ${id} not found.`); // [cite: 1825]
+        return null; // [cite: 1825]
     }
-    if (error) throw error; // Throw other Supabase errors
+    if (error) throw error; // [cite: 1826]
 
-    return data as Novel || null; // Return data or null
+    return data as Novel || null; // [cite: 1827]
   } catch (error) {
-    return handleSupabaseError(error, `getNovel (ID: ${id})`);
+    return handleSupabaseError(error, `getNovel (ID: ${id})`); // [cite: 1828]
   }
 }
 
-// --- Chapter Functions ---
 
-/**
- * Fetches all chapters for a given novel ID, ordered by chapter number.
- * @param novelId - The ID of the novel.
- * @returns A promise resolving to an array of ChapterType or an empty array.
- */
+// --- Chapter Functions --- (Keep as is)
 export async function getNovelChapters(novelId: number): Promise<ChapterType[]> {
   if (isNaN(novelId) || novelId <= 0) {
-    console.error('[api.getNovelChapters] Invalid novel ID:', novelId);
-    return [];
+    console.error('[api.getNovelChapters] Invalid novel ID:', novelId); // [cite: 1831]
+    return []; // [cite: 1831]
   }
   try {
     const { data, error } = await supabase
       .from('chapters')
       .select(CHAPTER_SELECT)
       .eq('novel_id', novelId)
-      .order('chapter_number', { ascending: true }); // Order chapters correctly
-    if (error) throw error;
-    return (data as ChapterType[]) || []; // Ensure return type is always array
+      .order('chapter_number', { ascending: true }); // [cite: 1832]
+    if (error) throw error; // [cite: 1832]
+    return (data as ChapterType[]) || []; // [cite: 1833]
   } catch (error) {
-    return handleSupabaseError(error, `getNovelChapters (Novel ID: ${novelId})`) ?? [];
+    return handleSupabaseError(error, `getNovelChapters (Novel ID: ${novelId})`) ?? []; // [cite: 1834]
   }
 }
 
-/**
- * Fetches a specific chapter by novel ID and chapter number.
- * @param novelId - The ID of the novel.
- * @param chapterNumber - The number of the chapter.
- * @returns A promise resolving to the ChapterType object or null.
- */
 export async function getChapter(novelId: number, chapterNumber: number): Promise<ChapterType | null> {
    if (isNaN(novelId) || novelId <= 0 || isNaN(chapterNumber) || chapterNumber <= 0) {
-     console.error('[api.getChapter] Invalid novel or chapter ID requested:', { novelId, chapterNumber });
-     return null;
+     console.error('[api.getChapter] Invalid novel or chapter ID requested:', { novelId, chapterNumber }); // [cite: 1838]
+     return null; // [cite: 1838]
   }
   try {
     const { data, error } = await supabase
@@ -165,311 +126,280 @@ export async function getChapter(novelId: number, chapterNumber: number): Promis
       .select(CHAPTER_SELECT)
       .eq('novel_id', novelId)
       .eq('chapter_number', chapterNumber)
-      .single(); // Expect only one chapter
+      .single(); // [cite: 1839]
 
     if (error && error.code === 'PGRST116') {
-       console.log(`[api.getChapter] Chapter number ${chapterNumber} for novel ${novelId} not found.`);
-       return null;
+       console.log(`[api.getChapter] Chapter number ${chapterNumber} for novel ${novelId} not found.`); // [cite: 1840]
+       return null; // [cite: 1840]
     }
-    if (error) throw error;
+    if (error) throw error; // [cite: 1841]
 
-    return data as ChapterType || null;
+    return data as ChapterType || null; // [cite: 1841]
   } catch (error) {
-    return handleSupabaseError(error, `getChapter (Novel: ${novelId}, Chapter: ${chapterNumber})`);
+    return handleSupabaseError(error, `getChapter (Novel: ${novelId}, Chapter: ${chapterNumber})`); // [cite: 1841]
   }
 }
 
-/**
- * Deletes a specific chapter.
- * @param novelId - The ID of the novel (for verification).
- * @param chapterId - The ID of the chapter to delete.
- * @returns A promise resolving to true on success, false on failure.
- */
 export async function deleteChapter(novelId: number, chapterId: number): Promise<boolean> {
    if (isNaN(novelId) || novelId <= 0 || isNaN(chapterId) || chapterId <= 0) {
-     console.error('[api.deleteChapter] Invalid novel or chapter ID for deletion:', { novelId, chapterId });
-     return false;
+     console.error('[api.deleteChapter] Invalid novel or chapter ID for deletion:', { novelId, chapterId }); // [cite: 1846]
+     return false; // [cite: 1846]
   }
   try {
-    // Ensure deletion targets the correct novel using eq('novel_id', novelId)
     const { error } = await supabase
         .from('chapters')
         .delete()
         .eq('id', chapterId)
-        .eq('novel_id', novelId);
-    if (error) throw error;
-    return true;
+        .eq('novel_id', novelId); // [cite: 1847]
+    if (error) throw error; // [cite: 1847]
+    return true; // [cite: 1847]
   } catch (error) {
-    handleSupabaseError(error, `deleteChapter (Chapter ID: ${chapterId})`);
-    return false;
+    handleSupabaseError(error, `deleteChapter (Chapter ID: ${chapterId})`); // [cite: 1848]
+    return false; // [cite: 1848]
   }
 }
 
-/**
- * Adds a new chapter to a novel.
- * @param novelId - The ID of the novel to add the chapter to.
- * @param chapterData - Partial chapter data (requires at least chapter_number).
- * @returns A promise resolving to the newly created ChapterType object or null.
- */
 export async function addChapter(novelId: number, chapterData: Partial<ChapterType>): Promise<ChapterType | null> {
-   if (isNaN(novelId) || novelId <= 0) { console.error('[api.addChapter] Invalid novel ID:', novelId); return null; }
-  if (!chapterData.chapter_number || chapterData.chapter_number <= 0) { console.error('[api.addChapter] Invalid chapter number provided:', chapterData.chapter_number); return null; }
+   if (isNaN(novelId) || novelId <= 0) { console.error('[api.addChapter] Invalid novel ID:', novelId); // [cite: 1852]
+   return null; } // [cite: 1852]
+  if (!chapterData.chapter_number || chapterData.chapter_number <= 0) { console.error('[api.addChapter] Invalid chapter number provided:', chapterData.chapter_number); return null; // [cite: 1853]
+  }
   try {
     const { data, error } = await supabase
       .from('chapters')
-      .insert({ ...chapterData, novel_id: novelId }) // Ensure novel_id is set
-      .select(CHAPTER_SELECT) // Select the full data of the new chapter
-      .single();
-    if (error) throw error;
-    return data as ChapterType || null;
+      .insert({ ...chapterData, novel_id: novelId }) // [cite: 1854]
+      .select(CHAPTER_SELECT) // [cite: 1854]
+      .single(); // [cite: 1854]
+    if (error) throw error; // [cite: 1854]
+    return data as ChapterType || null; // [cite: 1855]
   } catch (error) {
-    return handleSupabaseError(error, `addChapter (Novel ID: ${novelId})`);
+    return handleSupabaseError(error, `addChapter (Novel ID: ${novelId})`); // [cite: 1855]
   }
 }
 
-/**
- * Updates an existing chapter.
- * @param novelId - The ID of the novel (for verification).
- * @param chapterId - The ID of the chapter to update.
- * @param updateData - An object containing the fields to update.
- * @returns A promise resolving to true on success, false on failure.
- */
 export async function updateChapter(novelId: number, chapterId: number, updateData: Partial<Omit<ChapterType, 'id' | 'novel_id' | 'created_at'>>): Promise<boolean> {
-  if (isNaN(novelId) || novelId <= 0 || isNaN(chapterId) || chapterId <= 0) { console.error('[api.updateChapter] Invalid novel or chapter ID for update:', { novelId, chapterId }); return false; }
+  if (isNaN(novelId) || novelId <= 0 || isNaN(chapterId) || chapterId <= 0) { console.error('[api.updateChapter] Invalid novel or chapter ID for update:', { novelId, chapterId }); // [cite: 1861]
+  return false; } // [cite: 1861]
 
-  // Ensure there's actually data to update
-  const cleanData = { ...updateData };
-  if (Object.keys(cleanData).length === 0) { console.warn("[api.updateChapter] called with empty data."); return true; } // No update needed
+  const cleanData = { ...updateData }; // [cite: 1862]
+  if (Object.keys(cleanData).length === 0) { console.warn("[api.updateChapter] called with empty data."); return true; // [cite: 1863]
+  }
 
   try {
-    console.log(`[api.updateChapter] Updating chapter ${chapterId} with data:`, cleanData);
-    // Ensure update targets the correct novel
+    console.log(`[api.updateChapter] Updating chapter ${chapterId} with data:`, cleanData); // [cite: 1864]
     const { error } = await supabase
         .from('chapters')
         .update(cleanData)
         .eq('id', chapterId)
-        .eq('novel_id', novelId);
-    if (error) throw error;
-    return true;
+        .eq('novel_id', novelId); // [cite: 1865]
+    if (error) throw error; // [cite: 1865]
+    return true; // [cite: 1866]
   } catch (error) {
-    handleSupabaseError(error, `updateChapter (Chapter ID: ${chapterId})`);
-    return false;
+    handleSupabaseError(error, `updateChapter (Chapter ID: ${chapterId})`); // [cite: 1866]
+    return false; // [cite: 1866]
   }
 }
 
-/**
- * Updates the lock status for all chapters of a novel.
- * @param novelId - The ID of the novel.
- * @param isLocked - The new lock status (true for locked, false for unlocked).
- * @returns A promise resolving to true on success, false on failure.
- */
 export async function updateAllChaptersLockStatus(novelId: number, isLocked: boolean): Promise<boolean> {
-  if (isNaN(novelId) || novelId <= 0) { console.error('[api.updateAllChaptersLockStatus] Invalid novel ID:', novelId); return false; }
+  if (isNaN(novelId) || novelId <= 0) { console.error('[api.updateAllChaptersLockStatus] Invalid novel ID:', novelId); // [cite: 1870]
+  return false; } // [cite: 1870]
   try {
-    console.log(`[api.updateAllChaptersLockStatus] Setting all chapters for novel ${novelId} to is_locked: ${isLocked}`);
+    console.log(`[api.updateAllChaptersLockStatus] Setting all chapters for novel ${novelId} to is_locked: ${isLocked}`); // [cite: 1871]
     const { error } = await supabase
         .from('chapters')
         .update({ is_locked: isLocked })
-        .eq('novel_id', novelId);
-    if (error) throw error;
-    console.log(`[api.updateAllChaptersLockStatus] Bulk update successful for novel ${novelId}.`);
-    return true;
+        .eq('novel_id', novelId); // [cite: 1872]
+    if (error) throw error; // [cite: 1872]
+    console.log(`[api.updateAllChaptersLockStatus] Bulk update successful for novel ${novelId}.`); // [cite: 1872]
+    return true; // [cite: 1873]
   } catch (error) {
-    handleSupabaseError(error, `updateAllChaptersLockStatus (Novel ID: ${novelId})`);
-    return false;
+    handleSupabaseError(error, `updateAllChaptersLockStatus (Novel ID: ${novelId})`); // [cite: 1873]
+    return false; // [cite: 1874]
   }
 }
 
 // --- COMMENT FUNCTIONS ---
 
 /**
- * Fetches comments for a specific chapter.
+ * **MODIFIED FOR PAGINATION**
+ * Fetches comments for a specific chapter, paginated.
  * RLS policy automatically filters based on approval status for non-admins.
  * Includes commenter's username and guest status.
  * @param chapterId - The ID of the chapter.
- * @returns A promise resolving to an array of Comments or an empty array.
+ * @param page - The page number to fetch (1-indexed).
+ * @param pageSize - The number of comments per page.
+ * @returns A promise resolving to an object containing comments for the page and the total count, or null on error.
  */
-export async function getChapterComments(chapterId: number): Promise<Comment[]> {
-  if (isNaN(chapterId) || chapterId <= 0) { console.error('[api.getChapterComments] Invalid chapter ID:', chapterId); return []; }
+export async function getChapterComments(
+  chapterId: number,
+  page: number = 1,
+  pageSize: number = 15 // Default page size
+): Promise<{ comments: Comment[]; totalCount: number } | null> {
+  if (isNaN(chapterId) || chapterId <= 0) {
+    console.error('[api.getChapterComments] Invalid chapter ID:', chapterId); // [cite: 1878]
+    return null;
+  }
+  if (page < 1 || pageSize < 1) {
+    console.error('[api.getChapterComments] Invalid pagination parameters:', { page, pageSize });
+    return null;
+  }
+
+  // Calculate offset for Supabase range
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
   try {
-    const { data, error } = await supabase
+    // Fetch comments for the specific range and the total count
+    const { data, error, count } = await supabase
       .from('comments')
-      .select(COMMENT_SELECT) // Includes profiles(username, is_guest)
+      .select(COMMENT_SELECT, { count: 'exact' }) // Request total count
       .eq('chapter_id', chapterId)
       .is('parent_comment_id', null) // Fetch only top-level comments
-      .order('created_at', { ascending: true }); // Oldest first
+      .order('created_at', { ascending: true }) // Oldest first
+      .range(from, to); // Apply pagination range
 
-    if (error) throw error;
+    if (error) throw error; // [cite: 1880]
 
-    // Process data to ensure 'profiles' matches the expected type (object or null)
     const commentsWithCorrectProfileType = (data || []).map((c: any) => {
       let profileData: Pick<Profile, 'username' | 'is_guest'> | null = null;
       if (c.profiles && typeof c.profiles === 'object' && !Array.isArray(c.profiles)) {
         profileData = { username: c.profiles.username, is_guest: c.profiles.is_guest };
       }
-      // Remove the original 'profiles' field before spreading base comment
-      const { profiles, ...baseComment } = c;
+      const { profiles, ...baseComment } = c; // [cite: 1881]
       return { ...baseComment, profiles: profileData };
-    });
+    }); // [cite: 1882]
 
-    return commentsWithCorrectProfileType as Comment[];
+    return {
+        comments: commentsWithCorrectProfileType as Comment[],
+        totalCount: count ?? 0 // Supabase returns count if 'exact' is specified
+    };
   } catch (error) {
-    return handleSupabaseError(error, `getChapterComments (Chapter ID: ${chapterId})`) ?? [];
+    // Return null on error, consistent with other functions
+    handleSupabaseError(error, `getChapterComments (Chapter ID: ${chapterId}, Page: ${page})`);
+    return null;
   }
 }
 
-/**
- * Adds a new comment to a chapter. Comment defaults to unapproved.
- * @param userId - The ID of the user (can be anonymous/guest).
- * @param chapterId - The ID of the chapter being commented on.
- * @param content - The text content of the comment.
- * @param parentCommentId - Optional ID of the parent comment for replies.
- * @returns A promise resolving to the newly created Comment object (with profile info) or null.
- */
+
+// --- Rest of the API functions (addComment, deleteComment, admin functions) remain the same ---
+
 export async function addComment(userId: string, chapterId: number, content: string, parentCommentId: number | null = null): Promise<Comment | null> {
-  console.log(`[api.addComment] Attempting insert: userId=${userId}, chapterId=${chapterId}`);
-  if (!userId) { console.error('[api.addComment] User ID is required.'); return null; }
-  if (isNaN(chapterId) || chapterId <= 0) { console.error('[api.addComment] Invalid chapter ID:', chapterId); return null; }
-  if (!content.trim()) { console.error('[api.addComment] Comment content cannot be empty.'); return null; }
+  console.log(`[api.addComment] Attempting insert: userId=${userId}, chapterId=${chapterId}`); // [cite: 1890]
+  if (!userId) { console.error('[api.addComment] User ID is required.'); return null; // [cite: 1891]
+  }
+  if (isNaN(chapterId) || chapterId <= 0) { console.error('[api.addComment] Invalid chapter ID:', chapterId); return null; // [cite: 1892]
+  }
+  if (!content.trim()) { console.error('[api.addComment] Comment content cannot be empty.'); return null; // [cite: 1893]
+  }
 
   try {
-    // Step 1: Insert the comment (is_approved defaults to false in DB)
-    console.log('[api.addComment] Inserting comment data...');
+    console.log('[api.addComment] Inserting comment data...'); // [cite: 1894]
     const { data: insertedComment, error: insertError } = await supabase
       .from('comments')
       .insert({ user_id: userId, chapter_id: chapterId, content: content.trim(), parent_comment_id: parentCommentId })
       .select() // Select the basic inserted row
-      .single();
-
+      .single(); // [cite: 1895]
     if (insertError) {
-        console.error('[api.addComment] Supabase insert error:', insertError);
-        throw insertError;
+        console.error('[api.addComment] Supabase insert error:', insertError); // [cite: 1895]
+        throw insertError; // [cite: 1896]
     }
     if (!insertedComment) {
-        console.error('[api.addComment] Insert succeeded but no data returned.');
-        return null; // Cannot proceed without the inserted comment data
+        console.error('[api.addComment] Insert succeeded but no data returned.'); // [cite: 1897]
+        return null; // [cite: 1897]
     }
-    console.log('[api.addComment] Insert successful, comment ID:', insertedComment.id);
-
-    // Step 2: Fetch the profile data for the commenter
-    console.log(`[api.addComment] Fetching profile for userId: ${userId}`);
+    console.log('[api.addComment] Insert successful, comment ID:', insertedComment.id); // [cite: 1898]
+    console.log(`[api.addComment] Fetching profile for userId: ${userId}`); // [cite: 1899]
     const { data: profileDataResult, error: profileError } = await supabase
         .from('profiles')
         .select('username, is_guest')
         .eq('id', userId)
-        .maybeSingle(); // Profile might exist or might have just been created
+        .maybeSingle(); // [cite: 1900]
 
      if (profileError) {
-         // Log error but continue, profile might be missing temporarily
-         console.error("[api.addComment] Error fetching profile for new comment:", profileError);
+         console.error("[api.addComment] Error fetching profile for new comment:", profileError); // [cite: 1901]
      } else {
-          console.log("[api.addComment] Profile fetch successful:", profileDataResult);
+          console.log("[api.addComment] Profile fetch successful:", profileDataResult); // [cite: 1902]
      }
 
-     // Ensure profileDataResult is treated as an object or null
-     const profileData = profileDataResult as Pick<Profile, 'username' | 'is_guest'> | null;
+     const profileData = profileDataResult as Pick<Profile, 'username' | 'is_guest'> | null; // [cite: 1903]
 
-    // Step 3: Construct the final Comment object to return to the client
     const finalComment: Comment = {
-        ...(insertedComment as Omit<Comment, 'profiles'>), // Use inserted data
-        profiles: profileData ? { username: profileData.username, is_guest: profileData.is_guest } : null, // Add fetched profile
-        is_approved: insertedComment.is_approved ?? false // is_approved from inserted data (should be false)
+        ...(insertedComment as Omit<Comment, 'profiles'>), // [cite: 1904]
+        profiles: profileData ? { username: profileData.username, is_guest: profileData.is_guest } : null, // [cite: 1904]
+        is_approved: insertedComment.is_approved ?? false // [cite: 1905]
     };
-    console.log("[api.addComment] Successfully constructed final comment object:", finalComment);
-    return finalComment;
+    console.log("[api.addComment] Successfully constructed final comment object:", finalComment); // [cite: 1906]
+    return finalComment; // [cite: 1906]
 
   } catch (error) {
-    console.error(`[api.addComment] Caught error during comment addition for chapter ${chapterId}:`, error);
-    return handleSupabaseError(error, `addComment (Chapter ID: ${chapterId})`);
+    console.error(`[api.addComment] Caught error during comment addition for chapter ${chapterId}:`, error); // [cite: 1907]
+    return handleSupabaseError(error, `addComment (Chapter ID: ${chapterId})`); // [cite: 1907]
   }
 }
 
-/**
- * Deletes a comment by its ID. Relies on RLS for authorization.
- * @param commentId - The ID of the comment to delete.
- * @returns A promise resolving to true on success, false on failure.
- */
 export async function deleteComment(commentId: number): Promise<boolean> {
-   if (isNaN(commentId) || commentId <= 0) { console.error('[api.deleteComment] Invalid comment ID:', commentId); return false; }
+   if (isNaN(commentId) || commentId <= 0) { console.error('[api.deleteComment] Invalid comment ID:', commentId); // [cite: 1911]
+   return false; } // [cite: 1911]
   try {
-    const { error } = await supabase.from('comments').delete().eq('id', commentId);
-    if (error) throw error;
-    return true;
+    const { error } = await supabase.from('comments').delete().eq('id', commentId); // [cite: 1912]
+    if (error) throw error; // [cite: 1912]
+    return true; // [cite: 1912]
   } catch (error) {
-    handleSupabaseError(error, `deleteComment (Comment ID: ${commentId})`);
-    return false;
+    handleSupabaseError(error, `deleteComment (Comment ID: ${commentId})`); // [cite: 1913]
+    return false; // [cite: 1913]
   }
 }
 
 // --- ADMIN MODERATION FUNCTIONS ---
 
-/**
- * Fetches all unapproved comments. (Requires admin privileges via RLS).
- * Includes chapter and novel context.
- * @returns A promise resolving to an array of Comments with context or an empty array.
- */
 export async function getUnapprovedComments(): Promise<(Comment & { chapters: { title: string, novel_id: number, novels: { title: string, id: number } | null } | null })[]> {
    try {
-    // Select comment data, chapter title/novel_id, and novel title/id
     const { data, error } = await supabase
       .from('comments')
       .select(`
         ${COMMENT_SELECT},
         chapters ( title, novel_id, novels ( title, id ) )
-      `)
-      .eq('is_approved', false) // Filter for unapproved
-      .order('created_at', { ascending: true }); // Oldest first
+      `) // [cite: 1916]
+      .eq('is_approved', false) // [cite: 1916]
+      .order('created_at', { ascending: true }); // [cite: 1917]
 
-    if (error) throw error;
-
-     // Process data to ensure correct nested types
+    if (error) throw error; // [cite: 1918]
      const commentsWithContext = (data || []).map((c: any) => {
-        // Process profile data
         let profileData: Pick<Profile, 'username' | 'is_guest'> | null = null;
         if (c.profiles && typeof c.profiles === 'object' && !Array.isArray(c.profiles)) {
             profileData = { username: c.profiles.username, is_guest: c.profiles.is_guest };
-        }
-        // Process chapters/novels data
+        } // [cite: 1919]
         let chapterDataProcessed: { title: string; novel_id: number; novels: { title: string; id: number; } | null; } | null = null;
         if (c.chapters && typeof c.chapters === 'object' && !Array.isArray(c.chapters)) {
             let novelDataProcessed: { title: string; id: number; } | null = null;
             if (c.chapters.novels && typeof c.chapters.novels === 'object' && !Array.isArray(c.chapters.novels)) {
-                novelDataProcessed = { title: c.chapters.novels.title, id: c.chapters.novels.id };
+                 novelDataProcessed = { title: c.chapters.novels.title, id: c.chapters.novels.id }; // [cite: 1920]
             }
             chapterDataProcessed = {
                 title: c.chapters.title, novel_id: c.chapters.novel_id, novels: novelDataProcessed
-            };
+            }; // [cite: 1921]
         }
-        // Remove original joined fields before spreading base comment
-        const { profiles, chapters, ...baseComment } = c;
-        // Construct final object
-        return { ...baseComment, profiles: profileData, chapters: chapterDataProcessed };
-    });
-
-    // Cast the final result
-    return commentsWithContext as (Comment & { chapters: { title: string, novel_id: number, novels: { title: string, id: number } | null } | null })[];
-  } catch (error) {
-    return handleSupabaseError(error, 'getUnapprovedComments') ?? [];
-  }
+        const { profiles, chapters, ...baseComment } = c; // [cite: 1922]
+        return { ...baseComment, profiles: profileData, chapters: chapterDataProcessed }; // [cite: 1922]
+    }); // [cite: 1923]
+    return commentsWithContext as (Comment & { chapters: { title: string, novel_id: number, novels: { title: string, id: number } | null } | null })[]; // [cite: 1924]
+   } catch (error) {
+    return handleSupabaseError(error, 'getUnapprovedComments') ?? []; // [cite: 1925]
+   }
 }
 
-/**
- * Approves a specific comment by setting is_approved to true. (Requires admin privileges).
- * @param commentId - The ID of the comment to approve.
- * @returns A promise resolving to true on success, false on failure.
- */
 export async function approveComment(commentId: number): Promise<boolean> {
-   if (isNaN(commentId) || commentId <= 0) { console.error('[api.approveComment] Invalid comment ID:', commentId); return false; }
+   if (isNaN(commentId) || commentId <= 0) { console.error('[api.approveComment] Invalid comment ID:', commentId); // [cite: 1929]
+   return false; } // [cite: 1929]
   try {
-    // Update the comment's status
     const { error } = await supabase
       .from('comments')
-      .update({ is_approved: true, updated_at: new Date().toISOString() }) // Set approved and update timestamp
-      .eq('id', commentId);
-    if (error) throw error;
-    return true;
+      .update({ is_approved: true, updated_at: new Date().toISOString() }) // [cite: 1930]
+      .eq('id', commentId); // [cite: 1930]
+    if (error) throw error; // [cite: 1930]
+    return true; // [cite: 1930]
   } catch (error) {
-    handleSupabaseError(error, `approveComment (Comment ID: ${commentId})`);
-    return false;
+    handleSupabaseError(error, `approveComment (Comment ID: ${commentId})`); // [cite: 1931]
+    return false; // [cite: 1931]
   }
 }
