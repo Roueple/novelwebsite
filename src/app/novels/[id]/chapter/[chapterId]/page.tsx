@@ -18,7 +18,7 @@ import FloatingReadingControls from '@/components/reading/FloatingReadingControl
 import DirectChapterNavigation from '@/components/reading/DirectChapterNavigation';
 import LoadingSpinner from '@/components/ui/loading-spinner';
 
-// Dynamic imports and fallbacks remain the same
+// Dynamic imports and fallbacks
 const ChapterComments = dynamic(() => import('@/components/reading/ChapterComments'), {
   ssr: false,
   loading: () => <CommentsFallback />,
@@ -35,7 +35,7 @@ function CommentsFallback() {
     );
 }
 
-const AUTO_HIDE_DELAY = 3000; // 3 seconds
+const AUTO_HIDE_DELAY = 3500; // 3.5 seconds delay for auto-hide
 
 export default function ChapterPage() {
   // --- Hooks and State ---
@@ -54,15 +54,17 @@ export default function ChapterPage() {
     toggleEffects, toggleAnimations, changeFontFamily, changeLineSpacing,
     resetPreferences,
   } = useReadingPreferences();
-  // NEW State for UI visibility
-  const [uiVisible, setUiVisible] = useState(true);
-  const [focusModeActive, setFocusModeActive] = useState(false); // To enable/disable the hide/show behavior
+
+  // UI Visibility State
+  const [focusModeActive, setFocusModeActive] = useState(false); // Is focus mode enabled?
+  const [uiVisible, setUiVisible] = useState(true); // Are controls currently shown?
   const autoHideTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const mainContentRef = useRef<HTMLDivElement>(null); // Ref for the main content area
+
   const isAuthor = useMemo(() => user !== null && role === 'admin', [user, role]);
 
   // Calculate Prev/Next Chapter
   const { prevChapter, nextChapter } = useMemo(() => {
-    // (Logic remains the same as before)
     if (!allChapters) return { prevChapter: null, nextChapter: null };
     const sortedChapters = [...allChapters].sort((a, b) => a.chapter_number - b.chapter_number);
     const currentIndex = sortedChapters.findIndex(ch => ch.chapter_number === chapterNumber);
@@ -72,10 +74,10 @@ export default function ChapterPage() {
     return { prevChapter: prev, nextChapter: next };
   }, [allChapters, chapterNumber]);
 
-  // --- Data Fetching Effects (remain the same) ---
+  // --- Data Fetching Effects ---
   // Effect 1: Fetch Novel Details and Chapter List
   useEffect(() => {
-    // (Logic remains the same as before)
+    // (Logic remains the same - fetch novel/chapter list)
     if (isNaN(novelId) || novelId <= 0) { setPageError("Invalid Novel ID."); return; }
     let isMounted = true;
     setPageError(null); setNovel(null); setAllChapters(null); setCurrentChapter(null);
@@ -94,7 +96,7 @@ export default function ChapterPage() {
 
   // Effect 2: Fetch Specific Chapter Content
   useEffect(() => {
-    // (Logic remains the same as before)
+    // (Logic remains the same - fetch current chapter content)
      if (!novel || !allChapters || pageError) return;
      if (isNaN(chapterNumber) || chapterNumber <= 0) { setPageError("Invalid Chapter Number."); return; }
      const chapterMeta = allChapters.find(ch => ch.chapter_number === chapterNumber);
@@ -115,99 +117,149 @@ export default function ChapterPage() {
 
   // --- UI Interaction Effects ---
 
-  // Apply reading preferences (Removed focus-mode class logic)
+  // Apply reading preferences
   useEffect(() => {
+    // (Logic remains the same - apply CSS vars, disable-animations class)
     const root = document.documentElement;
     root.style.setProperty('--reading-line-height', lineSpacing.toString());
     root.style.setProperty('--reading-font-family', fontFamily);
     root.style.setProperty('--reading-font-size', textSize === 'sm' ? '0.9rem' : textSize === 'md' ? '1rem' : textSize === 'lg' ? '1.1rem' : '1.2rem');
     root.classList.toggle('disable-animations', !animationsEnabled);
-    // Removed: document.body.classList.toggle('focus-mode-wrapper', isFocusMode);
     return () => {
       root.style.removeProperty('--reading-line-height');
       root.style.removeProperty('--reading-font-family');
       root.style.removeProperty('--reading-font-size');
       root.classList.remove('disable-animations');
-      // Removed: document.body.classList.remove('focus-mode-wrapper');
     };
   }, [animationsEnabled, lineSpacing, fontFamily, textSize]);
 
-  // Keyboard shortcuts (updated 'f' key for focus mode)
+  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
        const target = e.target as HTMLElement;
-       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+       // Ignore if typing in inputs/textareas
+       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
+
        if (e.key === 'Escape') {
-         if (showSettingsMenu) setShowSettingsMenu(false);
-         else if (focusModeActive && !uiVisible) setUiVisible(true); // Show UI if hidden
-         else if (focusModeActive && uiVisible) setFocusModeActive(false); // Exit focus mode if UI visible
+         if (showSettingsMenu) {
+             setShowSettingsMenu(false); // Close settings first
+         } else if (focusModeActive && !uiVisible) {
+             setUiVisible(true); // Show UI if hidden
+             // Restart timer on manual reveal via Esc
+             if (autoHideTimerRef.current) clearTimeout(autoHideTimerRef.current);
+             autoHideTimerRef.current = setTimeout(() => { setUiVisible(false); }, AUTO_HIDE_DELAY);
+         } else if (focusModeActive && uiVisible) {
+             setFocusModeActive(false); // Exit focus mode if UI is already visible
+         }
+         e.preventDefault(); // Prevent default Escape behavior
          return;
        }
-       if (e.key === 's' && !e.ctrlKey && !e.metaKey && !e.altKey) { setShowSettingsMenu(prev => !prev); return; }
-       // Toggle focus mode enable/disable
-       if (e.key === 'f' && !e.ctrlKey && !e.metaKey && !e.altKey) {
-           setFocusModeActive(prev => !prev);
-           setUiVisible(true); // Always show UI when toggling focus mode state
-           if (autoHideTimerRef.current) clearTimeout(autoHideTimerRef.current); // Clear timer when exiting focus mode
+       if (e.key === 's' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+           setShowSettingsMenu(prev => !prev); // Toggle settings
+           e.preventDefault();
            return;
        }
-       // Text size adjustments (remain the same)
+       // Toggle focus mode enable/disable
+       if (e.key === 'f' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+           setFocusModeActive(prev => {
+               const nextState = !prev;
+               if (!nextState) { // Exiting focus mode
+                   setUiVisible(true); // Ensure UI is visible
+                   if (autoHideTimerRef.current) clearTimeout(autoHideTimerRef.current); // Clear timer
+               } else { // Entering focus mode
+                   setUiVisible(false); // Immediately hide UI
+                   // Start timer automatically when entering focus mode via key
+                   if (autoHideTimerRef.current) clearTimeout(autoHideTimerRef.current);
+                   autoHideTimerRef.current = setTimeout(() => { setUiVisible(false); }, AUTO_HIDE_DELAY);
+               }
+               return nextState;
+           });
+           e.preventDefault();
+           return;
+       }
+       // Text size adjustments (only if settings menu is closed)
        if ((e.ctrlKey || e.metaKey) && !showSettingsMenu) {
-         if (e.key === '+' || e.key === '=') { /* ... */ }
-         else if (e.key === '-') { /* ... */ }
+         if (e.key === '+' || e.key === '=') {
+            e.preventDefault();
+            if (textSize === 'sm') changeTextSize('md');
+            else if (textSize === 'md') changeTextSize('lg');
+            else if (textSize === 'lg') changeTextSize('xl');
+         } else if (e.key === '-') {
+             e.preventDefault();
+             if (textSize === 'xl') changeTextSize('lg');
+             else if (textSize === 'lg') changeTextSize('md');
+             else if (textSize === 'md') changeTextSize('sm');
+         }
          return;
        }
-       // Chapter navigation (remain the same)
-       if (!e.ctrlKey && !e.metaKey && !e.altKey && !showSettingsMenu && uiVisible) { // Only allow nav if UI visible
-         if (e.key === 'ArrowLeft' && prevChapter) router.push(`/novels/${novelId}/chapter/${prevChapter.chapter_number}`);
-         else if (e.key === 'ArrowRight' && nextChapter) router.push(`/novels/${novelId}/chapter/${nextChapter.chapter_number}`);
+       // Chapter navigation (only if settings menu is closed and UI is visible)
+       if (!e.ctrlKey && !e.metaKey && !e.altKey && !showSettingsMenu && uiVisible) {
+         if (e.key === 'ArrowLeft' && prevChapter) {
+             router.push(`/novels/${novelId}/chapter/${prevChapter.chapter_number}`);
+             e.preventDefault();
+         } else if (e.key === 'ArrowRight' && nextChapter) {
+             router.push(`/novels/${novelId}/chapter/${nextChapter.chapter_number}`);
+             e.preventDefault();
+         }
        }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [ showSettingsMenu, setShowSettingsMenu, textSize, changeTextSize, focusModeActive, uiVisible, router, novelId, prevChapter, nextChapter ]);
+  }, [ showSettingsMenu, setShowSettingsMenu, textSize, changeTextSize, focusModeActive, uiVisible, router, novelId, prevChapter, nextChapter ]); // Include uiVisible
 
-  // Click/Tap Listener for Focus Mode UI Reveal
+  // Click/Tap Listener for Focus Mode UI Reveal/Hide Timer Reset
   useEffect(() => {
+    const mainEl = mainContentRef.current;
+    if (!mainEl || !focusModeActive) {
+      // If not in focus mode, ensure timer is cleared and UI is visible
+      if (autoHideTimerRef.current) clearTimeout(autoHideTimerRef.current);
+      setUiVisible(true); // Keep UI visible when not in focus mode
+      return;
+    }
+
+    // Function to handle interaction: show UI and reset timer
     const handleInteraction = () => {
-      if (focusModeActive) {
-        // If UI is hidden, show it and start the timer
-        if (!uiVisible) {
-          setUiVisible(true);
-        }
-        // Always clear existing timer and start a new one on interaction
-        if (autoHideTimerRef.current) {
-          clearTimeout(autoHideTimerRef.current);
-        }
-        autoHideTimerRef.current = setTimeout(() => {
-          setUiVisible(false); // Hide UI after delay
-        }, AUTO_HIDE_DELAY);
+      if (!uiVisible) {
+        setUiVisible(true); // Show UI immediately if hidden
       }
+      // Clear existing timer and start a new one
+      if (autoHideTimerRef.current) {
+        clearTimeout(autoHideTimerRef.current);
+      }
+      autoHideTimerRef.current = setTimeout(() => {
+        // Only hide if focus mode is still active when timer fires
+        if (focusModeActive) {
+            setUiVisible(false);
+        }
+      }, AUTO_HIDE_DELAY);
     };
 
-    // Attach listeners only when focus mode is active
-    if (focusModeActive) {
-      document.body.addEventListener('click', handleInteraction);
-      document.body.addEventListener('mousemove', handleInteraction); // Also reset timer on mouse move
-      // Initial hide when focus mode is activated
-      handleInteraction(); // Start the timer immediately
-    } else {
-        // Ensure UI is visible when focus mode is deactivated
-        setUiVisible(true);
-        if (autoHideTimerRef.current) {
-             clearTimeout(autoHideTimerRef.current); // Clean up timer if focus mode is turned off
-        }
+    // Attach listeners to the main content area
+    mainEl.addEventListener('click', handleInteraction);
+    mainEl.addEventListener('mousemove', handleInteraction);
+
+    // Initial hide when focus mode effect runs (or if already active)
+    // But only if UI isn't already meant to be visible (e.g. just toggled focus mode)
+    if (focusModeActive && uiVisible) {
+       // If focus mode just got activated AND ui is still visible, start timer to hide it
+       handleInteraction();
+    } else if (focusModeActive && !uiVisible) {
+        // If focus mode is active and UI should be hidden, ensure it is
+        setUiVisible(false);
+        if (autoHideTimerRef.current) clearTimeout(autoHideTimerRef.current); // Clear timer if already hidden
     }
+
 
     // Cleanup
     return () => {
-      document.body.removeEventListener('click', handleInteraction);
-      document.body.removeEventListener('mousemove', handleInteraction);
+      mainEl.removeEventListener('click', handleInteraction);
+      mainEl.removeEventListener('mousemove', handleInteraction);
       if (autoHideTimerRef.current) {
         clearTimeout(autoHideTimerRef.current);
       }
     };
-  }, [focusModeActive, uiVisible]); // Rerun when focus mode state changes
+    // Rerun when focus mode state changes OR uiVisible changes (to manage timer correctly)
+  }, [focusModeActive, uiVisible]);
 
 
   // --- Render Logic ---
@@ -219,16 +271,15 @@ export default function ChapterPage() {
 
   // Main Render
   return (
-    // Apply reading class for theme variables
-    <div className={cn("reading", "min-h-screen")}>
+    <div className={cn("reading", "min-h-screen")}> {/* Apply reading theme class */}
         {/* Conditionally render Header based on uiVisible */}
         {uiVisible && (
             <ReadingHeader
                 novel={novel}
                 chapter={currentChapter}
                 isAuthor={isAuthor}
-                visible={true} // Controlled by parent now
-                setVisible={setUiVisible} // Allow header's hide button to control parent state
+                visible={true} // Visibility controlled by parent conditional render
+                setVisible={setUiVisible} // Can still allow header's hide button
                 showSettingsMenu={showSettingsMenu}
                 setShowSettingsMenu={setShowSettingsMenu}
                 effectsEnabled={effectsEnabled}
@@ -248,8 +299,8 @@ export default function ChapterPage() {
           onResetPreferences={resetPreferences}
         />
 
-        {/* Main Content */}
-        <main className="bg-background text-foreground pt-16 md:pt-20 pb-24">
+        {/* Main Content - ADD REF HERE */}
+        <main ref={mainContentRef} className="bg-background text-foreground pt-16 md:pt-20 pb-24 focus:outline-none" tabIndex={-1}> {/* Added ref and focus style */}
             <div className="max-w-4xl mx-auto px-4 md:px-8">
               {/* Chapter Title Skeleton */}
               {currentChapter ? (
@@ -295,18 +346,9 @@ export default function ChapterPage() {
                 novelId={novelId}
                 prevChapter={prevChapter}
                 nextChapter={nextChapter}
-                isScrolling={false} // Let parent handle scroll state if needed, or remove prop
+                isScrolling={false} // Hiding based on uiVisible, not scroll fade needed now
             />
          )}
-
-         {/* Optional: Button to toggle focus mode manually */}
-         {/* <button
-             onClick={() => setFocusModeActive(prev => !prev)}
-             className="fixed bottom-20 left-6 z-50 p-2 bg-secondary rounded-full shadow"
-             title={focusModeActive ? "Exit Focus Mode (F)" : "Enter Focus Mode (F)"}
-         >
-             {focusModeActive ? "Exit" : "Focus"}
-         </button> */}
     </div>
   );
 }
