@@ -1,20 +1,23 @@
 // src/components/reading/reading-view.tsx
 import React from 'react';
 import { Lock } from 'lucide-react';
-import DynamicText from './dynamic-text'; // Component to render text with effects
-import { cn } from '@/lib/utils';
-import { toast } from 'sonner'; // For user feedback (e.g., subscribe button)
+import DynamicText from './dynamic-text'; // [cite: 1657]
+import { cn } from '@/lib/utils'; // [cite: 1658]
+import { toast } from 'sonner'; // [cite: 1658]
+import LoadingSpinner from '@/components/ui/loading-spinner'; // <-- Import spinner
 
 interface ReadingViewProps {
-  content: string | null; // Content might be null if locked/unauthorized
-  isLocked: boolean; // Chapter's locked status
-  isAuthor: boolean; // To bypass lock overlay for author/admin
-  isEditing: false; // Ensure this is always false for this component
-  textSize: 'sm' | 'md' | 'lg' | 'xl'; // Text size preference
-  effectsEnabled: boolean; // Whether dynamic text effects are enabled
+  isLoading: boolean; // <-- ADDED: Prop to indicate content loading
+  content: string | null; // [cite: 1659]
+  isLocked: boolean; // [cite: 1660]
+  isAuthor: boolean; // [cite: 1660]
+  isEditing: false; // [cite: 1661]
+  textSize: 'sm' | 'md' | 'lg' | 'xl'; // [cite: 1662]
+  effectsEnabled: boolean; // [cite: 1662]
 }
 
 export default function ReadingView({
+  isLoading, // <-- ADDED: Destructure isLoading
   content,
   isLocked,
   isAuthor,
@@ -22,17 +25,29 @@ export default function ReadingView({
   effectsEnabled,
 }: ReadingViewProps) {
 
-  // Map text size state to Tailwind CSS classes
-  const sizeClasses = {
+  // Text size mapping (no change)
+  const sizeClasses = { // [cite: 1663]
     sm: 'prose-sm',
     md: 'prose-base',
     lg: 'prose-lg',
     xl: 'prose-xl'
   };
 
-  // --- Locked Content Handling ---
-  // Display lock overlay if the chapter is locked AND the user is not the author
-  if (isLocked && !isAuthor) {
+  // --- Loading State ---
+  // Display spinner centered within the content area if isLoading is true
+  if (isLoading) {
+    return (
+      <div className="w-full min-h-[50vh] flex items-center justify-center">
+         <div className="flex flex-col items-center space-y-3">
+            <LoadingSpinner size="lg" className="text-primary"/>
+            <p className="text-muted-foreground">Loading chapter content...</p>
+         </div>
+      </div>
+    );
+  }
+
+  // --- Locked Content Handling --- (No change)
+  if (isLocked && !isAuthor) { // [cite: 1664]
     return (
       <div className="max-w-4xl mx-auto px-4 md:px-8 text-center py-16">
         <Lock
@@ -40,7 +55,7 @@ export default function ReadingView({
           className="mx-auto mb-4 text-muted-foreground"
         />
         <h2 className="text-2xl font-bold mb-2 text-foreground">
-          Premium Chapter
+             Premium Chapter
         </h2>
         <p className="mb-8 text-muted-foreground">
           This chapter requires a subscription to read.
@@ -49,44 +64,39 @@ export default function ReadingView({
           className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
           onClick={() => toast.info('Subscription feature coming soon!')}
         >
-           Subscribe to Unlock
-        </button>
+             Subscribe to Unlock
+        </button> {/* [cite: 1665] */}
       </div>
-    );
+    ); // [cite: 1666]
   }
 
-  // --- Null Content Handling (for authorized users) ---
-  // If content is null, but it shouldn't be (e.g., chapter isn't locked, or user is author),
-  // it indicates an unexpected error (API issue, data corruption, etc.)
-  if (content === null && (!isLocked || isAuthor)) {
+  // --- Null Content Handling (for authorized users) --- (No change)
+  if (content === null && (!isLocked || isAuthor)) { // [cite: 1667]
      console.error("ReadingView: Content is null unexpectedly.", { isLocked, isAuthor });
      return (
         <div className="max-w-4xl mx-auto px-4 md:px-8 text-center py-16 text-destructive">
              Content could not be loaded for this chapter. Please try again later or contact support.
         </div>
-     );
+     ); // [cite: 1668]
   }
 
-  // --- Render Actual Content ---
-  // Only proceed if content is a string (meaning user is authorized and content exists)
+  // --- Render Actual Content --- (No change, but now only runs when not loading)
   return (
     <div className="w-full">
       <div className="max-w-4xl mx-auto px-4 md:px-8">
-         {/* Apply prose styling and dynamic text size class */}
          <div className={cn(
             "prose max-w-none text-foreground dark:prose-invert", // Base styles
-            sizeClasses[textSize] // Dynamic size
+            sizeClasses[textSize] // Dynamic size // [cite: 1669]
          )}>
-          {/* FIX: Explicitly check if content is a string before rendering DynamicText */}
-          {typeof content === 'string' ? (
+          {/* Render dynamic text if content is a string */}
+          {typeof content === 'string' ? ( // [cite: 1670]
             <DynamicText content={content} isEnabled={effectsEnabled} />
           ) : (
-            // This case should ideally not be reached due to the checks above,
-            // but provides a fallback rendering if content is unexpectedly not a string.
-            <p className="text-muted-foreground italic">Chapter content is unavailable.</p>
+            // Fallback if content is somehow still not a string (should be handled above)
+            <p className="text-muted-foreground italic">Chapter content is unavailable.</p> // [cite: 1670]
           )}
         </div>
       </div>
-    </div>
+    </div> // [cite: 1671]
   );
 }
