@@ -1,23 +1,22 @@
 // src/components/reading/FloatingReadingControls.tsx
 "use client";
-
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetClose } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ChevronLeft, ChevronRight, List, MessageSquare, X, BookOpen, Lock } from 'lucide-react';
+import { List, MessageSquare, X, BookOpen, Lock } from 'lucide-react'; // Removed ChevronLeft/Right
 import type { ChapterType } from '@/types/supabase';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import ChapterComments from './ChapterComments'; // Keep import
 
 interface FloatingReadingControlsProps {
-  novelId: number | null; // <-- Allow null
-  currentChapterNumber: number | null; // <-- Allow null
-  currentChapterId: number | null; // <-- Allow null
-  allChapters: ChapterType[] | null; // <-- Allow null
+  novelId: number | null; // Allow null
+  currentChapterNumber: number | null; // Allow null
+  currentChapterId: number | null; // Allow null
+  allChapters: ChapterType[] | null; // Allow null
   isScrolling?: boolean;
 }
 
@@ -34,20 +33,7 @@ export default function FloatingReadingControls({
   const [activeTab, setActiveTab] = useState<'chapters' | 'comments'>('chapters');
   const listRef = useRef<HTMLDivElement>(null);
 
-  // Find previous and next chapters (handles null allChapters)
-  const { prevChapter, nextChapter } = React.useMemo(() => {
-    // Return null if essential data is missing
-    if (!allChapters || currentChapterNumber === null) return { prevChapter: null, nextChapter: null };
-    const sortedChapters = [...allChapters].sort((a, b) => a.chapter_number - b.chapter_number);
-    const currentIndex = sortedChapters.findIndex(ch => ch.chapter_number === currentChapterNumber);
-    if (currentIndex === -1) return { prevChapter: null, nextChapter: null };
-    return {
-      prevChapter: currentIndex > 0 ? sortedChapters[currentIndex - 1] : null,
-      nextChapter: currentIndex < sortedChapters.length - 1 ? sortedChapters[currentIndex + 1] : null,
-    };
-  }, [allChapters, currentChapterNumber]);
-
-  // Filter chapters (handles null allChapters)
+  // Filter chapters logic (remains the same)
   useEffect(() => {
     if (!allChapters) {
       setFilteredChapters([]);
@@ -62,7 +48,7 @@ export default function FloatingReadingControls({
     );
   }, [searchTerm, allChapters]);
 
-  // Scroll to current chapter (handles null currentChapterNumber)
+  // Scroll to current chapter logic (remains the same)
   useEffect(() => {
     if (isSheetOpen && activeTab === 'chapters' && listRef.current && currentChapterNumber !== null) {
       const currentChapterElement = listRef.current.querySelector(`[data-chapter-number="${currentChapterNumber}"]`) as HTMLElement;
@@ -72,11 +58,7 @@ export default function FloatingReadingControls({
     }
   }, [isSheetOpen, activeTab, currentChapterNumber]);
 
-  const handleChapterLinkClick = () => {
-    setIsSheetOpen(false);
-  };
-
-  // Reset search term when changing tabs or closing sheet
+  // Reset state when sheet closes (remains the same)
   useEffect(() => {
       if (!isSheetOpen) {
           setSearchTerm('');
@@ -84,22 +66,25 @@ export default function FloatingReadingControls({
       }
   }, [isSheetOpen]);
 
-  // *** RENDER NULL IF ESSENTIAL DATA IS MISSING ***
-  if (novelId === null || currentChapterNumber === null || currentChapterId === null || !allChapters) {
-      return null; // Don't render controls if data isn't ready
-  }
-  // *** END NULL CHECK ***
+  const handleChapterLinkClick = () => {
+    setIsSheetOpen(false);
+  };
 
+  // Render null if essential data is missing (remains the same)
+  if (novelId === null || currentChapterNumber === null || currentChapterId === null || !allChapters) {
+      return null;
+  }
 
   return (
     <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-      {/* Floating Action Button (FAB) Trigger */}
+      {/* Floating Action Button (FAB) Trigger - Positioned further from corner */}
       <SheetTrigger asChild>
         <Button
           variant="default"
           size="icon"
           className={cn(
-            "fixed bottom-6 right-6 z-50 rounded-full shadow-lg h-14 w-14",
+            "fixed bottom-6 z-50 rounded-full shadow-lg h-14 w-14",
+            "right-[calc(50%-1.75rem)] transform translate-x-1/2", // Center horizontally
             "transition-opacity duration-300 ease-in-out",
             isScrolling ? "opacity-40 hover:opacity-90" : "opacity-100"
           )}
@@ -119,55 +104,30 @@ export default function FloatingReadingControls({
           <SheetTitle className="text-lg font-semibold text-foreground">Reading Controls</SheetTitle>
           <SheetClose asChild>
             <Button variant="ghost" size="icon" className="h-8 w-8">
-                <X size={18}/> {/* Use X for close */}
+                 <X size={18}/>
                 <span className="sr-only">Close</span>
             </Button>
           </SheetClose>
         </SheetHeader>
 
-        {/* Quick Navigation */}
-        <div className="flex justify-between items-center p-3 border-b border-border flex-shrink-0">
-          {prevChapter ? (
-            <Button variant="outline" size="sm" onClick={handleChapterLinkClick} asChild>
-              <Link href={`/novels/${novelId}/chapter/${prevChapter.chapter_number}`} className="flex items-center gap-1">
-                <ChevronLeft size={16} /> Prev
-              </Link>
-            </Button>
-          ) : (
-            <Button variant="outline" size="sm" disabled className="opacity-50">
-              <ChevronLeft size={16} /> Prev
-            </Button>
-          )}
-
-          {nextChapter ? (
-            <Button variant="outline" size="sm" onClick={handleChapterLinkClick} asChild>
-              <Link href={`/novels/${novelId}/chapter/${nextChapter.chapter_number}`} className="flex items-center gap-1">
-                Next <ChevronRight size={16} />
-              </Link>
-            </Button>
-          ) : (
-            <Button variant="outline" size="sm" disabled className="opacity-50">
-              Next <ChevronRight size={16} />
-            </Button>
-          )}
-        </div>
+        {/* Quick Navigation REMOVED from here */}
 
         {/* Tabs for Chapters and Comments */}
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'chapters' | 'comments')} className="flex flex-col flex-grow overflow-hidden">
           <TabsList className="grid w-full grid-cols-2 rounded-none border-b border-border h-11 flex-shrink-0">
             <TabsTrigger value="chapters" className="rounded-none data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary">
-                <BookOpen size={16} className="mr-2"/> Chapters
+                <BookOpen size={16} className="mr-2"/> Chapters ({allChapters?.length ?? 0})
             </TabsTrigger>
             <TabsTrigger value="comments" className="rounded-none data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary">
                 <MessageSquare size={16} className="mr-2"/> Comments
             </TabsTrigger>
           </TabsList>
 
-          {/* Chapters Tab Content */}
+          {/* Chapters Tab Content (Remains the same) */}
           <TabsContent value="chapters" className="flex flex-col flex-grow overflow-hidden p-4 mt-0 data-[state=inactive]:hidden">
             <Input
               type="text"
-              placeholder="Search chapters..."
+              placeholder="Search chapters by number or title..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="mb-3 h-9 flex-shrink-0"
@@ -209,12 +169,11 @@ export default function FloatingReadingControls({
             </ScrollArea>
           </TabsContent>
 
-          {/* Comments Tab Content */}
+          {/* Comments Tab Content (Remains the same) */}
           <TabsContent value="comments" className="flex-grow overflow-hidden mt-0 data-[state=inactive]:hidden">
             {/* Ensure comments only render when sheet and tab are active */}
             {isSheetOpen && activeTab === 'comments' && (
                  <ScrollArea className="h-full p-4">
-                     {/* Pass non-null chapterId and novelId */}
                     <ChapterComments chapterId={currentChapterId} novelId={novelId} />
                  </ScrollArea>
             )}

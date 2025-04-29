@@ -1,17 +1,18 @@
 // src/components/reading/reading-header.tsx
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image'; // Import Image
 import {
-  ChevronLeft, Settings, Edit, Sparkles, Moon, Sun, BookOpen, ChevronUp,
+  Settings, Edit, Sparkles, Moon, Sun, BookOpen, ChevronUp, Library, // Use Library icon as placeholder
 } from 'lucide-react';
 import { useTheme } from '@/providers/theme-provider';
-import { Novel, ChapterType } from '@/types/supabase'; // Keep types
+import { Novel, ChapterType } from '@/types/supabase';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 interface ReadingHeaderProps {
-  novel: Novel | null; // <-- Allow null
-  chapter: ChapterType | null; // <-- Allow null
+  novel: Novel | null; // Allow null
+  chapter: ChapterType | null; // Allow null
   isAuthor: boolean;
   visible: boolean;
   setVisible: (visible: boolean) => void;
@@ -20,39 +21,39 @@ interface ReadingHeaderProps {
   effectsEnabled: boolean;
 }
 
-// Skeleton Component for the Header
+// Skeleton Component (Remains the same)
 function ReadingHeaderSkeleton() {
-    return (
-        <header className="bg-background border-b border-border text-foreground w-full z-40 fixed top-0 left-0 animate-pulse">
-            <div className="container mx-auto px-4">
-                <div className="flex items-center justify-between py-2 md:py-3">
-                    {/* Left Skeleton */}
-                    <div className="flex items-center gap-2 md:gap-4 flex-shrink-0 min-w-0">
-                        <div className="h-8 w-8 bg-muted rounded-lg"></div>
-                        <div className="hidden md:flex flex-col space-y-1.5">
-                            <div className="h-4 w-32 bg-muted rounded"></div>
-                            <div className="h-3 w-48 bg-muted rounded"></div>
-                        </div>
-                    </div>
-                    {/* Right Skeleton */}
-                    <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
-                        <div className="h-8 w-8 bg-muted rounded-full"></div>
-                        <div className="h-8 w-8 bg-muted rounded-full"></div>
-                        <div className="h-8 w-8 bg-muted rounded-full"></div>
-                        {/* Placeholder for potential Edit button */}
-                        <div className="h-8 w-16 bg-muted rounded-md hidden sm:block"></div>
-                        <div className="h-8 w-8 bg-muted rounded-full"></div>
-                    </div>
-                </div>
+  return (
+    <header className="bg-background border-b border-border text-foreground w-full z-40 fixed top-0 left-0 animate-pulse">
+      <div className="container mx-auto px-4">
+        <div className="flex items-center justify-between py-2 md:py-3">
+          {/* Left Skeleton */}
+          <div className="flex items-center gap-2 md:gap-4 flex-shrink-0 min-w-0">
+            {/* Skeleton for Cover Image Link */}
+            <div className="h-8 w-8 md:h-10 md:w-10 bg-muted rounded-md flex-shrink-0"></div>
+            <div className="hidden md:flex flex-col space-y-1.5">
+              <div className="h-4 w-32 bg-muted rounded"></div>
+              <div className="h-3 w-48 bg-muted rounded"></div>
             </div>
-        </header>
-    );
+          </div>
+          {/* Right Skeleton (No change) */}
+          <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
+            <div className="h-8 w-8 bg-muted rounded-full"></div>
+            <div className="h-8 w-8 bg-muted rounded-full"></div>
+            <div className="h-8 w-8 bg-muted rounded-full"></div>
+            <div className="h-8 w-16 bg-muted rounded-md hidden sm:block"></div>
+            <div className="h-8 w-8 bg-muted rounded-full"></div>
+          </div>
+        </div>
+      </div>
+    </header>
+  );
 }
 
 
 export default function ReadingHeader({
-  novel, // Can be null
-  chapter, // Can be null
+  novel,
+  chapter,
   isAuthor,
   visible,
   setVisible,
@@ -66,43 +67,61 @@ export default function ReadingHeader({
     return null;
   }
 
-  // *** RENDER SKELETON IF DATA IS MISSING ***
+  // Render skeleton if data is missing
   if (!novel || !chapter) {
     return <ReadingHeaderSkeleton />;
   }
-  // *** END SKELETON CHECK ***
 
   // Render actual header if data exists
   return (
     <header
-        className="reading-header-container bg-background border-b border-border text-foreground w-full z-40 fixed top-0 left-0 transition-opacity duration-300 ease-in-out"
+        // Added reading-header-container class for potential focus mode targeting
+        className="reading-header-container bg-background/95 backdrop-blur-sm border-b border-border text-foreground w-full z-40 fixed top-0 left-0 transition-opacity duration-300 ease-in-out"
     >
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between py-2 md:py-3">
-          {/* Left section */}
+          {/* Left section - MODIFIED */}
           <div className="flex items-center gap-2 md:gap-4 flex-shrink-0 min-w-0">
+            {/* Novel Cover Link */}
             <Link
-               href={`/novels/${novel.id}`} // Safe now because novel is not null
-              className="p-1 md:p-2 rounded-lg hover:bg-accent flex-shrink-0"
-              aria-label="Back to novel details"
+              href={`/novels/${novel.id}`}
+              className="flex-shrink-0 block w-8 h-8 md:w-10 md:h-10 rounded-md overflow-hidden hover:opacity-80 transition-opacity focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+              aria-label={`Back to novel ${novel.title}`}
               title={`Back to ${novel.title}`}
             >
-              <ChevronLeft size={20} />
+              {novel.cover_url ? (
+                <Image
+                  src={novel.cover_url}
+                  alt={`Cover for ${novel.title}`}
+                  width={40}
+                  height={40}
+                  className="w-full h-full object-cover"
+                  // Consider adding placeholder/blurDataURL if available globally
+                  // placeholder="blur"
+                  // blurDataURL={novel.cover_blur || '/placeholder-cover-blur.png'}
+                />
+              ) : (
+                // Placeholder Icon if no cover
+                <div className="w-full h-full bg-muted flex items-center justify-center">
+                  <Library size={18} className="text-muted-foreground" />
+                </div>
+              )}
             </Link>
+            {/* Chapter Info (no change) */}
             <div className="hidden md:block overflow-hidden whitespace-nowrap min-w-0">
               <h1 className="text-sm font-medium truncate max-w-[200px] lg:max-w-xs">
                 {novel.title}
               </h1>
               <p className="text-xs text-muted-foreground truncate">
-                Chapter {chapter.chapter_number}: {chapter.title} {/* Safe now because chapter is not null */}
+                Chapter {chapter.chapter_number}: {chapter.title}
               </p>
             </div>
           </div>
 
-           {/* Center - Spacer */}
+           {/* Center - Spacer (no change) */}
            <div className="flex-grow"></div>
 
-          {/* Right section - Controls */}
+           {/* Right section - Controls (no change from previous implementation) */}
           <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
              <Button variant="ghost" size="icon" onClick={cycleTheme} aria-label="Toggle theme" className="w-8 h-8">
               {theme === 'light' ? <Sun size={18} /> : theme === 'dark' ? <Moon size={18} /> : <BookOpen size={18} />}
