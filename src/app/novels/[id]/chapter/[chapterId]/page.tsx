@@ -1,21 +1,21 @@
 // src/app/novels/[id]/chapter/[chapterId]/page.tsx
 "use client";
 
-// --- Imports --- (Keep all previous imports)
+// --- Imports ---
 import { useState, useEffect, useMemo, useCallback, useRef, Suspense } from 'react';
 import dynamic from 'next/dynamic';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/providers/auth-provider';
 import { getChapter, getNovel, getNovelChapters } from '@/lib/api';
-import ReadingHeader from '@/components/reading/reading-header'; // Import modified Header
-import ReadingView from '@/components/reading/reading-view'; // Import modified View
+import ReadingHeader from '@/components/reading/reading-header';
+import ReadingView from '@/components/reading/reading-view';
 import ReadingSettingsMenu from '@/components/reading/reading-settings-menu';
 import NotFoundScreen from '@/components/ui/not-found-screen';
 import { useReadingPreferences } from '@/hooks/use-reading-preferences';
 import type { ChapterType, Novel } from '@/types/supabase';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import FloatingReadingControls from '@/components/reading/FloatingReadingControls'; // Import modified Controls
+import FloatingReadingControls from '@/components/reading/FloatingReadingControls';
 import LoadingSpinner from '@/components/ui/loading-spinner';
 
 const ChapterComments = dynamic(() => import('@/components/reading/ChapterComments'), {
@@ -41,15 +41,15 @@ export default function ChapterPage() {
   const params = useParams();
   const router = useRouter();
   const novelId = Number(params.id);
-  const chapterNumber = Number(params.chapterId);
+  const chapterNumber = Number(params.chapterId); // State variable holding number from URL
 
   const [novel, setNovel] = useState<Novel | null>(null);
   const [allChapters, setAllChapters] = useState<ChapterType[] | null>(null);
   const [currentChapter, setCurrentChapter] = useState<ChapterType | null>(null);
-  // const [initialLoading, setInitialLoading] = useState(true); // <-- REMOVED
+  const [initialLoading, setInitialLoading] = useState(true);
   const [pageError, setPageError] = useState<string | null>(null);
 
-  // Reading preferences and UI state (No change)
+  // Reading preferences and UI state
   const {
     textSize, effectsEnabled, animationsEnabled, fontFamily, lineSpacing,
     showSettingsMenu, settingsMenuRef, setShowSettingsMenu, changeTextSize,
@@ -74,17 +74,17 @@ export default function ChapterPage() {
 
   // --- Data Fetching Effects ---
 
-  // Effect 1: Fetch Novel Details and Chapter List (No longer sets initialLoading)
+  // Effect 1: Fetch Novel Details and Chapter List
   useEffect(() => {
     if (isNaN(novelId) || novelId <= 0) {
       setPageError("Invalid Novel ID.");
-      // setInitialLoading(false); // Not needed anymore
+      setInitialLoading(false);
       return;
     }
     let isMounted = true;
-    // setInitialLoading(true); // Not needed anymore
+    setInitialLoading(true);
     setPageError(null);
-    setNovel(null); // Still reset state on ID change
+    setNovel(null);
     setAllChapters(null);
     setCurrentChapter(null);
     console.log(`[ChapterPage] Fetching novel (${novelId}) details and chapter list.`);
@@ -103,32 +103,35 @@ export default function ChapterPage() {
         setPageError(message);
         toast.error(`Error: ${message}`);
         if (message.includes('not found')) router.push(`/`);
-        // setInitialLoading(false); // Not needed anymore
+        setInitialLoading(false);
       });
     return () => { isMounted = false; };
-  }, [novelId, router]); // Removed authLoading dependency
+  }, [novelId, router]);
 
-  // Effect 2: Fetch Specific Chapter Content (No longer sets initialLoading)
+  // Effect 2: Fetch Specific Chapter Content
   useEffect(() => {
-     // Only run if novel and chapters list are loaded AND no page error occurred yet
-    if (!novel || !allChapters || pageError) {
+    if ((!novel || !allChapters) && !pageError) {
       return;
+    }
+    if(pageError) {
+        setInitialLoading(false);
+        return;
     }
     if (isNaN(chapterNumber) || chapterNumber <= 0) {
       setPageError("Invalid Chapter Number.");
-      // setInitialLoading(false); // Not needed
+      setInitialLoading(false);
       return;
     }
-    const chapterMeta = allChapters.find(ch => ch.chapter_number === chapterNumber);
+    const chapterMeta = allChapters!.find(ch => ch.chapter_number === chapterNumber);
     if (!chapterMeta) {
         setPageError("Chapter not found in this novel.");
         setCurrentChapter(null);
-        // setInitialLoading(false); // Not needed
+        setInitialLoading(false);
         return;
     }
     let isMounted = true;
     setPageError(null);
-    setCurrentChapter(null); // Clear previous chapter content immediately
+    setCurrentChapter(null);
     console.log(`[ChapterPage] Fetching content for Chapter ${chapterNumber} (Novel ${novelId})`);
     const userId = user?.id ?? null;
 
@@ -148,17 +151,18 @@ export default function ChapterPage() {
         setPageError(message);
         toast.error(`Error: ${message}`);
       })
-      .finally(() => { // finally block might not be strictly needed anymore
+      .finally(() => {
         if (!isMounted) return;
-        // setInitialLoading(false); // <-- REMOVED
+        if (initialLoading) {
+            setInitialLoading(false);
+        }
         console.log(`[ChapterPage] Content fetch finished for Chapter ${chapterNumber}`);
       });
       return () => { isMounted = false; };
-   // Keep dependencies, initialLoading removed as it's not set here anymore
-  }, [novel, allChapters, chapterNumber, novelId, user?.id, pageError]);
+  }, [novel, allChapters, chapterNumber, novelId, user?.id, pageError, initialLoading]);
 
-  // --- Other Effects (UI, Preferences, Scrolling, Keyboard) --- (Keep as before)
-  useEffect(() => { // Apply reading preferences
+  // --- Other Effects (UI, Preferences, Scrolling, Keyboard) ---
+   useEffect(() => { // Apply reading preferences
     const root = document.documentElement;
     root.style.setProperty('--reading-line-height', lineSpacing.toString());
     root.style.setProperty('--reading-font-family', fontFamily);
@@ -222,31 +226,38 @@ export default function ChapterPage() {
     };
   }, []);
 
-
   // --- Render Logic ---
 
-  // ** REMOVED initialLoading check - render structure immediately **
-  // if (initialLoading) { ... }
+  if (initialLoading && !pageError) { // Show loader only if initial loading and no error yet
+       return (
+            <div className="min-h-screen bg-background flex items-center justify-center">
+                 <LoadingSpinner size="lg" />
+                 <p className="ml-3 text-muted-foreground">Loading novel...</p>
+            </div>
+       );
+  }
 
-  // ** Error handling first **
   if (pageError) {
-      // Try to provide context even if novel failed to load initially
       const novelTitleForError = novel?.title ?? `Novel ID ${novelId}`;
       const returnUrlOnError = novel ? `/novels/${novelId}` : '/';
       const returnTextOnError = novel ? `Back to ${novel.title}` : 'Back to Home';
       return <NotFoundScreen message={`Error loading: ${pageError}`} returnUrl={returnUrlOnError} returnText={returnTextOnError} />;
   }
+  // At this point, initialLoading is false and there's no pageError
+  // We should have novel data, but currentChapter might still be loading via Effect 2
+   if (!novel || !allChapters) {
+      // This case indicates an unexpected state, likely novel/list fetch failed silently or state wasn't set
+       console.error("[ChapterPage] Reached render stage without novel or allChapters, despite !initialLoading and !pageError.");
+      return <NotFoundScreen message="Failed to load essential novel data." returnUrl={`/`} returnText="Back to Home"/>;
+  }
 
   // Main Render
   return (
-    // Add a key here based on novelId to force re-render if user navigates
-    // from one novel's chapter directly to another novel's chapter.
     <div key={novelId} className={cn("reading-page", { 'focus-mode': isFocusMode })}>
-        {/* Header: Renders skeleton if novel/currentChapter is null */}
         {!isFocusMode && (
             <ReadingHeader
-                novel={novel} // Pass potentially null
-                chapter={currentChapter} // Pass potentially null
+                novel={novel} // Pass novel (guaranteed not null here)
+                chapter={currentChapter} // Pass chapter (might be null initially)
                 isAuthor={isAuthor}
                 visible={headerVisible}
                 setVisible={setHeaderVisible}
@@ -256,7 +267,6 @@ export default function ChapterPage() {
             />
         )}
 
-        {/* Settings Menu (Renders conditionally based on its own state) */}
         <ReadingSettingsMenu
           isOpen={showSettingsMenu}
           onClose={() => setShowSettingsMenu(false)}
@@ -274,7 +284,6 @@ export default function ChapterPage() {
           onResetPreferences={resetPreferences}
         />
 
-        {/* Use min-height to prevent layout shifts while waiting for content */}
         <main className="min-h-screen bg-background text-foreground pt-16 md:pt-20 pb-24">
             <div className="max-w-4xl mx-auto px-4 md:px-8">
               {/* Chapter Title: Render skeleton if currentChapter is null */}
@@ -288,7 +297,6 @@ export default function ChapterPage() {
               )}
 
               {/* Reading View: Handles its own skeleton/locked/content states */}
-              {/* Pass chapter object (or null) and key */}
               <ReadingView
                   key={currentChapter?.id ?? 'loading-view'} // Key forces remount/animation
                   chapter={currentChapter} // Pass chapter or null
@@ -307,14 +315,17 @@ export default function ChapterPage() {
             </div>
         </main>
 
-         {/* Floating Controls: Renders null if data is missing */}
-         <FloatingReadingControls
-              novelId={novelId}
-              currentChapterNumber={currentChapterNumber}
-              currentChapterId={currentChapter?.id ?? null} // Pass null if no chapter
-              allChapters={allChapters} // Pass potentially null
-              isScrolling={isScrolling}
-          />
+         {/* Floating Controls: Render only if needed data exists */}
+         {/* Ensure allChapters is not null before rendering */}
+         {novel && allChapters && (
+            <FloatingReadingControls
+                 novelId={novelId}
+                 currentChapterNumber={chapterNumber} // Pass number from params
+                 currentChapterId={currentChapter?.id ?? null}
+                 allChapters={allChapters} // Pass non-null list
+                 isScrolling={isScrolling}
+             />
+         )}
     </div>
   );
 }
