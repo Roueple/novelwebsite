@@ -379,7 +379,6 @@
    .prose p {
      margin-bottom: 1.25em;
      text-align: justify;
-     text-indent: 1.5em;
    }
    .prose > :first-child,
    .prose p:first-of-type {

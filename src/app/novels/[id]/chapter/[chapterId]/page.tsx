@@ -17,7 +17,6 @@ import { cn } from '@/lib/utils';
 import FloatingReadingControls from '@/components/reading/FloatingReadingControls';
 import DirectChapterNavigation from '@/components/reading/DirectChapterNavigation';
 import LoadingSpinner from '@/components/ui/loading-spinner';
-// Note: Fullscreen icons/logic removed as we are focusing on in-page UI hide/show only
 
 // Dynamic imports and fallbacks
 const ChapterComments = dynamic(() => import('@/components/reading/ChapterComments'), {
