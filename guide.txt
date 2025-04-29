@@ -8,6 +8,8 @@ npm run dev
 
 . Core Priorities:
 
+    DO NOT CHANGE OR DELETE ANY EXISTING FUNCTIONALITIES THAT IS NOT RELEVANT TO THE THINGS THAT SHOULD BE CHANGED
+
     Excellent User Experience (UX): Intuitive navigation, clean interface, highly readable content presentation, seamless progress tracking, minimal friction.
 
     High Performance: Fast page loads, quick API responses, efficient database queries, optimized resource delivery (images, scripts, styles). The site must feel snappy even with a large library and user base.

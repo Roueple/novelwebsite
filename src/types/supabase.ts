@@ -25,16 +25,17 @@ export type Novel = {
   updated_at: string;
 }
 
+// Base Chapter type - Allows null content
 export type Chapter = {
   id: number;
   novel_id: number;
   chapter_number: number;
   title: string;
-  content: string | null;
+  content: string | null; // Content can be null from DB or when stripped
   is_locked: boolean;
   created_at: string;
   updated_at: string;
-  newly_created: boolean;
+  newly_created: boolean; // Keep this if used elsewhere
 }
 
 export type Comment = {
@@ -45,20 +46,24 @@ export type Comment = {
   chapter_id: number;
   parent_comment_id: number | null;
   content: string;
-  is_approved: boolean; // NEW: Moderation status
+  is_approved: boolean; // Moderation status
   // Include profile information, now including is_guest
-  profiles?: Pick<Profile, 'username' | 'is_guest'> | null; // Add is_guest
+  profiles?: Pick<Profile, 'username' | 'is_guest'> | null;
 }
 
+// *** FIX: Allow ChapterType content to be null ***
+// This type is often used for components that *expect* content,
+// but it must align with the possibility of it being null due to locks/API responses.
 export interface ChapterType extends Chapter {
-  content: string;
-  newly_created: boolean;
+  content: string | null; // <-- MODIFIED: Changed from 'string' to 'string | null'
+  // newly_created: boolean; // This was already in the base Chapter type
 }
 
 export interface NovelType extends Novel {
-  chapters: ChapterType[];
+  chapters: ChapterType[]; // This might need adjustment if chapters here shouldn't have content
 }
 
+// Database interface remains the same
 export interface Database {
   public: {
     Tables: {
@@ -73,19 +78,16 @@ export interface Database {
         Update: Partial<Omit<Novel, 'id' | 'created_at' | 'updated_at'>>;
       };
       chapters: {
-        Row: Chapter;
+        Row: Chapter; // Base type allows content: string | null
         Insert: Omit<Chapter, 'id' | 'created_at' | 'updated_at'>;
         Update: Partial<Omit<Chapter, 'id' | 'created_at' | 'updated_at'>>;
       };
       comments: {
         Row: Comment;
-        // is_approved is handled by default value or update, not direct insert
         Insert: Omit<Comment, 'id' | 'created_at' | 'updated_at' | 'profiles' | 'is_approved'>;
-        // Allow updating content and is_approved status
         Update: Partial<Omit<Comment, 'id' | 'created_at' | 'user_id' | 'chapter_id' | 'parent_comment_id' | 'profiles'>>;
       };
     };
     Functions: {};
   };
 }
-

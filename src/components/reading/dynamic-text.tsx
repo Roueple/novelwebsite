@@ -1,57 +1,42 @@
 // src/components/reading/dynamic-text.tsx
 import React, { memo } from 'react';
-import { cn } from '@/lib/utils'; // Import cn for potential class combinations
+import { cn } from '@/lib/utils';
 
 interface DynamicTextProps {
-  content: string;
+  content: string | null; // <-- MODIFIED: Accept null
   isEnabled: boolean; // This prop controls whether *any* dynamic effects are applied
 }
 
-// Map of [effect] markers and their corresponding CSS classes (Keep this if you want to retain existing effects)
+// Map of [effect] markers and their corresponding CSS classes
 const EFFECT_MARKERS: Record<string, string> = {
-  // Volume/Intensity
-  '[shout]': 'effect-shout',
-  '[whisper]': 'effect-whisper',
-  '[loud]': 'effect-loud',
-  '[quiet]': 'effect-quiet',
-  // Emotion
-  '[tremble]': 'effect-tremble',
-  '[fear]': 'effect-fear',
-  '[joy]': 'effect-joy',
-  '[anger]': 'effect-anger',
-  '[sadness]': 'effect-sadness',
-  // Timing/Pacing
-  '[fast]': 'effect-fast',
-  '[slow]': 'effect-slow',
-  '[stutter]': 'effect-stutter',
-  '[pause]': 'effect-pause',
-  // Mental State/Voice
-  '[thought]': 'effect-thought',
-  '[dream]': 'effect-dream',
-  '[robotic]': 'effect-robotic',
-  '[weak]': 'effect-weak',
-  '[ghostly]': 'effect-ghostly',
-  // Stylistic
-  '[emphasis]': 'effect-emphasis', // Note: You might want italic or bold for emphasis now
-  '[fade]': 'effect-fade',
-  '[fadein]': 'effect-fadein',
-  '[fadeout]': 'effect-fadeout',
-  '[echo]': 'effect-echo',
-  '[distant]': 'effect-distant',
-  // Special
-  '[hesitate]': 'effect-hesitation', // Check CSS if this class exists
-  '[impact]': 'effect-impact',
-  '[underwater]': 'effect-underwater',
+  '[shout]': 'effect-shout', '[whisper]': 'effect-whisper', '[loud]': 'effect-loud',
+  '[quiet]': 'effect-quiet', '[tremble]': 'effect-tremble', '[fear]': 'effect-fear',
+  '[joy]': 'effect-joy', '[anger]': 'effect-anger', '[sadness]': 'effect-sadness',
+  '[fast]': 'effect-fast', '[slow]': 'effect-slow', '[stutter]': 'effect-stutter',
+  '[pause]': 'effect-pause', '[thought]': 'effect-thought', '[dream]': 'effect-dream',
+  '[robotic]': 'effect-robotic', '[weak]': 'effect-weak', '[ghostly]': 'effect-ghostly',
+  '[emphasis]': 'effect-emphasis', '[fade]': 'effect-fade', '[fadein]': 'effect-fadein',
+  '[fadeout]': 'effect-fadeout', '[echo]': 'effect-echo', '[distant]': 'effect-distant',
+  '[hesitate]': 'effect-hesitation', '[impact]': 'effect-impact', '[underwater]': 'effect-underwater',
   '[radio]': 'effect-radio',
 };
 
 // Using memo to prevent re-renders when parent components change but props don't
 const DynamicText = memo(function DynamicText({ content, isEnabled }: DynamicTextProps) {
-  // If effects disabled, or no content, return simple text wrapped in paragraphs
-  if (!isEnabled || !content) {
+
+  // *** FIX: Handle null content explicitly at the beginning ***
+  if (content === null) {
+    // Should ideally be handled by the parent (ReadingView showing locked message),
+    // but return empty paragraph as a fallback if called with null.
+    return <p className="mb-6 leading-relaxed text-muted-foreground italic">[Content not available]</p>;
+  }
+  // *** End FIX ***
+
+  // If effects disabled, return simple text wrapped in paragraphs
+  if (!isEnabled) {
     const basicHtml = content
         .split(/\n+/) // Split into paragraphs based on one or more newlines
-        .map(p => `<p class="mb-6 leading-relaxed">${p.trim() || ' '}</p>`) // Wrap each in a <p> tag, handle empty lines
+        .map(p => `<p class="mb-6 leading-relaxed">${p.trim().replace(/</g, "&lt;").replace(/>/g, "&gt;") || ' '}</p>`) // Sanitize basic HTML tags and handle empty lines
         .join('');
     return <div dangerouslySetInnerHTML={{ __html: basicHtml }} />;
   }
@@ -63,47 +48,31 @@ const DynamicText = memo(function DynamicText({ content, isEnabled }: DynamicTex
   const processedParagraphs = paragraphs.map((paragraph, index) => {
     // Skip processing for empty paragraphs but render a placeholder for spacing
     if (!paragraph.trim()) {
-        return <p key={index} className="mb-6 leading-relaxed"> </p>;
+        // Return non-breaking space inside paragraph for spacing
+        return <p key={index} className="mb-6 leading-relaxed">&nbsp;</p>;
     }
 
-    let processedText = paragraph.trim(); // Start with trimmed paragraph text
+    let processedText = paragraph.trim();
 
-    // --- NEW: Apply Markdown-style Bold and Italic ---
-    // IMPORTANT: Process double asterisks (italic) BEFORE single (bold)
-    // to handle potential nesting or adjacent markers correctly.
-    // Regex: \*\*(.*?)\*\* - Finds text wrapped in double asterisks, captures the inner text ($1)
-    processedText = processedText.replace(/\*\*(.*?)\*\*/g, '<span class="font-bold">$1</span>');
-    // Regex: \*(.*?)\* - Finds text wrapped in single asterisks, captures the inner text ($1)
-    processedText = processedText.replace(/\*(.*?)\*/g, '<span class="italic">$1</span>');
-    // --- END NEW LOGIC ---
+    // Apply Markdown-style Bold and Italic FIRST
+    // Important: Process italics (**) before bold (*) to handle nesting/adjacency
+    processedText = processedText.replace(/\*\*(.*?)\*\*/g, '<span class="font-bold">$1</span>'); // Bold
+    processedText = processedText.replace(/\*(.*?)\*/g, '<span class="italic">$1</span>');       // Italic
 
-    // --- Keep Existing [Effect] Logic (if you want to retain them) ---
+    // Apply [Effect] tags AFTER markdown styles
     Object.entries(EFFECT_MARKERS).forEach(([marker, className]) => {
-      // Escape special characters in the marker for regex use
       const escapedMarker = marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      // Regex: Matches the opening tag, captures content non-greedily, matches closing tag
+      // Use non-greedy matching (.*?) to handle multiple effects on one line
       const regex = new RegExp(`${escapedMarker}(.*?)${escapedMarker}`, 'g');
-      // Replace with a span having the effect class
       processedText = processedText.replace(regex, `<span class="${className}">$1</span>`);
     });
-    // --- End Existing [Effect] Logic ---
-
-    // Optional: Basic dialogue styling (can be refined)
-    // Apply after all other replacements
-    if (processedText.trim().startsWith('"') && processedText.trim().endsWith('"')) {
-      // You might want to only apply this if it hasn't already been wrapped in another span
-      // This basic version will wrap the entire line including any effect spans within it.
-      // For more complex styling, a more robust parser (like a Markdown parser) might be needed.
-      // processedText = `<span class="dialogue">${processedText}</span>`; // Example dialogue class
-    }
-
 
     // Return the processed paragraph using dangerouslySetInnerHTML
     return (
       <p
         key={index}
         className="mb-6 leading-relaxed" // Standard paragraph styling
-        dangerouslySetInnerHTML={{ __html: processedText }}
+        dangerouslySetInnerHTML={{ __html: processedText }} // Render the processed HTML
       />
     );
   });
@@ -111,5 +80,8 @@ const DynamicText = memo(function DynamicText({ content, isEnabled }: DynamicTex
   // Render the array of processed paragraphs
   return <>{processedParagraphs}</>;
 });
+
+// Add display name for React DevTools
+DynamicText.displayName = 'DynamicText';
 
 export default DynamicText;

@@ -4,12 +4,10 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-// Use Novel and ChapterType directly
-import type { ChapterType, Novel } from '@/types/supabase';
+import type { ChapterType, Novel } from '@/types/supabase'; // Use Novel and ChapterType directly
 import { useAuth } from '@/providers/auth-provider';
-// Fetch novel metadata only
-import { getChapter, getNovel, updateChapter } from '@/lib/api';
-import { supabase } from '@/lib/supabase';
+import { getChapter, getNovel, updateChapter } from '@/lib/api'; // Fetch novel metadata only
+import { supabase } from '@/lib/supabase'; // Keep if needed for other operations
 import LoadingScreen from '@/components/ui/loading-screen';
 import NotFoundScreen from '@/components/ui/not-found-screen';
 import AdminRoleCheck from '@/components/auth/admin-role-check';
@@ -23,17 +21,14 @@ const EditChapterPage = () => {
   const novelId = Number(params.id);
   const chapterNumber = Number(params.chapterId);
 
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [chapter, setChapterState] = useState<ChapterType | null>(null);
-  // *** FIX: State type is now Novel | null ***
-  const [novel, setNovel] = useState<Novel | null>(null);
+  const [loading, setLoading] = useState(true); // Page loading state
+  const [loadError, setLoadError] = useState<string | null>(null); // Error state
+  const [chapter, setChapterState] = useState<ChapterType | null>(null); // Chapter data state
+  const [novel, setNovel] = useState<Novel | null>(null); // Novel metadata state
 
-  // useChapterActions hook usage remains the same, but the 'novel' prop passed
-  // might be implicitly handled if the hook doesn't strictly require NovelType internally.
-  // We might need to adjust the hook later if it causes issues, but let's fix the page first.
+  // useChapterActions hook manages editor-specific state based on the fetched chapter
   const {
-      isAuthor,
+      isAuthor, // Note: This hook recalculates isAuthor based on passed user/role
       editedTitle,
       setEditedTitle,
       editedContent,
@@ -42,14 +37,19 @@ const EditChapterPage = () => {
       setIsLocked,
       saving,
       setSaving,
-      // handleSave: hookHandleSave // Can remove this if not needed directly here
   } = useChapterActions(chapter, user, role, setChapterState, novel ?? undefined);
 
-
-  // --- Fetch Data ---
+  // --- Fetch Initial Data ---
   const loadData = useCallback(async () => {
+     // Wait for auth check to complete
+    if (authLoading) {
+        console.log("[EditChapterPage] Waiting for auth loading...");
+        return;
+    }
+
     setLoading(true);
     setLoadError(null);
+
     if (isNaN(novelId) || isNaN(chapterNumber)) {
       setLoadError('Invalid novel or chapter ID.');
       setLoading(false);
@@ -57,18 +57,32 @@ const EditChapterPage = () => {
       router.push('/');
       return;
     }
+
     try {
+      // --- FIX: Pass user ID to getChapter ---
+      const userId = user?.id ?? null;
+      console.log(`[EditChapterPage] Fetching data with userId: ${userId}`);
       // Fetch chapter and novel metadata concurrently
       const [fetchedChapter, fetchedNovel] = await Promise.all([
-         getChapter(novelId, chapterNumber),
-         getNovel(novelId) // Fetches Novel metadata only
+         // Pass userId here, as editor needs full content if authorized
+         getChapter(novelId, chapterNumber, userId),
+         getNovel(novelId) // Still useful to fetch novel metadata (e.g., title)
       ]);
+      // --- End FIX ---
 
+      // Validate fetched data
       if (!fetchedNovel) throw new Error('Novel not found');
-      if (!fetchedChapter) throw new Error('Chapter not found');
+      if (!fetchedChapter) throw new Error('Chapter not found or unauthorized to edit'); // Modify error if content is null
+      // If locked and content is null (and user isn't admin), they shouldn't be on the edit page
+      if (fetchedChapter.is_locked && fetchedChapter.content === null && role !== 'admin') {
+           toast.error("You are not authorized to edit this locked chapter.");
+           router.push(`/novels/${novelId}/chapter/${chapterNumber}`); // Redirect to reading page
+           return;
+      }
+
 
       setNovel(fetchedNovel); // Set Novel state
-      setChapterState(fetchedChapter); // Set Chapter state
+      setChapterState(fetchedChapter); // Set Chapter state (hook will update editor state)
 
     } catch (error: any) {
       console.error('Error loading chapter data for edit:', error);
@@ -82,76 +96,75 @@ const EditChapterPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [novelId, chapterNumber, router]);
+  // Depend on auth state as well
+  }, [novelId, chapterNumber, router, authLoading, user, role]); // Add role dependency
 
+  // Load data on mount or when dependencies change
   useEffect(() => {
     loadData();
   }, [loadData]);
 
-  // Handle Save Action
+  // --- Handle Save Action ---
   const handleSave = async (): Promise<boolean> => {
     // Check permissions and required data
-    // novel?.id is used here which comes from the Novel state
-    if (!user || role !== 'admin' || !chapter || !novel?.id) {
+    // isAuthor check here is redundant if AdminRoleCheck is used, but good safety measure
+    if (!isAuthor || !chapter || !novel?.id) {
       toast.error("Cannot save: Insufficient permissions or missing data.");
       return false;
     }
 
-    setSaving(true);
+    setSaving(true); // Use setter from hook
     toast.info('Saving chapter...');
+    let success = false;
     try {
-      // Pass novel.id from the fetched Novel metadata
-      const success = await updateChapter(novel.id, chapter.id, {
+      // Call the API update function
+      success = await updateChapter(novel.id, chapter.id, {
           title: editedTitle.trim(),
-          content: editedContent,
+          content: editedContent, // Send the edited content
           is_locked: isLocked,
-          // 'newly_created' likely shouldn't be part of standard updates unless specifically needed
-          // newly_created: false
+          // 'newly_created' likely shouldn't be part of standard updates
+          // newly_created: false // Remove or handle appropriately if needed
       });
 
       if (success) {
-           setChapterState(prev => prev ? {
-               ...prev,
-               title: editedTitle.trim(),
-               content: editedContent,
-               is_locked: isLocked,
-               updated_at: new Date().toISOString()
-           } : null);
+           // Optionally update local state if not immediately redirecting
+           // setChapterState(prev => prev ? { ... } : null);
            toast.success('Chapter saved successfully');
-
+           // Clear the autosave draft on successful save
            const autosaveKey = `chapter_draft_${novelId}_${chapter?.id ?? 'new'}`;
            localStorage.removeItem(autosaveKey);
-
-           // Redirect to reading page on success
+           // Redirect back to the reading page after save
            router.push(`/novels/${novelId}/chapter/${chapterNumber}`);
-
       } else {
-           toast.error('Failed to save chapter. Please try again.');
+           toast.error('Failed to save chapter. The server reported an issue.');
       }
-      return success;
     } catch (error) {
       console.error('Error saving chapter:', error);
-      toast.error('Failed to save chapter. Please check console for details.');
-      return false;
+      toast.error('An error occurred while saving the chapter. Please check console for details.');
+      success = false; // Ensure success is false on catch
     } finally {
-      // Set saving to false if not redirecting (though redirect should happen on success)
-      setSaving(false);
+      setSaving(false); // Use setter from hook
     }
+    return success; // Return success status
   };
 
-  // Handle Cancel Action
+  // --- Handle Cancel Action ---
   const handleCancel = () => {
+    // Check if there are unsaved changes compared to the *original* chapter state
     const hasChanges = editedTitle !== chapter?.title ||
-                       editedContent !== (chapter?.content || '') ||
+                       editedContent !== (chapter?.content || '') || // Compare with original content
                        isLocked !== chapter?.is_locked;
 
     if (hasChanges) {
-      const discard = confirm("You have unsaved changes in this draft. Discard draft?");
-      if (!discard) return;
+      const discard = confirm("You have unsaved changes. Are you sure you want to discard them and return to the reading page?");
+      if (!discard) return; // Keep editing if user cancels discard
     }
+
+    // Clear the autosave draft on cancel
     const autosaveKey = `chapter_draft_${novelId}_${chapter?.id ?? 'new'}`;
     localStorage.removeItem(autosaveKey);
 
+    // Redirect back to the reading page
     router.push(`/novels/${novelId}/chapter/${chapterNumber}`);
   };
 
@@ -162,17 +175,18 @@ const EditChapterPage = () => {
   if (loadError?.includes("Invalid Novel ID")) {
       return <NotFoundScreen message={loadError} returnUrl="/" returnText="Return to Home" />;
   }
-  // Check chapter as well
+  // Check chapter as well - ensures data is loaded before rendering editor
   if (loadError || !novel || !chapter) {
     return <NotFoundScreen message={loadError || "Chapter or Novel data missing."} returnUrl={`/novels/${novelId || ''}`} returnText="Back to Novel"/>;
   }
 
-  // Render the editor component
+  // --- Render Editor ---
+  // Use AdminRoleCheck to ensure only admins can access the edit page
   return (
     <AdminRoleCheck allowAuthor={true}>
-      {/* Ensure ChapterFullEditor receives the chapter data correctly */}
+      {/* Pass all necessary state and handlers to the editor component */}
       <ChapterFullEditor
-          chapter={chapter} // Pass the loaded chapter
+          chapter={chapter} // Pass the initial loaded chapter data
           isAuthor={isAuthor}
           editedTitle={editedTitle}
           setEditedTitle={setEditedTitle}
@@ -181,9 +195,9 @@ const EditChapterPage = () => {
           isLocked={isLocked}
           setIsLocked={setIsLocked}
           saving={saving}
-          setSaving={setSaving}
-          onSave={handleSave}
-          onCancel={handleCancel}
+          setSaving={setSaving} // Pass the setter down
+          onSave={handleSave} // Pass the save handler
+          onCancel={handleCancel} // Pass the cancel handler
       />
     </AdminRoleCheck>
   );
