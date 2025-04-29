@@ -7,17 +7,17 @@ import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetClose } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ChevronLeft, ChevronRight, List, MessageSquare, X, BookOpen, Lock } from 'lucide-react'; // Added Lock
+import { ChevronLeft, ChevronRight, List, MessageSquare, X, BookOpen, Lock } from 'lucide-react';
 import type { ChapterType } from '@/types/supabase';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import ChapterComments from './ChapterComments';
+import ChapterComments from './ChapterComments'; // Keep import
 
 interface FloatingReadingControlsProps {
-  novelId: number;
-  currentChapterNumber: number;
-  currentChapterId: number;
-  allChapters: ChapterType[] | null;
+  novelId: number | null; // <-- Allow null
+  currentChapterNumber: number | null; // <-- Allow null
+  currentChapterId: number | null; // <-- Allow null
+  allChapters: ChapterType[] | null; // <-- Allow null
   isScrolling?: boolean;
 }
 
@@ -34,9 +34,10 @@ export default function FloatingReadingControls({
   const [activeTab, setActiveTab] = useState<'chapters' | 'comments'>('chapters');
   const listRef = useRef<HTMLDivElement>(null);
 
-  // Find previous and next chapters
+  // Find previous and next chapters (handles null allChapters)
   const { prevChapter, nextChapter } = React.useMemo(() => {
-    if (!allChapters) return { prevChapter: null, nextChapter: null };
+    // Return null if essential data is missing
+    if (!allChapters || currentChapterNumber === null) return { prevChapter: null, nextChapter: null };
     const sortedChapters = [...allChapters].sort((a, b) => a.chapter_number - b.chapter_number);
     const currentIndex = sortedChapters.findIndex(ch => ch.chapter_number === currentChapterNumber);
     if (currentIndex === -1) return { prevChapter: null, nextChapter: null };
@@ -46,7 +47,7 @@ export default function FloatingReadingControls({
     };
   }, [allChapters, currentChapterNumber]);
 
-  // Filter chapters
+  // Filter chapters (handles null allChapters)
   useEffect(() => {
     if (!allChapters) {
       setFilteredChapters([]);
@@ -61,9 +62,9 @@ export default function FloatingReadingControls({
     );
   }, [searchTerm, allChapters]);
 
-  // Scroll to current chapter
+  // Scroll to current chapter (handles null currentChapterNumber)
   useEffect(() => {
-    if (isSheetOpen && activeTab === 'chapters' && listRef.current) {
+    if (isSheetOpen && activeTab === 'chapters' && listRef.current && currentChapterNumber !== null) {
       const currentChapterElement = listRef.current.querySelector(`[data-chapter-number="${currentChapterNumber}"]`) as HTMLElement;
       if (currentChapterElement) {
         currentChapterElement.scrollIntoView({ behavior: 'auto', block: 'center' });
@@ -82,6 +83,13 @@ export default function FloatingReadingControls({
           setActiveTab('chapters');
       }
   }, [isSheetOpen]);
+
+  // *** RENDER NULL IF ESSENTIAL DATA IS MISSING ***
+  if (novelId === null || currentChapterNumber === null || currentChapterId === null || !allChapters) {
+      return null; // Don't render controls if data isn't ready
+  }
+  // *** END NULL CHECK ***
+
 
   return (
     <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
@@ -111,7 +119,8 @@ export default function FloatingReadingControls({
           <SheetTitle className="text-lg font-semibold text-foreground">Reading Controls</SheetTitle>
           <SheetClose asChild>
             <Button variant="ghost" size="icon" className="h-8 w-8">
-              <span className="sr-only">Close</span>
+                <X size={18}/> {/* Use X for close */}
+                <span className="sr-only">Close</span>
             </Button>
           </SheetClose>
         </SheetHeader>
@@ -181,20 +190,17 @@ export default function FloatingReadingControls({
                       data-chapter-number={chapter.chapter_number}
                       asChild
                     >
-                      {/* Wrap content in a flex container */}
                       <Link href={`/novels/${novelId}/chapter/${chapter.chapter_number}`} className="flex items-center justify-between w-full gap-2">
-                        {/* Truncate text */}
                         <span className="truncate flex-grow">
                            {chapter.chapter_number}. {chapter.title}
                         </span>
-                        {/* Add Lock icon if chapter is locked */}
                         {chapter.is_locked && (
                           <Lock size={12} className="text-muted-foreground flex-shrink-0" />
                         )}
                       </Link>
                     </Button>
                   ))
-                ) : (
+                 ) : (
                   <p className="text-sm text-muted-foreground text-center py-4">
                     {searchTerm ? 'No chapters match search.' : 'No chapters available.'}
                   </p>
@@ -205,8 +211,10 @@ export default function FloatingReadingControls({
 
           {/* Comments Tab Content */}
           <TabsContent value="comments" className="flex-grow overflow-hidden mt-0 data-[state=inactive]:hidden">
+            {/* Ensure comments only render when sheet and tab are active */}
             {isSheetOpen && activeTab === 'comments' && (
                  <ScrollArea className="h-full p-4">
+                     {/* Pass non-null chapterId and novelId */}
                     <ChapterComments chapterId={currentChapterId} novelId={novelId} />
                  </ScrollArea>
             )}

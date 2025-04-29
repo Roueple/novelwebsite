@@ -4,22 +4,20 @@ import { Lock } from 'lucide-react';
 import DynamicText from './dynamic-text';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-// import LoadingSpinner from '@/components/ui/loading-spinner'; // <-- REMOVED spinner import
+import type { ChapterType } from '@/types/supabase'; // Import ChapterType
+import LoadingSpinner from '@/components/ui/loading-spinner'; // Keep for potential future use? Or remove if truly gone.
 
 interface ReadingViewProps {
-  // isLoading: boolean; // <-- REMOVED isLoading prop
-  content: string | null;
-  isLocked: boolean;
+  // Accept the whole chapter object or null
+  chapter: ChapterType | null;
   isAuthor: boolean;
-  isEditing: false;
+  isEditing: false; // Ensure this is always false for this component
   textSize: 'sm' | 'md' | 'lg' | 'xl';
   effectsEnabled: boolean;
 }
 
 export default function ReadingView({
-  // isLoading, // <-- REMOVED isLoading prop
-  content,
-  isLocked,
+  chapter, // Use chapter prop
   isAuthor,
   textSize,
   effectsEnabled,
@@ -33,13 +31,33 @@ export default function ReadingView({
     xl: 'prose-xl'
   };
 
-  // --- REMOVED Loading State Check ---
-  // if (isLoading) { ... }
+  // --- Initial Loading / Chapter Not Found ---
+  // Show skeleton if chapter prop is null (meaning parent hasn't loaded it yet)
+  if (chapter === null) {
+    return (
+      <div className="w-full animate-pulse">
+        <div className="max-w-4xl mx-auto px-4 md:px-8 space-y-4 py-8">
+            {/* Skeleton paragraphs */}
+            <div className="h-4 bg-muted rounded w-full"></div>
+            <div className="h-4 bg-muted rounded w-5/6"></div>
+            <div className="h-4 bg-muted rounded w-full"></div>
+            <div className="h-4 bg-muted rounded w-3/4"></div>
+            <div className="h-4 bg-muted rounded w-full"></div>
+            <div className="h-4 bg-muted rounded w-full"></div>
+            <div className="h-4 bg-muted rounded w-4/6"></div>
+        </div>
+      </div>
+    );
+  }
 
-  // --- Locked Content Handling --- (No change)
+  // Destructure after null check
+  const { content, is_locked: isLocked } = chapter;
+
+  // --- Locked Content Handling ---
   if (isLocked && !isAuthor) {
     return (
-      <div className="max-w-4xl mx-auto px-4 md:px-8 text-center py-16 animate-fade-in-content"> {/* Added animation class here too */}
+       // Added animation class here for consistency when lock state appears
+      <div className="max-w-4xl mx-auto px-4 md:px-8 text-center py-16 animate-fade-in-content">
         <Lock
           size={48}
           className="mx-auto mb-4 text-muted-foreground"
@@ -60,30 +78,31 @@ export default function ReadingView({
     );
   }
 
-  // --- Null Content Handling (for authorized users) --- (No change)
+  // --- Null Content Handling (Authorized but content missing) ---
   if (content === null && (!isLocked || isAuthor)) {
      console.error("ReadingView: Content is null unexpectedly.", { isLocked, isAuthor });
      return (
-        <div className="max-w-4xl mx-auto px-4 md:px-8 text-center py-16 text-destructive animate-fade-in-content"> {/* Added animation class here too */}
+       // Added animation class here too
+        <div className="max-w-4xl mx-auto px-4 md:px-8 text-center py-16 text-destructive animate-fade-in-content">
              Content could not be loaded for this chapter. Please try again later or contact support.
         </div>
      );
   }
 
   // --- Render Actual Content ---
-  // Added outer div with animation class
   return (
-    <div className="w-full animate-fade-in-content"> {/* Apply animation class here */}
+    // Apply animation class to the outer wrapper for fade-in on chapter change
+    <div className="w-full animate-fade-in-content">
       <div className="max-w-4xl mx-auto px-4 md:px-8">
          <div className={cn(
             "prose max-w-none text-foreground dark:prose-invert", // Base styles
             sizeClasses[textSize] // Dynamic size
          )}>
-          {/* Render dynamic text if content is a string */}
+          {/* Render dynamic text only if content is a string */}
           {typeof content === 'string' ? (
             <DynamicText content={content} isEnabled={effectsEnabled} />
           ) : (
-            // Fallback
+             // Fallback if content is somehow still not string/null (shouldn't happen often)
             <p className="text-muted-foreground italic">Chapter content is unavailable.</p>
           )}
         </div>

@@ -7,33 +7,33 @@ import dynamic from 'next/dynamic';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/providers/auth-provider';
 import { getChapter, getNovel, getNovelChapters } from '@/lib/api';
-import ReadingHeader from '@/components/reading/reading-header';
-import ReadingView from '@/components/reading/reading-view'; // Import ReadingView
+import ReadingHeader from '@/components/reading/reading-header'; // Import modified Header
+import ReadingView from '@/components/reading/reading-view'; // Import modified View
 import ReadingSettingsMenu from '@/components/reading/reading-settings-menu';
 import NotFoundScreen from '@/components/ui/not-found-screen';
 import { useReadingPreferences } from '@/hooks/use-reading-preferences';
 import type { ChapterType, Novel } from '@/types/supabase';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import FloatingReadingControls from '@/components/reading/FloatingReadingControls';
+import FloatingReadingControls from '@/components/reading/FloatingReadingControls'; // Import modified Controls
 import LoadingSpinner from '@/components/ui/loading-spinner';
 
-const ChapterComments = dynamic(() => import('@/components/reading/ChapterComments'), { //
-  ssr: false, //
-  loading: () => <CommentsFallback />, //
-}); //
+const ChapterComments = dynamic(() => import('@/components/reading/ChapterComments'), {
+  ssr: false,
+  loading: () => <CommentsFallback />,
+});
 
-function CommentsFallback() { //
-    return ( //
+function CommentsFallback() {
+    return (
         <div className="mt-8 pt-6 border-t border-border">
             <h3 className="text-xl font-semibold mb-4 text-foreground">Comments</h3>
             <div className="flex justify-center items-center py-8">
                 <LoadingSpinner size="md" />
                 <span className="ml-2 text-muted-foreground">Loading comments section...</span>
             </div>
-        </div> //
-    ); //
-} //
+        </div>
+    );
+}
 
 export default function ChapterPage() {
   // --- Hooks and State ---
@@ -43,29 +43,23 @@ export default function ChapterPage() {
   const novelId = Number(params.id);
   const chapterNumber = Number(params.chapterId);
 
-  // ** State Changes **
   const [novel, setNovel] = useState<Novel | null>(null);
   const [allChapters, setAllChapters] = useState<ChapterType[] | null>(null);
   const [currentChapter, setCurrentChapter] = useState<ChapterType | null>(null);
-  const [initialLoading, setInitialLoading] = useState(true); // Keep for initial novel/list load
-  // const [contentLoading, setContentLoading] = useState(false); // <-- REMOVED
+  // const [initialLoading, setInitialLoading] = useState(true); // <-- REMOVED
   const [pageError, setPageError] = useState<string | null>(null);
 
-  // Reading preferences hook (No change)
+  // Reading preferences and UI state (No change)
   const {
     textSize, effectsEnabled, animationsEnabled, fontFamily, lineSpacing,
     showSettingsMenu, settingsMenuRef, setShowSettingsMenu, changeTextSize,
     toggleEffects, toggleAnimations, changeFontFamily, changeLineSpacing,
     resetPreferences,
   } = useReadingPreferences();
-
-  // UI state (No change)
   const [headerVisible, setHeaderVisible] = useState(true);
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [isScrolling, setIsScrolling] = useState(false);
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Derived state (No change)
   const isAuthor = useMemo(() => user !== null && role === 'admin', [user, role]);
   const { prevChapter, nextChapter } = useMemo(() => {
     if (!allChapters) return { prevChapter: null, nextChapter: null };
@@ -77,21 +71,20 @@ export default function ChapterPage() {
     return { prevChapter: prev, nextChapter: next };
   }, [allChapters, chapterNumber]);
 
+
   // --- Data Fetching Effects ---
 
-  // Effect 1: Fetch Novel Details and Chapter List (No change)
+  // Effect 1: Fetch Novel Details and Chapter List (No longer sets initialLoading)
   useEffect(() => {
-    if (isNaN(novelId) || novelId <= 0 || authLoading) {
-      if (isNaN(novelId) || novelId <= 0) {
-            setPageError("Invalid Novel ID.");
-            setInitialLoading(false);
-        }
+    if (isNaN(novelId) || novelId <= 0) {
+      setPageError("Invalid Novel ID.");
+      // setInitialLoading(false); // Not needed anymore
       return;
     }
     let isMounted = true;
-    setInitialLoading(true);
+    // setInitialLoading(true); // Not needed anymore
     setPageError(null);
-    setNovel(null);
+    setNovel(null); // Still reset state on ID change
     setAllChapters(null);
     setCurrentChapter(null);
     console.log(`[ChapterPage] Fetching novel (${novelId}) details and chapter list.`);
@@ -110,34 +103,32 @@ export default function ChapterPage() {
         setPageError(message);
         toast.error(`Error: ${message}`);
         if (message.includes('not found')) router.push(`/`);
-        setInitialLoading(false);
+        // setInitialLoading(false); // Not needed anymore
       });
     return () => { isMounted = false; };
-  }, [novelId, authLoading, router]);
+  }, [novelId, router]); // Removed authLoading dependency
 
-  // Effect 2: Fetch Specific Chapter Content (No change in fetch logic, removed contentLoading setter)
+  // Effect 2: Fetch Specific Chapter Content (No longer sets initialLoading)
   useEffect(() => {
+     // Only run if novel and chapters list are loaded AND no page error occurred yet
     if (!novel || !allChapters || pageError) {
       return;
     }
     if (isNaN(chapterNumber) || chapterNumber <= 0) {
       setPageError("Invalid Chapter Number.");
-      setInitialLoading(false);
-      // setContentLoading(false); // <-- REMOVED
+      // setInitialLoading(false); // Not needed
       return;
     }
     const chapterMeta = allChapters.find(ch => ch.chapter_number === chapterNumber);
     if (!chapterMeta) {
         setPageError("Chapter not found in this novel.");
         setCurrentChapter(null);
-        setInitialLoading(false);
-        // setContentLoading(false); // <-- REMOVED
+        // setInitialLoading(false); // Not needed
         return;
     }
     let isMounted = true;
-    // if (!initialLoading) setContentLoading(true); // <-- REMOVED
     setPageError(null);
-    setCurrentChapter(null); // Clear old content immediately before fetch
+    setCurrentChapter(null); // Clear previous chapter content immediately
     console.log(`[ChapterPage] Fetching content for Chapter ${chapterNumber} (Novel ${novelId})`);
     const userId = user?.id ?? null;
 
@@ -145,10 +136,8 @@ export default function ChapterPage() {
       .then((fetchedChapterData) => {
         if (!isMounted) return;
         if (!fetchedChapterData) {
-          console.log(`[ChapterPage] Content for locked chapter ${chapterNumber} inaccessible for user ${userId || 'Anonymous'}. Using metadata.`);
           setCurrentChapter({ ...chapterMeta, content: null });
         } else {
-          console.log(`[ChapterPage] Content loaded for Chapter ${chapterNumber}. Locked: ${fetchedChapterData.is_locked}, Content Present: ${!!fetchedChapterData.content}`);
           setCurrentChapter(fetchedChapterData);
         }
       })
@@ -159,16 +148,16 @@ export default function ChapterPage() {
         setPageError(message);
         toast.error(`Error: ${message}`);
       })
-      .finally(() => {
+      .finally(() => { // finally block might not be strictly needed anymore
         if (!isMounted) return;
-        setInitialLoading(false); // Still need to track initial overall load
-        // setContentLoading(false); // <-- REMOVED
+        // setInitialLoading(false); // <-- REMOVED
         console.log(`[ChapterPage] Content fetch finished for Chapter ${chapterNumber}`);
       });
       return () => { isMounted = false; };
-  }, [novel, allChapters, chapterNumber, novelId, user?.id, initialLoading, pageError]);
+   // Keep dependencies, initialLoading removed as it's not set here anymore
+  }, [novel, allChapters, chapterNumber, novelId, user?.id, pageError]);
 
-  // --- Other Effects (UI, Preferences, Scrolling, Keyboard) --- (No change)
+  // --- Other Effects (UI, Preferences, Scrolling, Keyboard) --- (Keep as before)
   useEffect(() => { // Apply reading preferences
     const root = document.documentElement;
     root.style.setProperty('--reading-line-height', lineSpacing.toString());
@@ -233,31 +222,31 @@ export default function ChapterPage() {
     };
   }, []);
 
+
   // --- Render Logic ---
 
-  if (initialLoading || authLoading) { // Still show loader for initial novel load
-       return (
-            <div className="min-h-screen bg-background flex items-center justify-center">
-                 <LoadingSpinner size="lg" />
-                 <p className="ml-3 text-muted-foreground">Loading novel...</p>
-            </div>
-       );
-  }
+  // ** REMOVED initialLoading check - render structure immediately **
+  // if (initialLoading) { ... }
 
+  // ** Error handling first **
   if (pageError) {
-      return <NotFoundScreen message={pageError} returnUrl={`/novels/${novelId || ''}`} returnText="Back to Novel" />;
-  }
-  if (!novel) {
-      return <NotFoundScreen message="Novel data could not be loaded." returnUrl={`/`} returnText="Back to Home"/>;
+      // Try to provide context even if novel failed to load initially
+      const novelTitleForError = novel?.title ?? `Novel ID ${novelId}`;
+      const returnUrlOnError = novel ? `/novels/${novelId}` : '/';
+      const returnTextOnError = novel ? `Back to ${novel.title}` : 'Back to Home';
+      return <NotFoundScreen message={`Error loading: ${pageError}`} returnUrl={returnUrlOnError} returnText={returnTextOnError} />;
   }
 
   // Main Render
   return (
-    <div className={cn("reading-page", { 'focus-mode': isFocusMode })}>
-        {!isFocusMode && novel && currentChapter && (
+    // Add a key here based on novelId to force re-render if user navigates
+    // from one novel's chapter directly to another novel's chapter.
+    <div key={novelId} className={cn("reading-page", { 'focus-mode': isFocusMode })}>
+        {/* Header: Renders skeleton if novel/currentChapter is null */}
+        {!isFocusMode && (
             <ReadingHeader
-                novel={novel}
-                chapter={currentChapter}
+                novel={novel} // Pass potentially null
+                chapter={currentChapter} // Pass potentially null
                 isAuthor={isAuthor}
                 visible={headerVisible}
                 setVisible={setHeaderVisible}
@@ -267,6 +256,7 @@ export default function ChapterPage() {
             />
         )}
 
+        {/* Settings Menu (Renders conditionally based on its own state) */}
         <ReadingSettingsMenu
           isOpen={showSettingsMenu}
           onClose={() => setShowSettingsMenu(false)}
@@ -284,52 +274,47 @@ export default function ChapterPage() {
           onResetPreferences={resetPreferences}
         />
 
+        {/* Use min-height to prevent layout shifts while waiting for content */}
         <main className="min-h-screen bg-background text-foreground pt-16 md:pt-20 pb-24">
-          {novel && (
             <div className="max-w-4xl mx-auto px-4 md:px-8">
-              {/* Chapter Title - Render immediately if chapter meta exists */}
+              {/* Chapter Title: Render skeleton if currentChapter is null */}
               {currentChapter ? (
                   <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-8">
                      Chapter {currentChapter.chapter_number}: {currentChapter.title}
                   </h1>
-              ) : pageError ? ( // Show error if title couldn't be determined
-                  <h1 className="text-2xl sm:text-3xl font-bold text-destructive mb-8"> Error Loading Chapter Title </h1>
-              ) : ( // Placeholder while chapter data is initially null before fetch completes
+              ) : (
+                  // Skeleton for Title
                   <div className="h-8 bg-muted rounded w-3/4 mb-8 animate-pulse"></div>
-              )
-              }
+              )}
 
-              {/* Reading View Component - Pass unique key to trigger re-mount & animation */}
+              {/* Reading View: Handles its own skeleton/locked/content states */}
+              {/* Pass chapter object (or null) and key */}
               <ReadingView
-                  key={currentChapter?.id ?? 'loading'} // Use chapter ID as key
-                  // isLoading prop is removed
-                  content={currentChapter?.content ?? null}
-                  isLocked={currentChapter?.is_locked ?? true} // Default to locked if chapter is null/loading
+                  key={currentChapter?.id ?? 'loading-view'} // Key forces remount/animation
+                  chapter={currentChapter} // Pass chapter or null
                   isAuthor={isAuthor}
                   isEditing={false}
                   textSize={textSize}
                   effectsEnabled={effectsEnabled}
               />
 
-              {/* Comments Section - Render only if currentChapter exists */}
+              {/* Comments Section: Render only if chapter exists */}
               {currentChapter && (
                   <Suspense fallback={<CommentsFallback />}>
                      <ChapterComments chapterId={currentChapter.id} novelId={novelId} />
                   </Suspense>
               )}
             </div>
-          )}
         </main>
 
-         {novel && currentChapter && allChapters && (
-            <FloatingReadingControls
-                 novelId={novelId}
-                 currentChapterNumber={chapterNumber}
-                 currentChapterId={currentChapter.id}
-                 allChapters={allChapters}
-                 isScrolling={isScrolling}
-             />
-         )}
+         {/* Floating Controls: Renders null if data is missing */}
+         <FloatingReadingControls
+              novelId={novelId}
+              currentChapterNumber={currentChapterNumber}
+              currentChapterId={currentChapter?.id ?? null} // Pass null if no chapter
+              allChapters={allChapters} // Pass potentially null
+              isScrolling={isScrolling}
+          />
     </div>
   );
 }

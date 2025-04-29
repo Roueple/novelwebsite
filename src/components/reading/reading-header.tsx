@@ -5,13 +5,13 @@ import {
   ChevronLeft, Settings, Edit, Sparkles, Moon, Sun, BookOpen, ChevronUp,
 } from 'lucide-react';
 import { useTheme } from '@/providers/theme-provider';
-import { Novel, ChapterType } from '@/types/supabase';
+import { Novel, ChapterType } from '@/types/supabase'; // Keep types
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 interface ReadingHeaderProps {
-  novel: Novel;
-  chapter: ChapterType;
+  novel: Novel | null; // <-- Allow null
+  chapter: ChapterType | null; // <-- Allow null
   isAuthor: boolean;
   visible: boolean;
   setVisible: (visible: boolean) => void;
@@ -20,9 +20,39 @@ interface ReadingHeaderProps {
   effectsEnabled: boolean;
 }
 
+// Skeleton Component for the Header
+function ReadingHeaderSkeleton() {
+    return (
+        <header className="bg-background border-b border-border text-foreground w-full z-40 fixed top-0 left-0 animate-pulse">
+            <div className="container mx-auto px-4">
+                <div className="flex items-center justify-between py-2 md:py-3">
+                    {/* Left Skeleton */}
+                    <div className="flex items-center gap-2 md:gap-4 flex-shrink-0 min-w-0">
+                        <div className="h-8 w-8 bg-muted rounded-lg"></div>
+                        <div className="hidden md:flex flex-col space-y-1.5">
+                            <div className="h-4 w-32 bg-muted rounded"></div>
+                            <div className="h-3 w-48 bg-muted rounded"></div>
+                        </div>
+                    </div>
+                    {/* Right Skeleton */}
+                    <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
+                        <div className="h-8 w-8 bg-muted rounded-full"></div>
+                        <div className="h-8 w-8 bg-muted rounded-full"></div>
+                        <div className="h-8 w-8 bg-muted rounded-full"></div>
+                        {/* Placeholder for potential Edit button */}
+                        <div className="h-8 w-16 bg-muted rounded-md hidden sm:block"></div>
+                        <div className="h-8 w-8 bg-muted rounded-full"></div>
+                    </div>
+                </div>
+            </div>
+        </header>
+    );
+}
+
+
 export default function ReadingHeader({
-  novel,
-  chapter,
+  novel, // Can be null
+  chapter, // Can be null
   isAuthor,
   visible,
   setVisible,
@@ -36,6 +66,13 @@ export default function ReadingHeader({
     return null;
   }
 
+  // *** RENDER SKELETON IF DATA IS MISSING ***
+  if (!novel || !chapter) {
+    return <ReadingHeaderSkeleton />;
+  }
+  // *** END SKELETON CHECK ***
+
+  // Render actual header if data exists
   return (
     <header
         className="reading-header-container bg-background border-b border-border text-foreground w-full z-40 fixed top-0 left-0 transition-opacity duration-300 ease-in-out"
@@ -44,12 +81,11 @@ export default function ReadingHeader({
         <div className="flex items-center justify-between py-2 md:py-3">
           {/* Left section */}
           <div className="flex items-center gap-2 md:gap-4 flex-shrink-0 min-w-0">
-            {/* FIX: Added title attribute for tooltip */}
             <Link
-               href={`/novels/${novel.id}`}
+               href={`/novels/${novel.id}`} // Safe now because novel is not null
               className="p-1 md:p-2 rounded-lg hover:bg-accent flex-shrink-0"
               aria-label="Back to novel details"
-              title={`Back to ${novel.title}`} // Tooltip added
+              title={`Back to ${novel.title}`}
             >
               <ChevronLeft size={20} />
             </Link>
@@ -58,7 +94,7 @@ export default function ReadingHeader({
                 {novel.title}
               </h1>
               <p className="text-xs text-muted-foreground truncate">
-                Chapter {chapter.chapter_number}: {chapter.title}
+                Chapter {chapter.chapter_number}: {chapter.title} {/* Safe now because chapter is not null */}
               </p>
             </div>
           </div>
