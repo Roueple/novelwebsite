@@ -190,9 +190,12 @@ export default function EditNovelAndChaptersPage() {
         <div className="min-h-screen bg-background text-foreground">
           <div className="container mx-auto px-4 py-8">
             <div className="max-w-3xl mx-auto space-y-8"> {/* Added space-y */}
-              {/* Back Link */}
-              <div className="mb-6"> <Button variant="ghost" size="sm" asChild className="text-muted-foreground hover:text-foreground"> <Link href={`/novels/${novelId}`}> <ArrowLeft size={16} className="mr-1" /> Back to Novel View </Link> </Button> </div>
-
+            <Button variant="ghost" size="sm" asChild className="text-muted-foreground hover:text-foreground">
+            <Link href={`/novels/${novelId}`}>
+                <ArrowLeft size={16} className="mr-1" />
+                Back to Novel View
+            </Link>
+            </Button>
               {/* Novel Details Edit Form Card */}
               <div className="bg-card text-card-foreground rounded-lg shadow-lg p-6">
                 <h1 className="text-2xl font-bold mb-6 text-foreground"> Edit Novel Details </h1>
