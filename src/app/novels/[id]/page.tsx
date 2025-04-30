@@ -1,10 +1,10 @@
-// src/app/novels/[id]/page.tsx (Pure View Version)
+// src/app/novels/[id]/page.tsx (Pure View Version - Lock Icon Fix)
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { BookOpen, Edit, Lock } from 'lucide-react'; // Keep Lock icon for display
+import { BookOpen, Edit, Lock } from 'lucide-react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams } from 'next/navigation'; // Removed useRouter as it's not used here anymore
 import { getNovel, getNovelChapters } from '@/lib/api';
 import type { Novel, ChapterType } from '@/types/supabase';
 import Image from 'next/image';
@@ -13,50 +13,22 @@ import NotFoundScreen from '@/components/ui/not-found-screen';
 import { Button } from '@/components/ui/button';
 import LoadingSpinner from '@/components/ui/loading-spinner';
 import { cn } from '@/lib/utils';
+// Removed unused imports like Input, toast, chapter management icons/handlers
 
-// --- Skeleton Components (with return statements) ---
+// --- Skeleton Components (Fixed with return statements) ---
 function ChaptersSkeleton() {
-    return (
-        <div className="space-y-1 animate-pulse">
-            {[...Array(8)].map((_, i) => ( // Increased count for visual balance
-                <div key={i} className="flex items-center justify-between p-2 rounded-md h-8 bg-muted/50"></div>
-            ))}
-        </div>
-    );
+    return ( <div className="space-y-1 animate-pulse"> { [...Array(8)].map((_, i) => ( <div key={i} className="flex items-center justify-between p-2 rounded-md h-8 bg-muted/50"></div> ))} </div> );
 }
-
 function LeftColumnSkeleton() {
-    return (
-        <div className="md:col-span-1 space-y-4 animate-pulse">
-            <div className="relative aspect-[2/3] w-full bg-muted rounded-lg shadow-lg"></div>
-            <div className="space-y-3 bg-card p-4 rounded-lg shadow border border-border/10">
-                <div className="flex items-center justify-between"> <div className="h-4 bg-muted rounded w-1/4"></div> <div className="h-4 bg-muted rounded w-1/6"></div> </div>
-                <div className="flex items-center justify-between"> <div className="h-4 bg-muted rounded w-1/4"></div> <div className="h-5 w-1/5 bg-muted rounded-full"></div> </div>
-                <div className="pt-1 space-y-2"> <div className="h-4 bg-muted rounded w-1/5 mb-1"></div> <div className="flex flex-wrap gap-1"> <div className="h-5 w-12 bg-muted rounded-full"></div> <div className="h-5 w-16 bg-muted rounded-full"></div> <div className="h-5 w-14 bg-muted rounded-full"></div> </div> </div>
-            </div>
-        </div>
-    );
+    return ( <div className="md:col-span-1 space-y-4 animate-pulse"> <div className="relative aspect-[2/3] w-full bg-muted rounded-lg shadow-lg"></div> <div className="space-y-3 bg-card p-4 rounded-lg shadow border border-border/10"> <div className="flex items-center justify-between"> <div className="h-4 bg-muted rounded w-1/4"></div> <div className="h-4 bg-muted rounded w-1/6"></div> </div> <div className="flex items-center justify-between"> <div className="h-4 bg-muted rounded w-1/4"></div> <div className="h-5 w-1/5 bg-muted rounded-full"></div> </div> <div className="pt-1 space-y-2"> <div className="h-4 bg-muted rounded w-1/5 mb-1"></div> <div className="flex flex-wrap gap-1"> <div className="h-5 w-12 bg-muted rounded-full"></div> <div className="h-5 w-16 bg-muted rounded-full"></div> <div className="h-5 w-14 bg-muted rounded-full"></div> </div> </div> </div> </div> );
 }
-
 function RightColumnSkeleton() {
-    return (
-        <div className="md:col-span-2 space-y-6 animate-pulse">
-            <div className="bg-card rounded-lg shadow p-6 border border-border/10 space-y-3">
-                <div className="flex justify-between items-start"> <div className="h-8 bg-muted rounded w-3/4"></div> <div className="h-8 w-8 bg-muted rounded-md"></div> </div>
-                <div className="h-4 bg-muted rounded w-1/4"></div>
-                <div className="space-y-2 pt-2"> <div className="h-4 bg-muted rounded w-full"></div> <div className="h-4 bg-muted rounded w-full"></div> <div className="h-4 bg-muted rounded w-5/6"></div> </div>
-            </div>
-            <div className="bg-card rounded-lg shadow p-6 border border-border/10">
-                <div className="h-6 bg-muted rounded w-1/3 mb-4"></div>
-                <ChaptersSkeleton />
-            </div>
-        </div>
-    );
+    return ( <div className="md:col-span-2 space-y-6 animate-pulse"> <div className="bg-card rounded-lg shadow p-6 border border-border/10 space-y-3"> <div className="flex justify-between items-start"> <div className="h-8 bg-muted rounded w-3/4"></div> <div className="h-8 w-8 bg-muted rounded-md"></div> </div> <div className="h-4 bg-muted rounded w-1/4"></div> <div className="space-y-2 pt-2"> <div className="h-4 bg-muted rounded w-full"></div> <div className="h-4 bg-muted rounded w-full"></div> <div className="h-4 bg-muted rounded w-5/6"></div> </div> </div> <div className="bg-card rounded-lg shadow p-6 border border-border/10"> <div className="h-6 bg-muted rounded w-1/3 mb-4"></div> <ChaptersSkeleton /> </div> </div> );
 }
 // --- END Skeletons ---
 
-export default function NovelPageView() { // Renamed component for clarity
-  // Hooks and State (Simplified)
+export default function NovelPageView() {
+  // Hooks and State
   const { user, role, loading: authLoading } = useAuth();
   const params = useParams();
   const novelIdParam = params.id;
@@ -97,10 +69,10 @@ export default function NovelPageView() { // Renamed component for clarity
     else if ((authLoading || novelId === null) && !dataLoading) { console.log("[NovelPageView Refresh Debug] Setting dataLoading to true (auth pending or no ID)."); setDataLoading(true); }
   }, [novelId, authLoading, loadNovelAndChapters, novel, loadError, dataLoading]);
 
-  // Sorted Chapters (Simple sort for display)
+
+  // Sorted Chapters
   const displayedChapters = useMemo(() => {
     if (!chapters) return [];
-    // Default to ascending sort for display
     return [...chapters].sort((a, b) => a.chapter_number - b.chapter_number);
   }, [chapters]);
 
@@ -136,7 +108,6 @@ export default function NovelPageView() { // Renamed component for clarity
                  <div>
                     <div className="flex justify-between items-start mb-2">
                          <h1 className="text-2xl md:text-3xl font-bold text-foreground">{novel.title}</h1>
-                         {/* Edit button now links to edit page */}
                          {isAuthor && (
                             <Button variant="ghost" size="icon" asChild className="text-muted-foreground hover:text-foreground" aria-label="Edit novel details">
                                <Link href={`/novels/${novelId}/edit`}> <Edit size={18} /> </Link>
@@ -153,7 +124,7 @@ export default function NovelPageView() { // Renamed component for clarity
               {/* Chapters Section (Display Only) */}
               <div className="bg-card rounded-lg shadow p-6 border border-border/10">
                   <h2 className="text-xl font-semibold text-foreground mb-4">Chapters</h2>
-                   {/* Chapter Sort/Filter controls can be re-added here later if desired on view page */}
+                  {/* Chapter Sort/Filter controls were removed, can be added back here if needed */}
 
                   {/* Chapter List */}
                   <div className="space-y-1">
@@ -161,7 +132,6 @@ export default function NovelPageView() { // Renamed component for clarity
                          <ChaptersSkeleton />
                      ) : displayedChapters.length > 0 ? (
                          displayedChapters.map((chapter) => (
-                            // Simple Link Display for each chapter
                             <Link
                                 key={chapter.id}
                                 href={`/novels/${novelId}/chapter/${chapter.chapter_number}`}
@@ -171,7 +141,8 @@ export default function NovelPageView() { // Renamed component for clarity
                                     Chapter {chapter.chapter_number}: {chapter.title}
                                 </span>
                                 {chapter.is_locked && (
-                                    <Lock size={14} className="text-muted-foreground flex-shrink-0 ml-2" title="Locked Chapter"/>
+                                    // --- FIX: Removed invalid title prop ---
+                                    <Lock size={14} className="text-muted-foreground flex-shrink-0 ml-2" />
                                 )}
                             </Link>
                          ))
