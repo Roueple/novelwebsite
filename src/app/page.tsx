@@ -6,6 +6,8 @@ import { getLatestNovels } from '@/lib/api';
 import type { Novel } from '@/types/supabase';
 import LoadingSpinner from '@/components/ui/loading-spinner'; // For Suspense fallback
 
+export const revalidate = 60;
+
 // --- Inner Component to Display Novels ---
 async function LatestNovelsList() {
   let novels: Novel[] = [];

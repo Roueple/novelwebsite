@@ -1,36 +1,21 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+This project is a Web Novel Reading Platform called Roueple Novel Website
 
-## Getting Started
-
-First, run the development server:
-
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Goal: To provide an excellent user experience for reading web novels online, with features for both readers and administrators, prioritizing performance and maintainability.   
+Tech Stack:
+Frontend: Next.js (v15+)  using the App Router, React (v19+), TypeScript.   
+Styling: Tailwind CSS  with shadcn/ui components  and custom CSS variables for theming (light, dark, reading modes defined in globals.css).   
+Backend/DB: Supabase (inferred PostgreSQL DB, Auth, Storage). Used with @supabase/auth-helpers-nextjs.   
+Deployment: Vercel.   
+Key Features/Modules:
+User Authentication (Supabase Auth): Supports Email OTP, Google OAuth, and Anonymous/Guest access with account linking capabilities. Includes profile management (src/types/supabase.ts defines Profile type ).   
+Novel Browsing: Homepage displays latest novels (src/app/page.tsx ), dedicated novel detail pages (src/app/novels/[id]/page.tsx ), and novel search functionality (src/app/search/ ).   
+Chapter Reading: Dedicated chapter reading view (src/app/novels/[id]/chapter/[chapterId]/page.tsx ) with customizable reading preferences (font, size, spacing, theme via useReadingPreferences hook ), dynamic text effects (src/components/reading/dynamic-text.tsx ), floating controls (FloatingReadingControls.tsx ), and direct chapter navigation buttons (DirectChapterNavigation.tsx).   
+Admin Features (src/app/admin/ ): Includes comment moderation (/comments/page.tsx ) and management/testing of dynamic text effects (/text-effects/page.tsx ). Uses role-based access control (AdminRoleCheck.tsx ).   
+Content Management (Admin/Author): Features novel creation (/novels/create/page.tsx ), chapter creation (AddChapterModal.tsx ), and chapter editing (/edit/page.tsx ) including title, content (ChapterFullEditor.tsx ), and lock status. Supports cover image uploads (using src/lib/upload.ts  and Supabase Storage ).   
+Comments: Per-chapter commenting system (ChapterComments.tsx ) with admin approval flow.   
+Core Priorities: 
+Excellent User Experience (Intuitive, readable, seamless)    
+High Performance (Fast loads, responsive UI)    
+Code Quality & Reusability (Modular, DRY, documented)    
+Scalability    
+Maintainability    
