@@ -250,3 +250,41 @@ export async function approveComment(commentId: number): Promise<boolean> { // [
    catch (error) { handleSupabaseError(error, `approveComment (Comment ID: ${commentId})`); return false; // [cite: 1935]
    } // [cite: 1936]
 } // [cite: 1936]
+
+// --- NEW: Function to Update Novel Details ---
+export async function updateNovelDetails(
+  novelId: number,
+  // Use Partial and Omit to define allowed update fields
+  updateData: Partial<Omit<Novel, 'id' | 'created_at' | 'updated_at' | 'rating' | 'author_id'>>
+): Promise<boolean> {
+   if (isNaN(novelId) || novelId <= 0) {
+     console.error('[api.updateNovelDetails] Invalid novel ID:', novelId);
+     return false;
+   }
+   if (Object.keys(updateData).length === 0) {
+     console.warn("[api.updateNovelDetails] called with empty data.");
+     return true; // No changes needed, technically success
+   }
+
+   // Ensure fields that shouldn't be updated directly are not present
+   // (although Omit helps, this is an extra check)
+   delete (updateData as any).id;
+   delete (updateData as any).created_at;
+   delete (updateData as any).updated_at;
+   delete (updateData as any).rating; // Rating might be calculated differently
+   delete (updateData as any).author_id; // Should usually not be changed here
+
+   try {
+     console.log(`[api.updateNovelDetails] Updating novel ${novelId}:`, updateData);
+     const { error } = await supabase
+       .from('novels')
+       .update(updateData)
+       .eq('id', novelId);
+
+     if (error) throw error;
+     return true;
+   } catch (error) {
+     handleSupabaseError(error, `updateNovelDetails (Novel ID: ${novelId})`);
+     return false;
+   }
+}
