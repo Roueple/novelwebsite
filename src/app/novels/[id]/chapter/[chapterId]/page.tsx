@@ -17,6 +17,8 @@ import { cn } from '@/lib/utils';
 import FloatingReadingControls from '@/components/reading/FloatingReadingControls';
 import DirectChapterNavigation from '@/components/reading/DirectChapterNavigation';
 import LoadingSpinner from '@/components/ui/loading-spinner';
+import { useTheme } from '@/providers/theme-provider';
+
 
 // Dynamic imports and fallbacks
 const ChapterComments = dynamic(() => import('@/components/reading/ChapterComments'), {
@@ -49,6 +51,7 @@ export default function ChapterPage() {
   const [allChapters, setAllChapters] = useState<ChapterType[] | null>(null);
   const [currentChapter, setCurrentChapter] = useState<ChapterType | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
+  const { theme } = useTheme(); // Get the current theme
   const {
     textSize, effectsEnabled, animationsEnabled, fontFamily, lineSpacing,
     showSettingsMenu, settingsMenuRef, setShowSettingsMenu, changeTextSize,
@@ -286,7 +289,10 @@ export default function ChapterPage() {
 
   // Main Render
   return (
-    <div className={cn("reading", "min-h-screen")}> {/* Apply reading theme class */}
+    <div className={cn(
+      "min-h-screen", // Base class
+      theme === 'reading' ? 'reading' : '' // Apply 'reading' class ONLY if theme is 'reading'
+    )}>
         {/* Conditionally render Header based on uiVisible */}
         {uiVisible && (
             <ReadingHeader
