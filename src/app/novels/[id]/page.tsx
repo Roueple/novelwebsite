@@ -1,19 +1,22 @@
-// src/app/novels/[id]/page.tsx (Pure View, No Edit Btn, useEffect Fix v3)
+// src/app/novels/[id]/page.tsx (View Page + Sort/Search Integrated)
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { BookOpen, Lock } from 'lucide-react'; // Removed Edit icon
+// --- Added: Search, ArrowDownUp icons ---
+import { BookOpen, Edit, Lock, Search, ArrowDownUp } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { getNovel, getNovelChapters } from '@/lib/api';
 import type { Novel, ChapterType } from '@/types/supabase';
 import Image from 'next/image';
 import NotFoundScreen from '@/components/ui/not-found-screen';
-// Removed Button import as it's no longer used here
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input'; // Added Input
 import LoadingSpinner from '@/components/ui/loading-spinner';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/providers/auth-provider'; // Added back for Edit link visibility
 
-// --- Skeleton Components (Ensure they have return statements) ---
+// --- Skeleton Components (Fixed with return statements) ---
 function ChaptersSkeleton() {
     return ( <div className="space-y-1 animate-pulse"> { [...Array(8)].map((_, i) => ( <div key={i} className="flex items-center justify-between p-2 rounded-md h-8 bg-muted/50"></div> ))} </div> );
 }
@@ -21,7 +24,7 @@ function LeftColumnSkeleton() {
     return ( <div className="md:col-span-1 space-y-4 animate-pulse"> <div className="relative aspect-[2/3] w-full bg-muted rounded-lg shadow-lg"></div> <div className="space-y-3 bg-card p-4 rounded-lg shadow border border-border/10"> <div className="flex items-center justify-between"> <div className="h-4 bg-muted rounded w-1/4"></div> <div className="h-4 bg-muted rounded w-1/6"></div> </div> <div className="flex items-center justify-between"> <div className="h-4 bg-muted rounded w-1/4"></div> <div className="h-5 w-1/5 bg-muted rounded-full"></div> </div> <div className="pt-1 space-y-2"> <div className="h-4 bg-muted rounded w-1/5 mb-1"></div> <div className="flex flex-wrap gap-1"> <div className="h-5 w-12 bg-muted rounded-full"></div> <div className="h-5 w-16 bg-muted rounded-full"></div> <div className="h-5 w-14 bg-muted rounded-full"></div> </div> </div> </div> </div> );
 }
 function RightColumnSkeleton() {
-    return ( <div className="md:col-span-2 space-y-6 animate-pulse"> <div className="bg-card rounded-lg shadow p-6 border border-border/10 space-y-3"> <div className="flex justify-between items-start"> <div className="h-8 bg-muted rounded w-3/4"></div> {/* Removed Edit button skeleton */} </div> <div className="h-4 bg-muted rounded w-1/4"></div> <div className="space-y-2 pt-2"> <div className="h-4 bg-muted rounded w-full"></div> <div className="h-4 bg-muted rounded w-full"></div> <div className="h-4 bg-muted rounded w-5/6"></div> </div> </div> <div className="bg-card rounded-lg shadow p-6 border border-border/10"> <div className="h-6 bg-muted rounded w-1/3 mb-4"></div> <ChaptersSkeleton /> </div> </div> );
+    return ( <div className="md:col-span-2 space-y-6 animate-pulse"> <div className="bg-card rounded-lg shadow p-6 border border-border/10 space-y-3"> <div className="flex justify-between items-start"> <div className="h-8 bg-muted rounded w-3/4"></div> <div className="h-8 w-8 bg-muted rounded-md"></div> {/* Edit button skeleton */} </div> <div className="h-4 bg-muted rounded w-1/4"></div> <div className="space-y-2 pt-2"> <div className="h-4 bg-muted rounded w-full"></div> <div className="h-4 bg-muted rounded w-full"></div> <div className="h-4 bg-muted rounded w-5/6"></div> </div> </div> <div className="bg-card rounded-lg shadow p-6 border border-border/10"> <div className="h-6 bg-muted rounded w-1/3 mb-4"></div> <ChaptersSkeleton /> </div> </div> );
 }
 // --- END Skeletons ---
 
@@ -32,102 +35,81 @@ export default function NovelPageView() {
   const [novelId, setNovelId] = useState<number | null>(null);
   const [novel, setNovel] = useState<Novel | null>(null);
   const [chapters, setChapters] = useState<ChapterType[] | null>(null);
-  const [dataLoading, setDataLoading] = useState(true); // Start true
+  const [dataLoading, setDataLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [isAuthor, setIsAuthor] = useState(false);
 
-  // Effect to parse novelId from URL parameter
+  // --- ADDED: State for Chapter Sorting and Filtering ---
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [chapterSearchTerm, setChapterSearchTerm] = useState('');
+  // --- END ADDED State ---
+
+  // Minimal auth check just for showing the Edit link
+  const { user, role, loading: authLoading } = useAuth();
+   useEffect(() => {
+       if (!authLoading) {
+           setIsAuthor(user !== null && role === 'admin');
+       }
+   }, [user, role, authLoading]);
+
+  // Effect to set novelId
   useEffect(() => {
     console.log(`[NovelPageView Debug] Parsing novelIdParam: ${novelIdParam}`);
     const id = Number(novelIdParam);
-    if (!isNaN(id) && id > 0) {
-        // Only update state if the ID is different from the current one
-        if (id !== novelId) {
-            console.log(`[NovelPageView Debug] Setting valid novelId: ${id}`);
-            setNovelId(id);
-            // Reset other states when ID changes, set loading
-            setNovel(null);
-            setChapters(null);
-            setLoadError(null);
-            setDataLoading(true);
-        }
-    } else {
-        // Only set error if we aren't already showing an error or if novelId wasn't null
-        if (novelId !== null || !loadError) {
-            console.error(`[NovelPageView Debug] Invalid Novel ID in URL Param: ${novelIdParam}`);
-            setLoadError("Invalid Novel ID provided in URL.");
-            setDataLoading(false); // Stop loading if ID is invalid
-            setNovelId(null);
-            setNovel(null);
-            setChapters(null);
-        }
-    }
-  }, [novelIdParam, novelId, loadError]); // Depend on param, current ID, and error state
+    if (!isNaN(id) && id > 0) { if (id !== novelId) { console.log(`[NovelPageView Debug] Setting valid novelId: ${id}`); setNovelId(id); setNovel(null); setChapters(null); setLoadError(null); setDataLoading(true); } }
+    else { if (novelId !== null || !loadError) { console.error(`[NovelPageView Debug] Invalid Novel ID in URL Param: ${novelIdParam}`); setLoadError("Invalid Novel ID provided in URL."); setDataLoading(false); setNovelId(null); setNovel(null); setChapters(null); } }
+  }, [novelIdParam, novelId, loadError]);
 
   // Data fetching function
   const loadNovelAndChapters = useCallback(async () => {
-    // Extra guard against null ID, though the trigger effect should prevent this
-    if (novelId === null) {
-        console.warn("[NovelPageView Debug] loadNovelAndChapters called unexpectedly with null novelId.");
-        return;
-    }
+    if (novelId === null) return;
     console.log(`[NovelPageView Debug] loadNovelAndChapters EXECUTION START. novelId: ${novelId}`);
-    setDataLoading(true); // Ensure loading is true when fetch starts
-    setLoadError(null);
+    setDataLoading(true); setLoadError(null);
     try {
-        const [novelData, chaptersData] = await Promise.all([
-            getNovel(novelId),
-            getNovelChapters(novelId)
-        ]);
+        const [novelData, chaptersData] = await Promise.all([ getNovel(novelId), getNovelChapters(novelId) ]);
         console.log("[NovelPageView Debug] API Fetch completed.");
-        if (novelData) {
-            setNovel(novelData);
-            setChapters(chaptersData || []);
-        } else {
-            setLoadError("Novel not found or failed to load.");
-            setNovel(null);
-            setChapters(null);
-        }
+        if (novelData) { setNovel(novelData); setChapters(chaptersData || []); }
+        else { setLoadError("Novel not found or failed to load."); setNovel(null); setChapters(null); }
     } catch (err: any) {
         console.error("[NovelPageView] Error during data fetch:", err);
-        setLoadError(err.message || "An unexpected error occurred.");
-        setNovel(null);
-        setChapters(null);
-    } finally {
-        setDataLoading(false); // Set loading false AFTER fetch attempt completes
-        console.log("[NovelPageView Debug] loadNovelAndChapters EXECUTION END.");
-    }
-  }, [novelId]); // Depends only on novelId (and itself via useCallback)
+        setLoadError(err.message || "An unexpected error occurred."); setNovel(null); setChapters(null);
+    } finally { setDataLoading(false); console.log("[NovelPageView Debug] loadNovelAndChapters EXECUTION END."); }
+  }, [novelId]);
 
-  // Effect to trigger data fetch *only* when novelId is set/changed to a valid ID
+  // Effect to trigger data fetch
   useEffect(() => {
     console.log(`[NovelPageView Debug] useEffect [novelId] trigger. novelId: ${novelId}`);
-    // If we have a valid novelId, trigger the fetch.
-    // loadNovelAndChapters handles the dataLoading state internally.
-    if (novelId !== null) {
-        console.log(`[NovelPageView Debug] Valid novelId (${novelId}) detected, calling loadNovelAndChapters.`);
-        loadNovelAndChapters();
-    } else {
-         // Optional: Log if the ID becomes null after being valid, but don't reset state here
-         // Resetting state here might interfere if the component is unmounting/remounting
-         console.log(`[NovelPageView Debug] novelId is null in trigger effect.`);
-    }
-    // Depend ONLY on novelId and the stable load function reference
+    if (novelId !== null) { console.log(`[NovelPageView Debug] Valid novelId (${novelId}) detected, calling loadNovelAndChapters.`); loadNovelAndChapters(); }
+    else { console.log(`[NovelPageView Debug] novelId is null in trigger effect.`); }
   }, [novelId, loadNovelAndChapters]);
-  
-  // Sorted Chapters
+
+  // --- ADDED: Filtered and Sorted Chapters ---
   const displayedChapters = useMemo(() => {
     if (!chapters) return [];
-    return [...chapters].sort((a, b) => a.chapter_number - b.chapter_number);
-  }, [chapters]);
+
+    const filtered = chapters.filter(chapter => {
+      const searchTermLower = chapterSearchTerm.toLowerCase();
+      const titleLower = chapter.title.toLowerCase();
+      const numberString = chapter.chapter_number.toString();
+      return titleLower.includes(searchTermLower) || numberString.includes(searchTermLower);
+    });
+
+    return [...filtered].sort((a, b) => {
+      if (sortOrder === 'asc') {
+        return a.chapter_number - b.chapter_number;
+      } else {
+        return b.chapter_number - a.chapter_number;
+      }
+    });
+  }, [chapters, chapterSearchTerm, sortOrder]);
+  // --- END ADDED Filtered/Sorted ---
 
   // Render Logic
-  if (loadError) {
-      // Show error screen if any loadError occurred
-      return <NotFoundScreen message={loadError} returnUrl="/" returnText="Return to Home"/>;
-  }
+  if (loadError && !loadError.includes("Invalid Novel ID")) return <NotFoundScreen message={`Error: ${loadError}`} returnUrl="/" returnText="Return to Home"/>;
+  if (loadError?.includes("Invalid Novel ID")) return <NotFoundScreen message={loadError} returnUrl="/" returnText="Return to Home" />;
 
-  // Show skeleton only if loading AND novel data hasn't arrived yet
-  const showSkeletons = dataLoading && !novel;
+  // Show skeleton if data is loading OR auth is loading (for Edit button) AND novel data isn't ready
+  const showSkeletons = (dataLoading || authLoading) && !novel;
 
   return (
     <div className="min-h-screen bg-background text-foreground transition-colors duration-200">
@@ -155,7 +137,12 @@ export default function NovelPageView() {
                  <div>
                     <div className="flex justify-between items-start mb-2">
                          <h1 className="text-2xl md:text-3xl font-bold text-foreground">{novel.title}</h1>
-                         {/* Edit button is now completely removed */}
+                         {/* Edit button link only shown if isAuthor */}
+                         {isAuthor && (
+                            <Button variant="ghost" size="icon" asChild className="text-muted-foreground hover:text-foreground" aria-label="Edit novel details">
+                               <Link href={`/novels/${novelId}/edit`}> <Edit size={18} /> </Link>
+                            </Button>
+                         )}
                     </div>
                     <p className="text-sm text-muted-foreground mb-4">by {novel.author}</p>
                     <div className="prose prose-sm sm:prose-base max-w-none dark:prose-invert whitespace-pre-line text-foreground">
@@ -164,13 +151,47 @@ export default function NovelPageView() {
                  </div>
               </div>
 
-              {/* Chapters Section (Display Only) */}
+              {/* Chapters Section (With Sort/Filter) */}
               <div className="bg-card rounded-lg shadow p-6 border border-border/10">
-                  <h2 className="text-xl font-semibold text-foreground mb-4">Chapters</h2>
+                 {/* --- ADDED: Chapter Section Header with Sort/Filter --- */}
+                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4 border-b border-border pb-4">
+                    <h2 className="text-xl font-semibold text-foreground flex-shrink-0 order-1 sm:order-1">Chapters</h2> {/* Title first */}
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto sm:ml-auto order-2 sm:order-2"> {/* Controls second */}
+                       {/* Search Input */}
+                       <div className="relative flex-grow sm:flex-grow-0 sm:w-48">
+                          <Input
+                              type="text"
+                              placeholder="Filter chapters..."
+                              value={chapterSearchTerm}
+                              onChange={(e) => setChapterSearchTerm(e.target.value)}
+                              className="h-9 pl-8 text-sm w-full"
+                              aria-label="Filter chapters by title or number"
+                          />
+                          <Search size={16} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                       </div>
+                       {/* Sort Toggle Button */}
+                       <div className="w-full sm:w-auto flex justify-end">
+                          <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+                              className="h-9 gap-1 w-full sm:w-auto flex-shrink-0"
+                              aria-label={`Sort chapters ${sortOrder === 'asc' ? 'descending by number' : 'ascending by number'}`}
+                              title={`Sort ${sortOrder === 'asc' ? 'Newest First' : 'Oldest First'}`}
+                          >
+                              <ArrowDownUp size={16} />
+                          </Button>
+                       </div>
+                    </div>
+                 </div>
+                 {/* --- END Chapter Section Header --- */}
+
+                  {/* Chapter List (Uses displayedChapters) */}
                   <div className="space-y-1">
-                     {/* Use dataLoading for chapter skeleton only if novel is loaded but chapters aren't */}
-                     {dataLoading && chapters === null ? (
+                     {/* Show loading skeleton only if initial chapter fetch is loading */}
+                     {chapters === null && dataLoading ? (
                          <ChaptersSkeleton />
+                     // Use displayedChapters for mapping
                      ) : displayedChapters.length > 0 ? (
                          displayedChapters.map((chapter) => (
                             <Link
@@ -186,10 +207,12 @@ export default function NovelPageView() {
                                 )}
                             </Link>
                          ))
-                     // Only show "no chapters" if not loading and chapter array is empty
+                     // Update empty state logic based on filtering
+                     ) : !dataLoading && chapters && chapters.length > 0 && chapterSearchTerm ? (
+                         <p className="text-sm text-muted-foreground italic p-2">No chapters match your filter.</p>
                      ) : !dataLoading && chapters?.length === 0 ? (
                          <p className="text-sm text-muted-foreground italic p-2">No chapters available for this novel.</p>
-                     ) : null /* Covers loading chapters case implicitly */}
+                     ) : null }
                   </div>
               </div>
             </div>
