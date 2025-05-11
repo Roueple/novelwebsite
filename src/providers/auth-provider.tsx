@@ -10,10 +10,11 @@ interface AuthContextType {
   user: User | null;
   profile: Profile | null;
   role: UserRole | null;
-  loading: boolean;
-  profileLoading: boolean;
+  loading: boolean; // True during initial Supabase session check AND initial profile load
+  profileLoading: boolean; // True ONLY when ensureProfileLoaded triggers a new fetch
   isAnonymous: boolean;
-  guestLoading: boolean;
+  guestLoading: boolean; // For the signInAnonymously process specifically
+
   signInWithProvider: (provider: Provider) => Promise<void>;
   signInWithEmail: (email: string) => Promise<void>;
   signInWithPhone: (phone: string) => Promise<void>;
@@ -36,10 +37,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const activeUserProfileFetch = useRef<Promise<Profile | null> | null>(null);
   const profileCreationAttempted = useRef<Set<string>>(new Set());
   const userRef = useRef<User | null>(null);
+  const profileRef = useRef<Profile | null>(null); // Ref for profile state
 
   useEffect(() => {
     userRef.current = user;
   }, [user]);
+
+  useEffect(() => {
+    profileRef.current = profile;
+  }, [profile]);
 
   const clearAuthStates = useCallback((isSigningOut = false) => {
     console.log("[AuthProvider] clearAuthStates called");
@@ -134,12 +140,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })();
     activeUserProfileFetch.current = fetchPromise;
     return fetchPromise;
-  }, [clearAuthStates]);
+  }, [clearAuthStates]); // clearAuthStates is stable
 
   useEffect(() => {
     setLoading(true);
     let isMounted = true;
-    console.log("[AuthProvider] Main Effect: Setting up session check and auth listener.");
+    console.log("[AuthProvider] MAIN EFFECT (ONCE): Setting up initial session and auth listener.");
 
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!isMounted) return;
@@ -150,15 +156,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsAnonymous(initialSupabaseUser?.is_anonymous ?? false);
 
       if (initialSupabaseUser) {
-        if (!profile || profile.id !== initialSupabaseUser.id) {
-          console.log("[AuthProvider] Initial session: User exists, profile not loaded or for different user. Fetching.");
-          // FIX: Ensure boolean is passed
+        const currentProfileSnapshot = profileRef.current;
+        if (!currentProfileSnapshot || currentProfileSnapshot.id !== initialSupabaseUser.id) {
+          console.log("[AuthProvider] Initial session: User exists, profile not in state or different. Fetching.");
           await fetchUserProfile(initialSupabaseUser.id, initialSupabaseUser.is_anonymous ?? false);
         } else {
-          console.log("[AuthProvider] Initial session: User exists, profile already in state for this user.");
+          console.log("[AuthProvider] Initial session: User exists, profile already matches state.");
         }
       } else {
-        clearAuthStates();
+        // No initial user, clear states if they were somehow set
+        // clearAuthStates(); // Might be redundant if initial states are null.
       }
       setLoading(false);
       console.log("[AuthProvider] Initial Supabase session and potential profile load finished.");
@@ -175,8 +182,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log(`[AuthProvider] onAuthStateChange event: ${event}`, session);
 
         const currentSupabaseUser = session?.user ?? null;
-        const currentSupabaseAnonymity = currentSupabaseUser?.is_anonymous ?? false; // This will be boolean
-        const previousUserFromRef = userRef.current;
+        const currentSupabaseAnonymity = currentSupabaseUser?.is_anonymous ?? false;
 
         setUser(currentSupabaseUser);
         setIsAnonymous(currentSupabaseAnonymity);
@@ -193,46 +199,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.log("[AuthProvider] User signed out. Cleared states.");
         } else if (event === 'INITIAL_SESSION') {
           if (currentSupabaseUser) {
-            if (!profile || profile.id !== currentSupabaseUser.id) {
-              console.log(`[AuthProvider] Event INITIAL_SESSION: User ${currentSupabaseUser.id} present, profile not in state or different. Fetching profile.`);
+            const currentProfileSnapshot = profileRef.current;
+            if (!currentProfileSnapshot || currentProfileSnapshot.id !== currentSupabaseUser.id) {
+              console.log(`[AuthProvider] Event INITIAL_SESSION: User ${currentSupabaseUser.id} present, profile not matching state. Fetching.`);
               await fetchUserProfile(currentSupabaseUser.id, currentSupabaseAnonymity);
             } else {
-              console.log(`[AuthProvider] Event INITIAL_SESSION: User ${currentSupabaseUser.id} present, profile already in state.`);
+              console.log(`[AuthProvider] Event INITIAL_SESSION: User ${currentSupabaseUser.id} present, profile already matches state.`);
             }
           } else {
             clearAuthStates();
           }
-        } else if (currentSupabaseUser && (!profile || profile.id !== currentSupabaseUser.id) && !profileLoading && !activeUserProfileFetch.current) {
-          console.log(`[AuthProvider] Event ${event}: User ${currentSupabaseUser.id} exists, profile not loaded. To be fetched on demand.`);
         }
+        // For other events like TOKEN_REFRESHED, profile is not fetched automatically.
       }
     );
 
     return () => {
       isMounted = false;
-      console.log("[AuthProvider] Main Effect Cleanup: Unsubscribing from auth changes.");
+      console.log("[AuthProvider] MAIN EFFECT CLEANUP: Unsubscribing from auth changes.");
       authListener.subscription.unsubscribe();
     };
-  }, [fetchUserProfile, clearAuthStates, profile]);
+  }, [fetchUserProfile, clearAuthStates]); // Stable dependencies
 
   const ensureProfileLoaded = useCallback(async () => {
     const currentUser = userRef.current;
-    if (currentUser && (!profile || profile.id !== currentUser.id) && !profileLoading && !activeUserProfileFetch.current) {
-      console.log(`[AuthProvider] ensureProfileLoaded: Profile for ${currentUser.id} needed and not loaded/loading. Fetching.`);
-      // FIX: Ensure boolean is passed
+    const currentProfile = profileRef.current;
+    if (currentUser && (!currentProfile || currentProfile.id !== currentUser.id) && !profileLoading && !activeUserProfileFetch.current) {
+      console.log(`[AuthProvider] ensureProfileLoaded: Profile for ${currentUser.id} needed. Fetching.`);
       await fetchUserProfile(currentUser.id, currentUser.is_anonymous ?? false);
-    } else if (currentUser && profile && profile.id === currentUser.id) {
+    } else if (currentUser && currentProfile && currentProfile.id === currentUser.id) {
       console.log(`[AuthProvider] ensureProfileLoaded: Profile already loaded for ${currentUser.id}.`);
     } else if (!currentUser) {
       console.log(`[AuthProvider] ensureProfileLoaded: No user, cannot load profile.`);
     } else if (profileLoading || activeUserProfileFetch.current) {
       console.log(`[AuthProvider] ensureProfileLoaded: Profile for ${currentUser.id} is already being fetched.`);
     }
-  }, [profile, profileLoading, fetchUserProfile]);
+  }, [fetchUserProfile, profileLoading]); // profileLoading is a state, fetchUserProfile is stable
 
   async function signInWithProvider(provider: Provider) {
     const currentUser = userRef.current;
-    const currentIsAnon = isAnonymous;
+    const currentIsAnon = isAnonymous; // isAnonymous state should reflect currentUser's status
     try {
       if (currentUser && currentIsAnon) {
         console.log(`[AuthProvider] Linking ${provider} to anonymous user ${currentUser.id}`);
@@ -270,6 +276,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { data: { user: anonUser }, error: anonError } = await supabase.auth.signInAnonymously();
       if (anonError) throw anonError;
       if (!anonUser) throw new Error("Anonymous sign in failed: No user object returned.");
+      // onAuthStateChange with 'SIGNED_IN' will handle setting user, isAnonymous, and triggering profile fetch.
       toast.success("Proceeding anonymously.");
       return true;
     } catch (error: any) {
