@@ -7,7 +7,7 @@ import { BookOpen, Edit, Lock, Search, ArrowDownUp } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { getNovel, getNovelChapters } from '@/lib/api';
-import type { Novel, ChapterType } from '@/types/supabase';
+import type { Novel, Chapter } from '@/types';
 import Image from 'next/image';
 import NotFoundScreen from '@/components/ui/not-found-screen';
 import { Button } from '@/components/ui/button';
@@ -34,7 +34,7 @@ export default function NovelPageView() {
   const novelIdParam = params.id;
   const [novelId, setNovelId] = useState<number | null>(null);
   const [novel, setNovel] = useState<Novel | null>(null);
-  const [chapters, setChapters] = useState<ChapterType[] | null>(null);
+  const [chapters, setChapters] = useState<Chapter[] | null>(null);
   const [dataLoading, setDataLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isAuthor, setIsAuthor] = useState(false);

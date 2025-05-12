@@ -10,7 +10,7 @@ import { useAuth } from '@/providers/auth-provider';
 import AdminRoleCheck from '@/components/auth/admin-role-check';
 // Import chapter-related API functions
 import { getNovel, getNovelChapters, updateNovelDetails, addChapter, deleteChapter, updateChapter, updateAllChaptersLockStatus } from '@/lib/api';
-import type { Novel, ChapterType } from '@/types/supabase';
+import type { Novel, Chapter } from '@/types';
 import { ImageUpload } from '@/components/ui/image-upload';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
