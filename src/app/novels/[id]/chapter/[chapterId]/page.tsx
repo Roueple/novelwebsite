@@ -11,7 +11,7 @@ import ReadingView from '@/components/reading/reading-view';
 import ReadingSettingsMenu from '@/components/reading/reading-settings-menu';
 import NotFoundScreen from '@/components/ui/not-found-screen';
 import { useReadingPreferences } from '@/hooks/use-reading-preferences';
-import type { ChapterType, Novel } from '@/types/supabase';
+import type { Chapter, Novel } from '@/types'; // Use Chapter from your central types file
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import FloatingReadingControls from '@/components/reading/FloatingReadingControls';
@@ -46,8 +46,8 @@ export default function ChapterPage() {
   const chapterNumber = Number(params.chapterId);
 
   const [novel, setNovel] = useState<Novel | null>(null);
-  const [allChapters, setAllChapters] = useState<ChapterType[] | null>(null);
-  const [currentChapter, setCurrentChapter] = useState<ChapterType | null | undefined>(undefined);
+  const [allChapters, setAllChapters] = useState<Chapter[] | null>(null);
+  const [currentChapter, setCurrentChapter] = useState<Chapter | null | undefined>(undefined);
   const [pageError, setPageError] = useState<string | null>(null);
   const [initialDataLoading, setInitialDataLoading] = useState(true);
   const [chapterContentLoading, setChapterContentLoading] = useState(false);

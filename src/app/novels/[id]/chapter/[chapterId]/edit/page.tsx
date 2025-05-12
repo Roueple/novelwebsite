@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import type { ChapterType, Novel } from '@/types/supabase';
+import type { Chapter, Novel } from '@/types';
 import { useAuth } from '@/providers/auth-provider';
 import { getChapter, getNovel, updateChapter } from '@/lib/api';
 import LoadingSpinner from '@/components/ui/loading-spinner';
@@ -23,7 +23,7 @@ const EditChapterPage = () => {
 
   const [dataLoading, setDataLoading] = useState(true); // Combined loading state
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [chapter, setChapterState] = useState<ChapterType | null>(null);
+  const [chapter, setChapterState] = useState<Chapter | null>(null);
   const [novel, setNovel] = useState<Novel | null>(null);
 
   // useChapterActions hook manages editor-specific state based on the fetched chapter
