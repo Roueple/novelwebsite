@@ -7,7 +7,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/co
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { List, MessageSquare, BookOpen, Lock } from 'lucide-react'; // Removed X import
-import type { ChapterType } from '@/types/supabase';
+import type { Chapter } from '@/types';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import ChapterComments from './ChapterComments';
@@ -16,7 +16,7 @@ interface FloatingReadingControlsProps {
   novelId: number | null;
   currentChapterNumber: number | null;
   currentChapterId: number | null;
-  allChapters: ChapterType[] | null;
+  allChapters: Chapter[] | null;
   // Removed isScrolling prop as visibility is handled by parent now
 }
 
@@ -28,7 +28,7 @@ export default function FloatingReadingControls({
 }: FloatingReadingControlsProps) {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filteredChapters, setFilteredChapters] = useState<ChapterType[]>([]);
+  const [filteredChapters, setFilteredChapters] = useState<Chapter[]>([]);
   const [activeTab, setActiveTab] = useState<'chapters' | 'comments'>('chapters');
   const listRef = useRef<HTMLDivElement>(null);
 

@@ -3,7 +3,7 @@ import { Suspense } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { getLatestNovels } from '@/lib/api';
-import type { Novel } from '@/types/supabase';
+import type { Novel } from '@/types';
 import LoadingSpinner from '@/components/ui/loading-spinner'; // For Suspense fallback
 
 export const revalidate = 60;

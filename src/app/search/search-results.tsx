@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { searchNovels } from '@/lib/api';
-import type { Novel } from '@/types/supabase';
+import type { Novel } from '@/types';
 // import LoadingScreen from '@/components/ui/loading-screen'; // REMOVED
 import NotFoundScreen from '@/components/ui/not-found-screen';
 import LoadingSpinner from '@/components/ui/loading-spinner'; // Keep for inline loading if needed

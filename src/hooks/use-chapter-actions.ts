@@ -2,13 +2,13 @@
 import { useState, useEffect, useMemo } from 'react';
 import { User } from '@supabase/supabase-js';
 // *** FIX: Import Novel type ***
-import { ChapterType, Novel, UserRole } from '@/types/supabase';
+import { Chapter, Novel, UserRole } from '@/types';
 
 export function useChapterActions(
-  chapter: ChapterType | null,
+  chapter: Chapter | null,
   user: User | null,
   role: UserRole | null,
-  setChapterState?: (chapter: ChapterType | ((prevState: ChapterType | null) => ChapterType | null)) => void, // Allow functional updates
+  setChapterState?: (chapter: Chapter | ((prevState: Chapter | null) => Chapter | null)) => void, // Allow functional updates
   // *** FIX: Change expected type to Novel | undefined ***
   novel?: Novel | undefined
 ) {

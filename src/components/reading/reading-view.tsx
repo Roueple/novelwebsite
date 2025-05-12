@@ -4,12 +4,12 @@ import { Lock } from 'lucide-react';
 import DynamicText from './dynamic-text';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import type { ChapterType } from '@/types/supabase'; // Import ChapterType
+import type { Chapter } from '@/types'; // Import Chapter
 import LoadingSpinner from '@/components/ui/loading-spinner'; // Keep for potential future use? Or remove if truly gone.
 
 interface ReadingViewProps {
   // Accept the whole chapter object or null
-  chapter: ChapterType | null;
+  chapter: Chapter | null;
   isAuthor: boolean;
   isEditing: false; // Ensure this is always false for this component
   textSize: 'sm' | 'md' | 'lg' | 'xl';

@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/providers/auth-provider';
 import LoadingSpinner from '@/components/ui/loading-spinner';
-import { UserRole } from '@/types/supabase'; // Ensure UserRole is 'admin' | 'reader'
+import { UserRole } from '@/types'; // Ensure UserRole is 'admin' | 'reader'
 
 interface AdminRoleCheckProps {
   children: React.ReactNode;

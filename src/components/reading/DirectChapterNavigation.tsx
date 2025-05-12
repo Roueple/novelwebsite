@@ -5,13 +5,13 @@ import React from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { ChapterType } from '@/types/supabase';
+import { Chapter } from '@/types';
 import { cn } from '@/lib/utils';
 
 interface DirectChapterNavigationProps {
   novelId: number;
-  prevChapter: ChapterType | null;
-  nextChapter: ChapterType | null;
+  prevChapter: Chapter | null;
+  nextChapter: Chapter | null;
   isScrolling: boolean; // To fade buttons slightly during scroll
 }
 

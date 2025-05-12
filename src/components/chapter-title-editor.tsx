@@ -7,14 +7,14 @@ import { Button } from '@/components/ui/button';
 import { Check, X, Edit, Lock, Unlock, Trash2 } from 'lucide-react';
 import LoadingSpinner from '@/components/ui/loading-spinner';
 import { cn } from '@/lib/utils';
-import type { ChapterType } from '@/types/supabase';
+import type { Chapter } from '@/types';
 
 interface ChapterTitleEditorProps {
-  chapter: ChapterType;
+  chapter: Chapter;
   novelId: number;
   isAuthor: boolean;
   isEditing: boolean;
-  onStartEdit: (chapter: ChapterType) => void;
+  onStartEdit: (chapter: Chapter) => void;
   onCancelEdit: () => void;
   onSaveTitle: (chapterId: number, newTitle: string) => Promise<void>;
   onToggleLock: (chapterId: number, currentLockedStatus: boolean) => Promise<void>;

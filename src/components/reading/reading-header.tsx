@@ -6,13 +6,13 @@ import {
   Settings, Edit, Sparkles, Moon, Sun, BookOpen, ChevronUp, Library, // Use Library icon as placeholder
 } from 'lucide-react';
 import { useTheme } from '@/providers/theme-provider';
-import { Novel, ChapterType } from '@/types/supabase';
+import { Novel, Chapter } from '@/types';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 interface ReadingHeaderProps {
   novel: Novel | null; // Allow null
-  chapter: ChapterType | null; // Allow null
+  chapter: Chapter | null; // Allow null
   isAuthor: boolean;
   visible: boolean;
   setVisible: (visible: boolean) => void;

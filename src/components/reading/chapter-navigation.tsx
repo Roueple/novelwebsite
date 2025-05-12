@@ -2,12 +2,12 @@
 import React from 'react';
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { ChapterType } from '@/types/supabase';
+import { Chapter } from '@/types';
 
 interface ChapterNavigationProps {
   novelId: number;
-  prevChapter: ChapterType | null;
-  nextChapter: ChapterType | null;
+  prevChapter: Chapter | null;
+  nextChapter: Chapter | null;
 }
 
 export default function ChapterNavigation({ 

@@ -14,13 +14,13 @@ import TextEffectsToolbar from '@/components/editor/text-effects-toolbar';
 import DynamicText from '@/components/reading/dynamic-text';
 import TextEffectsExample from '@/components/reading/text-effects-example'; // Import TextEffectsExample
 import { toast } from 'sonner';
-import type { ChapterType } from '@/types/supabase';
+import type { Chapter } from '@/types';
 import { cn } from '@/lib/utils';
 import LoadingSpinner from '@/components/ui/loading-spinner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'; // Import Dialog components
 
 interface ChapterFullEditorProps {
-  chapter: ChapterType; // Pass initial chapter data for reference
+  chapter: Chapter; // Pass initial chapter data for reference
   isAuthor: boolean;
   // Pass state and setters from the hook in the parent page
   editedTitle: string;

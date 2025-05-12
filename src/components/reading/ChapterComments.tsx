@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useCallback, memo } from 'react'; // Import memo
 import { useAuth } from '@/providers/auth-provider';
 import { getChapterComments, addComment, deleteComment } from '@/lib/api';
-import type { Comment } from '@/types/supabase';
+import type { Comment } from '@/types';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
