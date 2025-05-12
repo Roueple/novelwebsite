@@ -1,23 +1,8 @@
-export interface Novel {
-    id: number;
-    title: string;
-    cover: string;
-    author: string;
-    rating: number;
-    tags: string[];
-    status: 'Ongoing' | 'Completed';
-    description?: string;
-  }
-  
-  export interface Chapter {
-    id: number;
-    title: string;
-    dateAdded: string;
-    locked: boolean;
-    content?: string;
-  }
-  
-  export interface NovelDetails extends Novel {
-    description: string;
-    chapters: Chapter[];
-  }
+// src/types/index.ts
+import type { Database as SupabaseDB } from './supabase'; // Make sure this path is correct
+
+export type Profile = SupabaseDB['public']['Tables']['profiles']['Row'];
+export type UserRole = SupabaseDB['public']['Enums']['user_role_enum'];
+export type Novel = SupabaseDB['public']['Tables']['novels']['Row'];
+export type Chapter = SupabaseDB['public']['Tables']['chapters']['Row'];
+export type Comment = SupabaseDB['public']['Tables']['comments']['Row'];

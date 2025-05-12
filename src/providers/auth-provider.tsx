@@ -1,26 +1,27 @@
 // src/providers/auth-provider.tsx
 "use client";
+
 import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { User, Provider, Session } from '@supabase/supabase-js';
-import { UserRole, Profile } from '@/types/supabase'; // Your existing types
+// This import MUST work for the rest of the code to be valid.
+// If you still have errors on this line, the issue is with your types setup.
+import type { Profile, UserRole } from '@/types';
 import { toast } from 'sonner';
 
 interface AuthContextType {
   user: User | null;
   profile: Profile | null;
   role: UserRole | null;
-  loading: boolean; // True during initial Supabase session check AND initial profile load
-  profileLoading: boolean; // True ONLY when ensureProfileLoaded triggers a new fetch
-  isAnonymous: boolean;
-  guestLoading: boolean; // For the signInAnonymously process specifically
+  loading: boolean; // True during initial Supabase session check AND initial profile load attempt
+  profileLoading: boolean; // True ONLY when a profile fetch is actively in progress
 
   signInWithProvider: (provider: Provider) => Promise<void>;
-  signInWithEmail: (email: string) => Promise<void>;
-  signInWithPhone: (phone: string) => Promise<void>;
-  signInAnonymously: () => Promise<boolean>;
+  signInWithEmail: (email: string) => Promise<void>; // For OTP login/signup start
+  signInWithPhone: (phone: string) => Promise<void>; // For OTP login/signup start
+  // We'll add explicit email/password signup/login functions later when building UI for it
   signOut: () => Promise<void>;
-  ensureProfileLoaded: () => Promise<void>;
+  ensureProfileLoaded: () => Promise<void>; // To manually trigger a profile fetch if needed
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -29,276 +30,213 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [role, setRole] = useState<UserRole | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [profileLoading, setProfileLoading] = useState(false);
-  const [isAnonymous, setIsAnonymous] = useState(false);
-  const [guestLoading, setGuestLoading] = useState(false);
+  const [loading, setLoading] = useState(true); // Overall initial loading for auth session
+  const [profileLoading, setProfileLoading] = useState(false); // Specifically for active profile fetch operations
 
   const activeUserProfileFetch = useRef<Promise<Profile | null> | null>(null);
-  const profileCreationAttempted = useRef<Set<string>>(new Set());
   const userRef = useRef<User | null>(null);
-  const profileRef = useRef<Profile | null>(null); // Ref for profile state
 
   useEffect(() => {
     userRef.current = user;
   }, [user]);
 
-  useEffect(() => {
-    profileRef.current = profile;
-  }, [profile]);
-
-  const clearAuthStates = useCallback((isSigningOut = false) => {
+  const clearAuthStates = useCallback(() => {
     console.log("[AuthProvider] clearAuthStates called");
     setUser(null);
     setProfile(null);
     setRole(null);
-    setIsAnonymous(false);
-    if (isSigningOut && userRef.current) {
-      profileCreationAttempted.current.delete(userRef.current.id);
-    }
   }, []);
 
-  const fetchUserProfile = useCallback(async (userId: string, isUserSupabaseAnonymous: boolean): Promise<Profile | null> => {
+  const fetchUserProfile = useCallback(async (userId: string): Promise<Profile | null> => {
+    // Prevent redundant fetches if one for the same user is already in flight
     if (activeUserProfileFetch.current) {
-      console.log(`[AuthProvider] fetchUserProfile: Active fetch ongoing for ${userId}. Awaiting.`);
+      console.log(`[AuthProvider] fetchUserProfile: Active fetch ongoing for ${userId}. Awaiting existing promise.`);
       return activeUserProfileFetch.current;
     }
 
-    console.log(`[AuthProvider] fetchUserProfile: Attempting for user ID: ${userId}, Supabase is_anonymous: ${isUserSupabaseAnonymous}`);
+    console.log(`[AuthProvider] fetchUserProfile: Attempting for user ID: ${userId}`);
     setProfileLoading(true);
 
     const fetchPromise = (async (): Promise<Profile | null> => {
       try {
         const { data: fetchedProfileData, error: fetchError } = await supabase
           .from('profiles')
-          .select('*')
+          .select('id, username, display_name, role, email') // Select new fields, no is_guest
           .eq('id', userId)
           .single();
 
         if (fetchError && fetchError.code === 'PGRST116') {
-          console.log(`[AuthProvider] Profile not found for ${userId}.`);
-          if (isUserSupabaseAnonymous) {
-            if (profileCreationAttempted.current.has(userId)) {
-              console.log(`[AuthProvider] Profile creation already attempted for anon user ${userId}.`);
-              setProfile(null); setRole(null); return null;
-            }
-            profileCreationAttempted.current.add(userId);
-            console.log(`[AuthProvider] Creating profile for anonymous user ${userId}.`);
-            const guestUsername = `guest_${userId.substring(0, 6)}`;
-            const { data: newProfile, error: insertError } = await supabase
-              .from('profiles')
-              .insert({ id: userId, username: guestUsername, role: 'reader', is_guest: true })
-              .select('*').single();
-            if (insertError) {
-              console.error(`[AuthProvider] Failed to create profile for anon ${userId}:`, insertError);
-              toast.error(`Guest profile init failed: ${insertError.message}`);
-              setProfile(null); setRole(null); return null;
-            }
-            console.log(`[AuthProvider] Anonymous profile created for ${userId}:`, newProfile);
-            setProfile(newProfile as Profile);
-            setRole((newProfile as Profile)?.role || null);
-            return newProfile as Profile;
-          } else {
-            console.warn(`[AuthProvider] Profile not found for non-anonymous user ${userId}.`);
-            setProfile(null); setRole(null); return null;
-          }
+          console.warn(`[AuthProvider] Profile not found in public.profiles for user ${userId}. User needs to complete profile setup.`);
+          setProfile(null);
+          setRole(null);
+          return null;
         } else if (fetchError) {
           console.error(`[AuthProvider] Error fetching profile for ${userId}:`, fetchError);
           toast.error(`Profile fetch error: ${fetchError.message}`);
-          setProfile(null); setRole(null); return null;
+          setProfile(null);
+          setRole(null);
+          return null;
         }
 
         const typedProfile = fetchedProfileData as Profile;
         console.log(`[AuthProvider] Profile successfully fetched for ${userId}:`, typedProfile);
         setProfile(typedProfile);
-        setRole(typedProfile?.role || null);
-
-        if (!isUserSupabaseAnonymous && typedProfile?.is_guest) {
-          console.log(`[AuthProvider] User ${userId} registered, updating profile.is_guest.`);
-          const { data: updatedProfileData, error: updateError } = await supabase
-            .from('profiles')
-            .update({ is_guest: false })
-            .eq('id', userId)
-            .select('*')
-            .single();
-          if (updateError) {
-            console.error(`[AuthProvider] Failed to update is_guest for ${userId}:`, updateError);
-          } else if (updatedProfileData) {
-            console.log(`[AuthProvider] Profile is_guest updated for ${userId}.`);
-            setProfile(updatedProfileData as Profile);
-          }
-        }
+        setRole(typedProfile?.role || null); // Get role from profile
         return typedProfile;
       } catch (errCatch: any) {
         console.error(`[AuthProvider] Exception in fetchUserProfile for ${userId}:`, errCatch);
         toast.error(`Profile operation failed: ${errCatch.message || 'Unknown error'}`);
-        setProfile(null); setRole(null); return null;
+        setProfile(null);
+        setRole(null);
+        return null;
       } finally {
         setProfileLoading(false);
-        activeUserProfileFetch.current = null;
+        activeUserProfileFetch.current = null; // Clear the ref once fetch is complete
       }
     })();
+
     activeUserProfileFetch.current = fetchPromise;
     return fetchPromise;
-  }, [clearAuthStates]); // clearAuthStates is stable
+  }, []); // Empty dependency array: fetchUserProfile definition is stable
 
   useEffect(() => {
-    setLoading(true);
+    setLoading(true); // For initial auth check
     let isMounted = true;
-    console.log("[AuthProvider] MAIN EFFECT (ONCE): Setting up initial session and auth listener.");
+    console.log("[AuthProvider] Setting up initial session and auth state listener.");
 
+    // Check initial session
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!isMounted) return;
       console.log("[AuthProvider] Initial getSession() result:", session);
-      const initialSupabaseUser = session?.user ?? null;
+      const initialUser = session?.user ?? null;
+      setUser(initialUser); // Set user from session
 
-      setUser(initialSupabaseUser);
-      setIsAnonymous(initialSupabaseUser?.is_anonymous ?? false);
-
-      if (initialSupabaseUser) {
-        const currentProfileSnapshot = profileRef.current;
-        if (!currentProfileSnapshot || currentProfileSnapshot.id !== initialSupabaseUser.id) {
-          console.log("[AuthProvider] Initial session: User exists, profile not in state or different. Fetching.");
-          await fetchUserProfile(initialSupabaseUser.id, initialSupabaseUser.is_anonymous ?? false);
-        } else {
-          console.log("[AuthProvider] Initial session: User exists, profile already matches state.");
-        }
+      if (initialUser) {
+        await fetchUserProfile(initialUser.id); // Fetch profile for the session user
       } else {
-        // No initial user, clear states if they were somehow set
-        // clearAuthStates(); // Might be redundant if initial states are null.
+        clearAuthStates(); // No session user, ensure states are clear
       }
-      setLoading(false);
-      console.log("[AuthProvider] Initial Supabase session and potential profile load finished.");
+      if (isMounted) setLoading(false); // Initial auth check and potential profile load done
     }).catch(error => {
-      if (!isMounted) return;
-      console.error("[AuthProvider] Error in initial getSession():", error);
-      clearAuthStates();
-      setLoading(false);
+        if(!isMounted) return;
+        console.error("[AuthProvider] Error in initial getSession():", error);
+        clearAuthStates();
+        if (isMounted) setLoading(false);
     });
 
+    // Listen for auth state changes
     const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (event: string, session: Session | null) => {
+      async (event, session) => {
         if (!isMounted) return;
         console.log(`[AuthProvider] onAuthStateChange event: ${event}`, session);
+        const currentUser = session?.user ?? null;
+        const previousUser = userRef.current; // Get user before potential update
 
-        const currentSupabaseUser = session?.user ?? null;
-        const currentSupabaseAnonymity = currentSupabaseUser?.is_anonymous ?? false;
-
-        setUser(currentSupabaseUser);
-        setIsAnonymous(currentSupabaseAnonymity);
+        setUser(currentUser); // Update user state immediately
 
         if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
-          if (currentSupabaseUser) {
-            console.log(`[AuthProvider] Event ${event}: Triggering profile fetch for ${currentSupabaseUser.id}`);
-            await fetchUserProfile(currentSupabaseUser.id, currentSupabaseAnonymity);
+          if (currentUser) {
+            // Fetch profile if user changed or if profile was not loaded for the current user
+            if (!profile || profile.id !== currentUser.id || previousUser?.id !== currentUser.id) {
+              console.log(`[AuthProvider] Event ${event}: Triggering profile fetch for ${currentUser.id}`);
+              await fetchUserProfile(currentUser.id);
+            }
           } else {
+            // Should not happen for SIGNED_IN if session is present, but handle defensively
             clearAuthStates();
           }
         } else if (event === 'SIGNED_OUT') {
-          clearAuthStates(true);
-          console.log("[AuthProvider] User signed out. Cleared states.");
-        } else if (event === 'INITIAL_SESSION') {
-          if (currentSupabaseUser) {
-            const currentProfileSnapshot = profileRef.current;
-            if (!currentProfileSnapshot || currentProfileSnapshot.id !== currentSupabaseUser.id) {
-              console.log(`[AuthProvider] Event INITIAL_SESSION: User ${currentSupabaseUser.id} present, profile not matching state. Fetching.`);
-              await fetchUserProfile(currentSupabaseUser.id, currentSupabaseAnonymity);
-            } else {
-              console.log(`[AuthProvider] Event INITIAL_SESSION: User ${currentSupabaseUser.id} present, profile already matches state.`);
-            }
-          } else {
-            clearAuthStates();
-          }
+          clearAuthStates();
         }
-        // For other events like TOKEN_REFRESHED, profile is not fetched automatically.
+        // INITIAL_SESSION is handled by getSession() above.
+        // TOKEN_REFRESHED typically doesn't require profile re-fetch unless user identity might change.
       }
     );
 
     return () => {
       isMounted = false;
-      console.log("[AuthProvider] MAIN EFFECT CLEANUP: Unsubscribing from auth changes.");
+      console.log("[AuthProvider] Cleaning up auth listener.");
       authListener.subscription.unsubscribe();
+      activeUserProfileFetch.current = null; // Clear ref on unmount
     };
-  }, [fetchUserProfile, clearAuthStates]); // Stable dependencies
+  }, [fetchUserProfile, clearAuthStates, profile]); // Added profile to deps to re-evaluate if profile becomes null
 
   const ensureProfileLoaded = useCallback(async () => {
     const currentUser = userRef.current;
-    const currentProfile = profileRef.current;
-    if (currentUser && (!currentProfile || currentProfile.id !== currentUser.id) && !profileLoading && !activeUserProfileFetch.current) {
-      console.log(`[AuthProvider] ensureProfileLoaded: Profile for ${currentUser.id} needed. Fetching.`);
-      await fetchUserProfile(currentUser.id, currentUser.is_anonymous ?? false);
-    } else if (currentUser && currentProfile && currentProfile.id === currentUser.id) {
-      console.log(`[AuthProvider] ensureProfileLoaded: Profile already loaded for ${currentUser.id}.`);
-    } else if (!currentUser) {
-      console.log(`[AuthProvider] ensureProfileLoaded: No user, cannot load profile.`);
+    if (currentUser && (!profile || profile.id !== currentUser.id) && !profileLoading && !activeUserProfileFetch.current) {
+      console.log(`[AuthProvider] ensureProfileLoaded: Profile for ${currentUser.id} needed or different. Fetching.`);
+      await fetchUserProfile(currentUser.id);
     } else if (profileLoading || activeUserProfileFetch.current) {
-      console.log(`[AuthProvider] ensureProfileLoaded: Profile for ${currentUser.id} is already being fetched.`);
+        console.log(`[AuthProvider] ensureProfileLoaded: Profile fetch already in progress for user ${currentUser?.id}.`);
     }
-  }, [fetchUserProfile, profileLoading]); // profileLoading is a state, fetchUserProfile is stable
+  }, [fetchUserProfile, profile, profileLoading]);
 
   async function signInWithProvider(provider: Provider) {
-    const currentUser = userRef.current;
-    const currentIsAnon = isAnonymous; // isAnonymous state should reflect currentUser's status
+    console.log(`[AuthProvider] Attempting sign in with ${provider}`);
     try {
-      if (currentUser && currentIsAnon) {
-        console.log(`[AuthProvider] Linking ${provider} to anonymous user ${currentUser.id}`);
-        const { error } = await supabase.auth.linkIdentity({ provider, options: { redirectTo: `${window.location.origin}/auth/callback` } });
-        if (error) throw error;
-        toast.info(`Redirecting to ${provider} to link account...`);
-      } else {
-        console.log(`[AuthProvider] Signing in with ${provider}`);
-        const { error } = await supabase.auth.signInWithOAuth({ provider, options: { redirectTo: `${window.location.origin}/auth/callback` } });
-        if (error) throw error;
-      }
-    } catch (error: any) { toast.error(`Operation with ${provider} failed: ${error.message}`); }
-  }
-
-  async function signInWithEmail(email: string) {
-    try {
-      const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: `${window.location.origin}/auth/callback` } });
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: { redirectTo: `${window.location.origin}/auth/callback` },
+      });
       if (error) throw error;
-      toast.info(`Verification link sent to ${email}.`);
-    } catch (error: any) { toast.error(`Email sign in failed: ${error.message}`); }
+      // onAuthStateChange will handle the rest
+    } catch (error: any) {
+      toast.error(`Sign in with ${provider} failed: ${error.message}`);
+      console.error(`Sign in with ${provider} error:`, error);
+    }
   }
 
-  async function signInWithPhone(phone: string) {
+  async function signInWithEmail(email: string) { // For OTP
+    console.log(`[AuthProvider] Sending OTP to ${email}`);
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+      });
+      if (error) throw error;
+      toast.info(`Verification link sent to ${email}. Check your inbox.`);
+    } catch (error: any) {
+      toast.error(`Email OTP sign in failed: ${error.message}`);
+      console.error(`Email OTP sign in error for ${email}:`, error);
+    }
+  }
+
+  async function signInWithPhone(phone: string) { // For OTP
+    console.log(`[AuthProvider] Sending OTP to ${phone}`);
     try {
       const { error } = await supabase.auth.signInWithOtp({ phone });
       if (error) throw error;
       toast.info(`OTP sent to ${phone}.`);
-    } catch (error: any) { toast.error(`Phone sign in failed: ${error.message}`); }
-  }
-
-  async function signInAnonymously(): Promise<boolean> {
-    if (userRef.current) { console.log("[AuthProvider] User already exists."); return true; }
-    setGuestLoading(true);
-    try {
-      const { data: { user: anonUser }, error: anonError } = await supabase.auth.signInAnonymously();
-      if (anonError) throw anonError;
-      if (!anonUser) throw new Error("Anonymous sign in failed: No user object returned.");
-      // onAuthStateChange with 'SIGNED_IN' will handle setting user, isAnonymous, and triggering profile fetch.
-      toast.success("Proceeding anonymously.");
-      return true;
     } catch (error: any) {
-      toast.error(error.message || "Failed to sign in as guest.");
-      clearAuthStates(); return false;
-    } finally { setGuestLoading(false); }
+      toast.error(`Phone OTP sign in failed: ${error.message}`);
+      console.error(`Phone OTP sign in error for ${phone}:`, error);
+    }
   }
 
   async function signOut() {
+    console.log("[AuthProvider] Signing out.");
     try {
-      const currentUser = userRef.current;
-      if (currentUser) profileCreationAttempted.current.delete(currentUser.id);
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
+      // clearAuthStates() is called by onAuthStateChange for 'SIGNED_OUT'
       toast.success("Signed out successfully.");
-    } catch (error: any) { toast.error(`Sign out failed: ${error.message}`); }
+    } catch (error: any) {
+      toast.error(`Sign out failed: ${error.message}`);
+      console.error("Sign out error:", error);
+    }
   }
 
   return (
     <AuthContext.Provider value={{
-      user, profile, role, loading, profileLoading, isAnonymous, guestLoading,
-      signInWithProvider, signInWithEmail, signInWithPhone, signInAnonymously, signOut,
+      user,
+      profile,
+      role,
+      loading,
+      profileLoading,
+      signInWithProvider,
+      signInWithEmail,
+      signInWithPhone,
+      signOut,
       ensureProfileLoaded
     }}>
       {children}
