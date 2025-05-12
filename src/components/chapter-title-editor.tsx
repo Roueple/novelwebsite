@@ -10,20 +10,20 @@ import { cn } from '@/lib/utils';
 import type { Chapter } from '@/types';
 
 interface ChapterTitleEditorProps {
-  chapter: Chapter;
+  chapter: Chapter; // This should now have chapter.is_locked as boolean
   novelId: number;
   isAuthor: boolean;
   isEditing: boolean;
   onStartEdit: (chapter: Chapter) => void;
   onCancelEdit: () => void;
   onSaveTitle: (chapterId: number, newTitle: string) => Promise<void>;
-  onToggleLock: (chapterId: number, currentLockedStatus: boolean) => Promise<void>;
+  onToggleLock: (chapterId: number, currentLockedStatus: boolean) => Promise<void>; // Expects boolean
   onDeleteChapter: (chapterId: number, chapterNumber: number) => Promise<void>;
   savingTitle: boolean;
   deletingChapter: boolean;
   togglingLock: boolean;
   bulkOperationInProgress: boolean;
-  disabled?: boolean; // <-- ADDED: Accept optional disabled prop from parent
+  disabled?: boolean;
 }
 
 export default function ChapterTitleEditor({
