@@ -1,212 +1,266 @@
+// src/app/novels/create/page.tsx
 "use client";
 
-import { useState, useEffect } from 'react'; // Keep useEffect if needed for other things, like auth checks maybe? Otherwise remove.
-// import { useTheme } from '@/providers/theme-provider'; // REMOVE
-import { ImageUpload } from '@/components/ui/image-upload';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase'; // Your Supabase client
+import { useAuth } from '@/providers/auth-provider'; // To get user ID for author_id
 import Link from 'next/link';
-import { ArrowLeft, X } from 'lucide-react';
+import { ArrowLeft, X, UploadCloud, Save } from 'lucide-react'; // Added Save
 import Image from 'next/image';
-import LoadingSpinner from '@/components/ui/loading-spinner'; // Keep if loading state is used
+import LoadingSpinner from '@/components/ui/loading-spinner';
+import { Input } from '@/components/ui/input'; // Assuming you use these
+import { Textarea } from '@/components/ui/textarea';
+import { Button } from '@/components/ui/button';
+import { ImageUpload } from '@/components/ui/image-upload'; // Assuming this is your component
+import { toast } from 'sonner'; // For notifications
 
-export default function CreateNovel() {
-  // const [isMounted, setIsMounted] = useState(false); // REMOVE
-  // const { theme } = useTheme(); // REMOVE
-  // const [isDark, setIsDark] = useState(false); // REMOVE
+// Define an interface for your form data state
+interface NovelFormData {
+  title: string;
+  author: string;
+  description: string;
+  tags: string; // Input as comma-separated string, will be converted to string[] on submit
+  status: 'Ongoing' | 'Completed'; // Strict type for status
+}
+
+export default function CreateNovelPage() { // Renamed component for clarity
   const router = useRouter();
+  const { user } = useAuth(); // Get the authenticated user
 
-  const [loading, setLoading] = useState(false);
-  const [coverUrl, setCoverUrl] = useState('');
-
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<NovelFormData>({
     title: '',
     author: '',
     description: '',
     tags: '',
-    status: 'Ongoing'
+    status: 'Ongoing', // Default value matches the strict type
   });
+  const [coverUrl, setCoverUrl] = useState<string | null>(null); // Allow null for cover
+  const [isSubmitting, setIsSubmitting] = useState(false); // Changed from 'loading' to 'isSubmitting'
 
-  // useEffect(() => { setIsMounted(true); }, []); // REMOVE
-  // useEffect(() => { if (isMounted) { setIsDark(theme === 'dark'); } }, [theme, isMounted]); // REMOVE
+  // If user is not logged in, you might want to redirect or disable the form.
+  // For simplicity, this example assumes an admin role check is done higher up or this page is protected.
+  useEffect(() => {
+    if (!user) {
+      // toast.error("You must be logged in to create a novel.");
+      // router.push('/login'); // Or show a message
+    }
+  }, [user, router]);
+
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: name === 'status' ? value as 'Ongoing' | 'Completed' : value,
+    }));
+  };
+
+  const handleCoverUploadComplete = (url: string) => {
+    setCoverUrl(url);
+  };
+
+  const handleRemoveCover = () => {
+    setCoverUrl(null);
+    // If you also need to delete from storage, add that logic here or in ImageUpload
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+    if (!user) {
+      toast.error("Authentication error. Please log in again.");
+      setIsSubmitting(false);
+      return;
+    }
+    if (!formData.title.trim() || !formData.author.trim()) {
+        toast.error("Title and Author are required.");
+        setIsSubmitting(false);
+        return;
+    }
+
+    setIsSubmitting(true);
+    toast.loading("Creating novel...");
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        alert('You must be logged in to create a novel.');
-        setLoading(false);
-        return;
-      }
+      // Prepare the data for insertion, ensuring types match the database schema
+      const novelToInsert = {
+        title: formData.title.trim(),
+        author: formData.author.trim(),
+        description: formData.description.trim() || null, // Handle empty description as null if DB allows
+        tags: formData.tags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0), // string[]
+        status: formData.status, // Already correctly typed 'Ongoing' | 'Completed'
+        cover_url: coverUrl,
+        author_id: user.id, // Link to the authenticated user who is creating it
+        rating: 0, // Default rating, ensure this matches your DB schema for novels.rating type
+        // Add any other required fields from your 'novels' table Insert type
+        // e.g., is_hidden: false, like_count: 0, view_count: 0 if they have defaults or are needed
+      };
 
-      const { data, error } = await supabase
+      const { data: newNovel, error } = await supabase
         .from('novels')
-        .insert([
-          {
-            ...formData,
-            cover_url: coverUrl,
-            tags: formData.tags.split(',').map(tag => tag.trim()).filter(tag => tag),
-            rating: 0,
-            author_id: user.id
-          }
-        ])
+        .insert(novelToInsert) // Pass a single object, not an array if inserting one
         .select()
         .single();
 
       if (error) throw error;
 
-      router.push(`/novels/${data.id}`);
-    } catch (error) {
+      toast.dismiss();
+      toast.success("Novel created successfully!");
+      if (newNovel) {
+        router.push(`/novels/${newNovel.id}/edit`); // Redirect to edit page for the new novel
+      } else {
+        router.push('/'); // Fallback redirect
+      }
+    } catch (error: any) {
+      toast.dismiss();
       console.error('Error creating novel:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      alert(`Error creating novel: ${errorMessage}`);
+      toast.error(`Error creating novel: ${error.message || 'Unknown error'}`);
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
-  // No need for isMounted check here anymore if useTheme is removed
-  // if (!isMounted) { ... } // REMOVE
-
   return (
-    // Use theme-aware classes directly
-    <div className="min-h-screen bg-background text-foreground"> {/* Use bg-background, text-foreground */}
+    <div className="min-h-screen bg-background text-foreground">
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-2xl mx-auto">
           <div className="flex items-center mb-6">
-            <Link
-              href="/"
-              className="flex items-center gap-2 text-foreground hover:opacity-80" // Use text-foreground
-            >
-              <ArrowLeft size={20} />
-              <span>Back to Home</span>
-            </Link>
+            <Button variant="ghost" size="sm" asChild onClick={() => router.back()} className="text-muted-foreground hover:text-foreground">
+              {/* Using router.back() or Link to a specific page */}
+              <>
+                <ArrowLeft size={16} className="mr-1" />
+                Back
+              </>
+            </Button>
           </div>
 
-          {/* Use theme-aware classes: bg-card, text-card-foreground, border-border, placeholder-muted-foreground etc. */}
-          <div className="bg-card text-card-foreground rounded-lg shadow-lg p-6">
-            <h1 className="text-2xl font-bold mb-6 text-foreground"> {/* Use text-foreground */}
+          <div className="bg-card text-card-foreground rounded-lg shadow-lg p-6 sm:p-8">
+            <h1 className="text-2xl font-bold mb-6 text-foreground">
               Add New Novel
             </h1>
 
             <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Cover Upload */}
               <div>
-                <label className="block text-sm font-medium mb-2 text-foreground"> {/* Use text-foreground */}
+                <label htmlFor="novel-cover" className="block text-sm font-medium mb-1 text-foreground">
                   Cover Image
                 </label>
-                {coverUrl ? (
-                  <div className="relative w-48 aspect-[2/3] mb-2">
+                {coverUrl && (
+                  <div className="relative w-32 h-48 mb-2 group"> {/* Adjusted size for consistency */}
                     <Image
-                        src={coverUrl}
-                        alt="Cover preview"
-                        fill
-                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                        className="object-cover rounded-md"
+                      src={coverUrl}
+                      alt="Cover preview"
+                      fill
+                      sizes="(max-width: 128px) 100vw, 128px"
+                      className="object-cover rounded-md border border-border"
                     />
-                    <button
+                    <Button
                       type="button"
-                      onClick={() => setCoverUrl('')}
-                      className="absolute top-1 right-1 p-0.5 bg-red-600 text-white rounded-full leading-none hover:bg-red-700"
+                      variant="destructive"
+                      size="icon"
+                      onClick={handleRemoveCover}
+                      className="absolute -top-2 -right-2 h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
                       aria-label="Remove cover image"
                     >
                       <X size={14} />
-                    </button>
+                    </Button>
                   </div>
-                ) : null}
+                )}
                 <ImageUpload
-                  onUploadComplete={setCoverUrl}
+                  onUploadComplete={handleCoverUploadComplete}
+                  // Pass any existing coverUrl if ImageUpload supports showing/replacing it
                 />
               </div>
 
-              {/* Title */}
               <div>
-                <label htmlFor="novel-title" className="block text-sm font-medium mb-2 text-foreground">
-                  Title
+                <label htmlFor="title" className="block text-sm font-medium mb-1 text-foreground">
+                  Title <span className="text-destructive">*</span>
                 </label>
-                <input
-                  id="novel-title"
+                <Input
+                  id="title"
+                  name="title"
                   type="text"
                   required
                   value={formData.title}
-                  onChange={e => setFormData({ ...formData, title: e.target.value })}
-                  className="w-full px-4 py-2 rounded-lg border bg-background border-border text-foreground placeholder-muted-foreground" // Use theme classes
+                  onChange={handleChange}
+                  className="w-full"
+                  disabled={isSubmitting}
                 />
               </div>
 
-              {/* Author */}
               <div>
-                <label htmlFor="novel-author" className="block text-sm font-medium mb-2 text-foreground">
-                  Author
+                <label htmlFor="author" className="block text-sm font-medium mb-1 text-foreground">
+                  Author <span className="text-destructive">*</span>
                 </label>
-                <input
-                  id="novel-author"
+                <Input
+                  id="author"
+                  name="author"
                   type="text"
                   required
                   value={formData.author}
-                  onChange={e => setFormData({ ...formData, author: e.target.value })}
-                  className="w-full px-4 py-2 rounded-lg border bg-background border-border text-foreground placeholder-muted-foreground" // Use theme classes
+                  onChange={handleChange}
+                  className="w-full"
+                  disabled={isSubmitting}
                 />
               </div>
 
-              {/* Description */}
               <div>
-                <label htmlFor="novel-description" className="block text-sm font-medium mb-2 text-foreground">
+                <label htmlFor="description" className="block text-sm font-medium mb-1 text-foreground">
                   Description
                 </label>
-                <textarea
-                  id="novel-description"
-                  required
-                  rows={4}
+                <Textarea
+                  id="description"
+                  name="description"
+                  rows={5}
                   value={formData.description}
-                  onChange={e => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full px-4 py-2 rounded-lg border bg-background border-border text-foreground placeholder-muted-foreground" // Use theme classes
+                  onChange={handleChange}
+                  className="w-full"
+                  disabled={isSubmitting}
                 />
               </div>
 
-              {/* Tags */}
               <div>
-                <label htmlFor="novel-tags" className="block text-sm font-medium mb-2 text-foreground">
+                <label htmlFor="tags" className="block text-sm font-medium mb-1 text-foreground">
                   Tags (comma separated)
                 </label>
-                <input
-                  id="novel-tags"
+                <Input
+                  id="tags"
+                  name="tags"
                   type="text"
                   value={formData.tags}
-                  onChange={e => setFormData({ ...formData, tags: e.target.value })}
+                  onChange={handleChange}
                   placeholder="Fantasy, Action, Adventure"
-                  className="w-full px-4 py-2 rounded-lg border bg-background border-border text-foreground placeholder-muted-foreground" // Use theme classes
+                  className="w-full"
+                  disabled={isSubmitting}
                 />
               </div>
 
-              {/* Status */}
               <div>
-                <label htmlFor="novel-status" className="block text-sm font-medium mb-2 text-foreground">
-                  Status
+                <label htmlFor="status" className="block text-sm font-medium mb-1 text-foreground">
+                  Status <span className="text-destructive">*</span>
                 </label>
                 <select
-                  id="novel-status"
+                  id="status"
+                  name="status"
                   value={formData.status}
-                  onChange={e => setFormData({ ...formData, status: e.target.value })}
-                  className="w-full px-4 py-2 rounded-lg border bg-background border-border text-foreground" // Use theme classes
+                  onChange={handleChange}
+                  className="w-full h-9 px-3 py-1 rounded-md border bg-background border-input text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={isSubmitting}
                 >
                   <option value="Ongoing">Ongoing</option>
                   <option value="Completed">Completed</option>
                 </select>
               </div>
 
-              {/* Submit Button */}
-              <button
-                type="submit"
-                disabled={loading}
-                // Use primary button styling from shadcn/ui potentially, or keep as is
-                className="w-full py-2 px-4 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {loading ? 'Creating...' : 'Create Novel'}
-              </button>
+              <div className="flex justify-end pt-2">
+                <Button
+                  type="submit"
+                  disabled={isSubmitting || !user || !formData.title || !formData.author}
+                  className="min-w-[120px]"
+                >
+                  {isSubmitting ? <LoadingSpinner className="mr-2" size="sm"/> : <Save size={16} className="mr-2" />}
+                  {isSubmitting ? 'Creating...' : 'Create Novel'}
+                </Button>
+              </div>
             </form>
           </div>
         </div>
