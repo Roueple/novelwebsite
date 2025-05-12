@@ -6,30 +6,37 @@ import Link from 'next/link';
 import { useAuth } from '@/providers/auth-provider';
 import AdminRoleCheck from '@/components/auth/admin-role-check';
 import { getUnapprovedComments, approveComment, deleteComment } from '@/lib/api';
-import type { Comment } from '@/types/supabase'; // Import base Comment type
+// Import the new specific type from api.ts if you want, or define it here
+// For simplicity, we'll redefine a similar local type that matches the expected data structure
+// from getUnapprovedComments.
+import type { Comment as BaseComment, Profile, UserRole } from '@/types'; // Base types
+
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import LoadingSpinner from '@/components/ui/loading-spinner';
 import { Check, Trash2, ExternalLink } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
-// Define the extended type locally for this component
-type CommentWithContext = Comment & {
-  chapters: { title: string, novel_id: number, novels: { title: string, id: number } | null } | null
+// Define the structure of comments as returned by getUnapprovedComments
+// This now includes the structure of the 'profiles' join directly
+type CommentWithContext = BaseComment & {
+  profiles: Pick<Profile, 'username' | 'display_name' | 'role'> | null; // Profile data from the join
+  chapters: { title: string; novel_id: number; novels: { title: string; id: number } | null } | null;
 };
 
 export default function AdminCommentsPage() {
-  const { user, role } = useAuth(); // Get user and role
+  const { user, role: adminUserRole } = useAuth(); // Renamed role to adminUserRole to avoid conflict
   const [comments, setComments] = useState<CommentWithContext[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [processingId, setProcessingId] = useState<number | null>(null); // Track which comment is being processed
+  const [processingId, setProcessingId] = useState<number | null>(null);
 
-  // Fetch unapproved comments
   const fetchUnapproved = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
+      // getUnapprovedComments now returns objects typed as UnapprovedCommentWithContext (or similar)
+      // which can be assigned to CommentWithContext[]
       const fetchedComments = await getUnapprovedComments();
       setComments(fetchedComments);
     } catch (err) {
@@ -42,23 +49,20 @@ export default function AdminCommentsPage() {
   }, []);
 
   useEffect(() => {
-    // Fetch only if the user is confirmed to be an admin
-    if (role === 'admin') {
-        fetchUnapproved();
-    } else if (role !== null) { // If role is loaded but not admin
-        setError("Access Denied.");
-        setLoading(false);
+    if (adminUserRole === 'admin') {
+      fetchUnapproved();
+    } else if (adminUserRole !== null) {
+      setError("Access Denied.");
+      setLoading(false);
     }
-    // If role is null, AdminRoleCheck handles loading/redirect
-  }, [role, fetchUnapproved]);
+  }, [adminUserRole, fetchUnapproved]);
 
-  // Handle Approve
   const handleApprove = async (commentId: number) => {
     setProcessingId(commentId);
     try {
       const success = await approveComment(commentId);
       if (success) {
-        setComments(prev => prev.filter(c => c.id !== commentId)); // Remove from list
+        setComments(prev => prev.filter(c => c.id !== commentId));
         toast.success("Comment approved!");
       } else {
         throw new Error("Failed to approve comment via API.");
@@ -71,14 +75,13 @@ export default function AdminCommentsPage() {
     }
   };
 
-  // Handle Delete
   const handleDelete = async (commentId: number) => {
     if (!confirm("Are you sure you want to permanently delete this comment?")) return;
     setProcessingId(commentId);
     try {
-      const success = await deleteComment(commentId); // Uses the existing delete API
+      const success = await deleteComment(commentId);
       if (success) {
-        setComments(prev => prev.filter(c => c.id !== commentId)); // Remove from list
+        setComments(prev => prev.filter(c => c.id !== commentId));
         toast.success("Comment deleted.");
       } else {
         throw new Error("Failed to delete comment via API.");
@@ -91,16 +94,17 @@ export default function AdminCommentsPage() {
     }
   };
 
-  // Helper to display username or generated guest name
+  // Helper to display username
+  // Now uses display_name primarily, falls back to username (unique handle)
   const getDisplayName = (comment: CommentWithContext): string => {
-      if (comment.profiles?.is_guest) {
-          return comment.profiles?.username || `anon#${comment.user_id?.substring(0, 6) || '????'}`; // Generate guest name
-      }
-      return comment.profiles?.username || 'Unknown User';
+    if (comment.profiles) {
+      return comment.profiles.display_name || comment.profiles.username || 'User';
+    }
+    return 'Unknown User (No Profile Data)'; // Should not happen if user_id is always present
   };
 
   return (
-    <AdminRoleCheck> {/* Ensures only admins can access this */}
+    <AdminRoleCheck>
       <div className="container mx-auto px-4 py-8">
         <h1 className="text-3xl font-bold mb-6 text-foreground">Comment Moderation</h1>
         <p className="text-muted-foreground mb-6">Review and approve or delete pending comments.</p>
@@ -120,24 +124,27 @@ export default function AdminCommentsPage() {
               <div key={comment.id} className="bg-card p-4 rounded-lg border border-border shadow-sm">
                 <div className="flex justify-between items-start mb-2 gap-4">
                   <div>
-                      <span className="font-medium text-sm text-foreground">
-                          {getDisplayName(comment)}
-                      </span>
-                      <span className="text-xs text-muted-foreground ml-2" title={new Date(comment.created_at).toLocaleString()}>
-                        {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
-                      </span>
-                      {comment.chapters?.novels && comment.chapters.novel_id && (
-                         <Link
-                            href={`/novels/${comment.chapters.novel_id}/chapter/${comment.chapter_id}`} // Use chapter_id from comment directly
-                            target="_blank" // Open in new tab
-                            rel="noopener noreferrer"
-                            className="text-xs text-primary hover:underline ml-3 inline-flex items-center gap-1"
-                            title={`Go to ${comment.chapters.novels.title} - Chapter ${comment.chapters.title}`}
-                         >
-                            on "{comment.chapters.novels.title}" - Ch. "{comment.chapters.title}"
-                            <ExternalLink size={12} />
-                         </Link>
+                    <span className="font-medium text-sm text-foreground">
+                      {getDisplayName(comment)} 
+                      {comment.profiles?.role === 'admin' && (
+                        <span className="ml-1 text-xs font-semibold px-1.5 py-0.5 rounded bg-primary/10 text-primary">(Admin)</span>
                       )}
+                    </span>
+                    <span className="text-xs text-muted-foreground ml-2" title={new Date(comment.created_at).toLocaleString()}>
+                      {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
+                    </span>
+                    {comment.chapters?.novels && comment.chapters.novel_id && (
+                      <Link
+                        href={`/novels/${comment.chapters.novel_id}/chapter/${comment.chapter_id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-primary hover:underline ml-3 inline-flex items-center gap-1"
+                        title={`Go to ${comment.chapters.novels.title} - Chapter ${comment.chapters.title}`}
+                      >
+                        on "{comment.chapters.novels.title}" - Ch. "{comment.chapters.title}"
+                        <ExternalLink size={12} />
+                      </Link>
+                    )}
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <Button
@@ -160,12 +167,12 @@ export default function AdminCommentsPage() {
                       aria-label="Approve comment"
                     >
                       {processingId === comment.id ? <LoadingSpinner size="sm" /> : <Check size={16} />}
-                       <span className="hidden sm:inline ml-1">Approve</span>
+                      <span className="hidden sm:inline ml-1">Approve</span>
                     </Button>
                   </div>
                 </div>
                 <p className="text-sm text-foreground whitespace-pre-wrap bg-muted/30 p-2 rounded border border-border/30">
-                    {comment.content}
+                  {comment.content}
                 </p>
               </div>
             ))}
@@ -175,4 +182,3 @@ export default function AdminCommentsPage() {
     </AdminRoleCheck>
   );
 }
-
