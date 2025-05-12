@@ -40,7 +40,7 @@ export default function EditNovelAndChaptersPage() {
     const novelId = Number(params.id);
 
     const [novel, setNovel] = useState<Novel | null>(null);
-    const [chapters, setChapters] = useState<ChapterType[] | null>(null); // State for chapters
+    const [chapters, setChapters] = useState<Chapter[] | null>(null);
     const [loading, setLoading] = useState(true);
     const [savingNovel, setSavingNovel] = useState(false); // Separate saving state for novel details
     const [error, setError] = useState<string | null>(null);
@@ -121,7 +121,7 @@ export default function EditNovelAndChaptersPage() {
     const handleRemoveCover = () => { setEditedCoverUrl(null); setCurrentCoverUrl(null); toast.info("Cover image removed. Click 'Save Changes' to apply."); }
 
     // --- Handlers for Chapter Management (moved from view page) ---
-    const handleStartEditChapter = (chapter: ChapterType) => setIsEditingChapterId(chapter.id);
+    const handleStartEditChapter = (chapter: Chapter) => setIsEditingChapterId(chapter.id);
     const handleCancelEditChapter = () => setIsEditingChapterId(null);
     const handleSaveChapterTitle = async (chapterId: number, newTitle: string): Promise<void> => {
         setChapterOperationStatus({ id: chapterId, type: 'savingTitle' });
