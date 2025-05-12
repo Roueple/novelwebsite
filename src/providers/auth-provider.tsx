@@ -159,7 +159,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       authListener.subscription.unsubscribe();
       activeUserProfileFetch.current = null; // Clear ref on unmount
     };
-  }, [fetchUserProfile, clearAuthStates, profile]); // Added profile to deps to re-evaluate if profile becomes null
+  }, [fetchUserProfile, clearAuthStates]); // Added profile to deps to re-evaluate if profile becomes null
 
   const ensureProfileLoaded = useCallback(async () => {
     const currentUser = userRef.current;
