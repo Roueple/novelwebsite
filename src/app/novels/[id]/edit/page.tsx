@@ -126,7 +126,7 @@ export default function EditNovelAndChaptersPage() {
     const handleSaveChapterTitle = async (chapterId: number, newTitle: string): Promise<void> => {
         setChapterOperationStatus({ id: chapterId, type: 'savingTitle' });
         try {
-            const success = await updateChapter(novelId!, chapterId, { title: newTitle });
+            const success = await updateChapter(chapterId, { title: newTitle });
             if (success) { toast.success("Chapter title saved."); setChapters(prev => prev ? prev.map(c => c.id === chapterId ? { ...c, title: newTitle } : c) : null); handleCancelEditChapter(); }
             else toast.error("Failed to save title.");
         } catch (e) { toast.error("Error saving title."); } finally { setChapterOperationStatus({ id: null, type: null }); }
