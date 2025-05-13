@@ -11,7 +11,7 @@ import ReadingView from '@/components/reading/reading-view';
 import ReadingSettingsMenu from '@/components/reading/reading-settings-menu';
 import NotFoundScreen from '@/components/ui/not-found-screen';
 import { useReadingPreferences } from '@/hooks/use-reading-preferences';
-import type { Chapter, Novel } from '@/types'; // Use Chapter from your central types file
+import type { Chapter, Novel } from '@/types';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import FloatingReadingControls from '@/components/reading/FloatingReadingControls';
