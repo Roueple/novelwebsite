@@ -143,7 +143,7 @@ export default function EditNovelAndChaptersPage() {
     const handleToggleChapterLock = async (chapterId: number, currentLockedStatus: boolean): Promise<void> => {
         setChapterOperationStatus({ id: chapterId, type: 'togglingLock' });
         try {
-            const success = await updateChapter(novelId!, chapterId, { is_locked: !currentLockedStatus });
+            const success = await updateChapter(chapterId, { is_locked: !currentLockedStatus });
             if (success) { toast.success(`Chapter ${!currentLockedStatus ? 'locked' : 'unlocked'}.`); setChapters(prev => prev ? prev.map(c => c.id === chapterId ? { ...c, is_locked: !currentLockedStatus } : c) : null); }
             else toast.error("Failed to toggle lock status.");
         } catch (e) { toast.error("Error toggling lock."); } finally { setChapterOperationStatus({ id: null, type: null }); }
