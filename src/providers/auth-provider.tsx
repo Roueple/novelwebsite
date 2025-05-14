@@ -3,38 +3,38 @@
 
 import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
-import type { User, Provider, Session } from '@supabase/supabase-js';
-// This import MUST work for the rest of the code to be valid.
-// If you still have errors on this line, the issue is with your types setup.
-import type { Profile, UserRole } from '@/types';
+import type { User as SupabaseUser, Session as SupabaseSession, Provider } from '@supabase/supabase-js';
+import type { Profile as AppProfile, UserRole as AppUserRole } from '@/types'; // Your central app types
 import { toast } from 'sonner';
 
+// Define the context type correctly
 interface AuthContextType {
-  user: User | null;
-  profile: Profile | null;
-  role: UserRole | null;
+  user: SupabaseUser | null;
+  profile: AppProfile | null;
+  role: AppUserRole | null;
   loading: boolean; // True during initial Supabase session check AND initial profile load attempt
   profileLoading: boolean; // True ONLY when a profile fetch is actively in progress
 
   signInWithProvider: (provider: Provider) => Promise<void>;
-  signInWithEmail: (email: string) => Promise<void>; // For OTP login/signup start
-  signInWithPhone: (phone: string) => Promise<void>; // For OTP login/signup start
-  // We'll add explicit email/password signup/login functions later when building UI for it
+  signInWithEmail: (email: string) => Promise<void>; // This is your OTP initiator
+  verifyEmailOtp: (email: string, token: string) => Promise<{ user: SupabaseUser | null, session: SupabaseSession | null, error: Error | null }>; // Corrected signature
   signOut: () => Promise<void>;
-  ensureProfileLoaded: () => Promise<void>; // To manually trigger a profile fetch if needed
+  ensureProfileLoaded: () => Promise<void>;
+  // Add signInWithPassword if you implemented it for guests later
+  // signInWithPassword?: (emailIn: string, passwordIn: string) => Promise<SupabaseSession | null>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [role, setRole] = useState<UserRole | null>(null);
-  const [loading, setLoading] = useState(true); // Overall initial loading for auth session
-  const [profileLoading, setProfileLoading] = useState(false); // Specifically for active profile fetch operations
+  const [user, setUser] = useState<SupabaseUser | null>(null);
+  const [profile, setProfile] = useState<AppProfile | null>(null);
+  const [role, setRole] = useState<AppUserRole | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(false);
 
-  const activeUserProfileFetch = useRef<Promise<Profile | null> | null>(null);
-  const userRef = useRef<User | null>(null);
+  const activeUserProfileFetch = useRef<Promise<AppProfile | null> | null>(null);
+  const userRef = useRef<SupabaseUser | null>(null);
 
   useEffect(() => {
     userRef.current = user;
@@ -47,26 +47,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setRole(null);
   }, []);
 
-  const fetchUserProfile = useCallback(async (userId: string): Promise<Profile | null> => {
-    // Prevent redundant fetches if one for the same user is already in flight
+  const fetchUserProfile = useCallback(async (userId: string): Promise<AppProfile | null> => {
     if (activeUserProfileFetch.current) {
       console.log(`[AuthProvider] fetchUserProfile: Active fetch ongoing for ${userId}. Awaiting existing promise.`);
       return activeUserProfileFetch.current;
     }
-
     console.log(`[AuthProvider] fetchUserProfile: Attempting for user ID: ${userId}`);
     setProfileLoading(true);
 
-    const fetchPromise = (async (): Promise<Profile | null> => {
+    const fetchPromise = (async (): Promise<AppProfile | null> => {
       try {
         const { data: fetchedProfileData, error: fetchError } = await supabase
           .from('profiles')
-          .select('id, username, display_name, role, email') // Select new fields, no is_guest
+          // Ensure you select all fields needed for your AppProfile type, including new ones
+          .select('id, username, display_name, role, email, comment_count, experience_points, level, chapters_read_count, created_at, updated_at, active_title, profile_cosmetics, vip_tier')
           .eq('id', userId)
           .single();
 
         if (fetchError && fetchError.code === 'PGRST116') {
-          console.warn(`[AuthProvider] Profile not found in public.profiles for user ${userId}. User needs to complete profile setup.`);
+          console.warn(`[AuthProvider] Profile not found for user ${userId}.`);
           setProfile(null);
           setRole(null);
           return null;
@@ -77,11 +76,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setRole(null);
           return null;
         }
-
-        const typedProfile = fetchedProfileData as Profile;
+        const typedProfile = fetchedProfileData as AppProfile;
         console.log(`[AuthProvider] Profile successfully fetched for ${userId}:`, typedProfile);
         setProfile(typedProfile);
-        setRole(typedProfile?.role || null); // Get role from profile
+        setRole(typedProfile?.role || null);
         return typedProfile;
       } catch (errCatch: any) {
         console.error(`[AuthProvider] Exception in fetchUserProfile for ${userId}:`, errCatch);
@@ -91,32 +89,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return null;
       } finally {
         setProfileLoading(false);
-        activeUserProfileFetch.current = null; // Clear the ref once fetch is complete
+        activeUserProfileFetch.current = null;
       }
     })();
-
     activeUserProfileFetch.current = fetchPromise;
     return fetchPromise;
-  }, []); // Empty dependency array: fetchUserProfile definition is stable
+  }, []);
 
   useEffect(() => {
-    setLoading(true); // For initial auth check
+    setLoading(true);
     let isMounted = true;
     console.log("[AuthProvider] Setting up initial session and auth state listener.");
 
-    // Check initial session
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!isMounted) return;
       console.log("[AuthProvider] Initial getSession() result:", session);
       const initialUser = session?.user ?? null;
-      setUser(initialUser); // Set user from session
-
+      setUser(initialUser);
       if (initialUser) {
-        await fetchUserProfile(initialUser.id); // Fetch profile for the session user
+        await fetchUserProfile(initialUser.id);
       } else {
-        clearAuthStates(); // No session user, ensure states are clear
+        clearAuthStates();
       }
-      if (isMounted) setLoading(false); // Initial auth check and potential profile load done
+      if (isMounted) setLoading(false);
     }).catch(error => {
         if(!isMounted) return;
         console.error("[AuthProvider] Error in initial getSession():", error);
@@ -124,42 +119,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (isMounted) setLoading(false);
     });
 
-    // Listen for auth state changes
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!isMounted) return;
         console.log(`[AuthProvider] onAuthStateChange event: ${event}`, session);
         const currentUser = session?.user ?? null;
-        const previousUser = userRef.current; // Get user before potential update
+        const previousUser = userRef.current;
 
-        setUser(currentUser); // Update user state immediately
+        setUser(currentUser);
 
-        if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+        if (event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'INITIAL_SESSION') {
           if (currentUser) {
-            // Fetch profile if user changed or if profile was not loaded for the current user
             if (!profile || profile.id !== currentUser.id || previousUser?.id !== currentUser.id) {
               console.log(`[AuthProvider] Event ${event}: Triggering profile fetch for ${currentUser.id}`);
               await fetchUserProfile(currentUser.id);
             }
           } else {
-            // Should not happen for SIGNED_IN if session is present, but handle defensively
             clearAuthStates();
           }
         } else if (event === 'SIGNED_OUT') {
           clearAuthStates();
         }
-        // INITIAL_SESSION is handled by getSession() above.
-        // TOKEN_REFRESHED typically doesn't require profile re-fetch unless user identity might change.
       }
     );
-
     return () => {
       isMounted = false;
       console.log("[AuthProvider] Cleaning up auth listener.");
       authListener.subscription.unsubscribe();
-      activeUserProfileFetch.current = null; // Clear ref on unmount
+      activeUserProfileFetch.current = null;
     };
-  }, [fetchUserProfile, clearAuthStates]); // Added profile to deps to re-evaluate if profile becomes null
+  }, [fetchUserProfile, clearAuthStates, profile]); // profile added to dependencies
 
   const ensureProfileLoaded = useCallback(async () => {
     const currentUser = userRef.current;
@@ -179,42 +168,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         options: { redirectTo: `${window.location.origin}/auth/callback` },
       });
       if (error) throw error;
-      // onAuthStateChange will handle the rest
     } catch (error: any) {
       toast.error(`Sign in with ${provider} failed: ${error.message}`);
       console.error(`Sign in with ${provider} error:`, error);
     }
   }
 
-  // In AuthProvider.tsx
-async function signInWithEmail(email: string) {
-  console.log(`[AuthProvider] Sending OTP to ${email}`);
-  try {
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        shouldCreateUser: true, // Allow new users to sign up this way
-        emailRedirectTo: `${window.location.origin}/auth/callback`, // CRUCIAL
-      },
-    });
-    if (error) throw error;
-    // Toast handled in ChapterComments or globally by OTP flow
-  } catch (error: any) {
-    toast.error(`Email OTP sign in failed: ${error.message}`);
-    console.error(`Email OTP sign in error for ${email}:`, error);
-    throw error; // Re-throw to be caught by caller
-  }
-}
-
-  async function signInWithPhone(phone: string) { // For OTP
-    console.log(`[AuthProvider] Sending OTP to ${phone}`);
+  async function signInWithEmail(email: string) { // This is your OTP initiator
+    console.log(`[AuthProvider] Sending OTP to ${email}`);
     try {
-      const { error } = await supabase.auth.signInWithOtp({ phone });
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          shouldCreateUser: true,
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
       if (error) throw error;
-      toast.info(`OTP sent to ${phone}.`);
+      // Toast for OTP sent will be handled by the calling component (ChapterComments)
     } catch (error: any) {
-      toast.error(`Phone OTP sign in failed: ${error.message}`);
-      console.error(`Phone OTP sign in error for ${phone}:`, error);
+      console.error(`Email OTP initiation error for ${email}:`, error);
+      throw error; // Re-throw so calling component knows and can toast
+    }
+  }
+
+  async function verifyEmailOtp(email: string, token: string): Promise<{ user: SupabaseUser | null, session: SupabaseSession | null, error: Error | null }> {
+    console.log(`[AuthProvider] Verifying OTP ${token} for ${email}`);
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({
+        email,
+        token,
+        type: 'signup', // Or 'email'. 'signup' is good if shouldCreateUser was true.
+      });
+      if (error) throw error;
+      // onAuthStateChange will handle setting user, profile state.
+      // A success toast here is good.
+      toast.success("Email verified successfully! You are now logged in.");
+      return { user: data.user, session: data.session, error: null };
+    } catch (error: any) {
+      // Toast for failure handled by calling component if needed, or here.
+      toast.error(`OTP verification failed: ${error.message}`);
+      console.error(`OTP verification error for ${email}:`, error);
+      return { user: null, session: null, error: error as Error };
     }
   }
 
@@ -231,6 +226,9 @@ async function signInWithEmail(email: string) {
     }
   }
 
+  // Add signInWithPassword if you intend to use it for other flows
+  // async function signInWithPassword(emailIn: string, passwordIn: string): Promise<SupabaseSession | null> { ... }
+
   return (
     <AuthContext.Provider value={{
       user,
@@ -240,9 +238,10 @@ async function signInWithEmail(email: string) {
       profileLoading,
       signInWithProvider,
       signInWithEmail,
-      signInWithPhone,
+      verifyEmailOtp, // Make sure this is included
       signOut,
-      ensureProfileLoaded
+      ensureProfileLoaded,
+      // signInWithPassword, // Add if implemented
     }}>
       {children}
     </AuthContext.Provider>

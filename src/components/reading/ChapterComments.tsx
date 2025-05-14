@@ -1,26 +1,30 @@
 // src/components/reading/ChapterComments.tsx
 "use client";
 
-import React, { useState, useEffect, useCallback, memo, useRef } from 'react';
-import { useAuth } from '@/providers/auth-provider'; // Ensure signInWithOtp is exposed if not already
+import React, { useState, useEffect, useCallback, memo, useRef } from 'react'; // Added useRef
+
+// Import types from their canonical sources
+import type { User as SupabaseUser, Session as SupabaseSession } from '@supabase/supabase-js'; // For Supabase User object
+import type { Profile as AppProfile, UserRole as AppUserRole } from '@/types'; // Your app-specific types
+
+import { useAuth } from '@/providers/auth-provider';
 import { getChapterComments, addComment, deleteComment, type DisplayComment } from '@/lib/api';
-import type { Profile } from '@/types';
+
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import LoadingSpinner from '@/components/ui/loading-spinner';
-import { Send, Trash2, RefreshCw, MessageSquare, UserPlus, Mail } from 'lucide-react'; // Added Mail
+import { Send, Trash2, RefreshCw, MessageSquare, Mail, KeyRound, UserPlus } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 
-// CommentItem Component (remains the same - no changes needed here)
-// ... (Keep your existing CommentItem component)
+// CommentItem Component
 interface CommentItemProps {
   comment: DisplayComment;
-  currentUser: ReturnType<typeof useAuth>['user'];
-  currentUserRole: ReturnType<typeof useAuth>['role'];
+  currentUser: SupabaseUser | null; // Use SupabaseUser type
+  currentUserRole: AppUserRole | null; // Use your AppUserRole type
   onDelete: (commentId: number) => Promise<void>;
   isDeleting: boolean;
 }
@@ -36,8 +40,8 @@ const CommentItem = memo(({
     if (c.profiles) {
       return c.profiles.display_name || c.profiles.username || 'User';
     }
-    return comment.user_id ? `User (${comment.user_id.substring(0,6)})` : 'Unknown User';
-  }, [comment.user_id, comment.profiles]);
+    return c.user_id ? `User (${c.user_id.substring(0,6)})` : 'Anonymous';
+  }, []);
 
   const displayName = getDisplayName(comment);
 
@@ -50,7 +54,7 @@ const CommentItem = memo(({
         <div className="flex items-center justify-between mb-1 flex-wrap gap-x-2">
           <span className="font-medium text-sm text-foreground break-words">
             {displayName}
-            {comment.profiles?.role === 'admin' && (
+            {comment.profiles?.role === 'admin' && ( 
               <span className="ml-1 text-xs font-semibold px-1.5 py-0.5 rounded bg-primary/10 text-primary">(Admin)</span>
             )}
           </span>
@@ -90,36 +94,40 @@ interface ChapterCommentsProps {
   novelId: number;
 }
 
-const PENDING_COMMENT_STORAGE_KEY = 'pendingCommentData';
 const COMMENTS_PER_PAGE = 15;
 
 const ChapterComments = memo(({ chapterId, novelId }: ChapterCommentsProps) => {
-  // Ensure signInWithOtp is available from useAuth, add if not.
-  // For this example, I'll assume it's available as `signInWithEmailOtp`
-  const { user, role, loading: authLoading, profileLoading, profile, signInWithEmail: signInWithEmailOtp } = useAuth();
+  const { user, role, loading: authLoading, profileLoading, profile, signInWithEmail, verifyEmailOtp } = useAuth();
   
   const [comments, setComments] = useState<DisplayComment[]>([]);
   const [loadingComments, setLoadingComments] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // State for the comment form
   const [commentText, setCommentText] = useState('');
 
-  // State specific to guest OTP signup flow
+  // Guest signup flow states
   const [guestEmail, setGuestEmail] = useState('');
   const [guestDisplayName, setGuestDisplayName] = useState('');
-  const [isGuestSubmitting, setIsGuestSubmitting] = useState(false); // For OTP initiation
+  const [otpValue, setOtpValue] = useState('');
+  const [isAwaitingOtp, setIsAwaitingOtp] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false); 
 
   const [currentPage, setCurrentPage] = useState(1);
   const [totalComments, setTotalComments] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
+  const guestInputRef = useRef({ email: '', displayName: '', text: '' });
+
   const fetchComments = useCallback(async (page = 1, append = false) => {
-    setLoadingComments(true);
-    if (!append) { setCurrentPage(1); setHasMore(true); }
-    else { setLoadingMore(true); }
+    if (!append) {
+      setLoadingComments(true); 
+      setComments([]); 
+      setCurrentPage(1);
+      setHasMore(true);
+    } else {
+      setLoadingMore(true);
+    }
     setError(null);
     try {
       const result = await getChapterComments(chapterId, page, COMMENTS_PER_PAGE);
@@ -132,7 +140,7 @@ const ChapterComments = memo(({ chapterId, novelId }: ChapterCommentsProps) => {
     } catch (err: any) {
       setError(err.message || "Failed to load comments.");
       toast.error(err.message || "Could not load comments.");
-      setHasMore(false);
+      setHasMore(false); 
     } finally { setLoadingComments(false); setLoadingMore(false); }
   }, [chapterId]);
 
@@ -142,31 +150,13 @@ const ChapterComments = memo(({ chapterId, novelId }: ChapterCommentsProps) => {
     }
   }, [fetchComments, chapterId]);
 
-  // Attempt to load staged data if user just logged in (e.g., after OTP verification)
-  // This effect will run when `user` object changes (e.g., after login)
   useEffect(() => {
-    if (user && !profileLoading && !authLoading) { // User is now logged in
-      const pendingData = localStorage.getItem(PENDING_COMMENT_STORAGE_KEY);
-      if (pendingData) {
-        try {
-          const { email: storedEmail, displayName: storedDisplayName, text, storedChapterId, storedNovelId } = JSON.parse(pendingData);
-          // Check if this pending data is for the current user and chapter
-          if (user.email === storedEmail && chapterId === storedChapterId) {
-            setCommentText(text); // Pre-fill comment text
-            // Display name is handled during profile creation in /auth/callback
-            // localStorage.removeItem(PENDING_COMMENT_STORAGE_KEY); // Cleared in /auth/callback
-            toast.info("You can now post your comment.", { duration: 5000 });
-          } else {
-            // Stored data is for a different user/context, clear it
-            localStorage.removeItem(PENDING_COMMENT_STORAGE_KEY);
-          }
-        } catch (e) {
-          console.error("Error parsing pending comment data:", e);
-          localStorage.removeItem(PENDING_COMMENT_STORAGE_KEY);
-        }
-      }
+    if (user && profile && isAwaitingOtp) {
+      console.log("[ChapterComments] User authenticated and profile loaded after OTP. Finalizing post.");
+      finalizeSignupAndPostComment(guestInputRef.current.displayName, guestInputRef.current.text);
+      setIsAwaitingOtp(false); 
     }
-  }, [user, profileLoading, authLoading, chapterId]);
+  }, [user, profile, isAwaitingOtp]); 
 
 
   const handleLoadMore = () => {
@@ -175,7 +165,7 @@ const ChapterComments = memo(({ chapterId, novelId }: ChapterCommentsProps) => {
     }
   };
 
-  const handleGuestCommentAndOtpSignup = async (e: React.FormEvent) => {
+  const handleGuestOtpInitiation = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!guestEmail.trim() || !guestDisplayName.trim() || !commentText.trim()) {
       toast.warning("Please fill in your email, display name, and comment.");
@@ -185,59 +175,102 @@ const ChapterComments = memo(({ chapterId, novelId }: ChapterCommentsProps) => {
         toast.error("Please enter a valid email address.");
         return;
     }
-
-    setIsGuestSubmitting(true);
-    toast.info("Sending verification link to your email...");
-
-    try {
-      // Store display name and comment text for retrieval after OTP verification
-      const pendingCommentData = {
+    setIsSubmitting(true);
+    toast.info("Sending verification code to your email...");
+    guestInputRef.current = {
         email: guestEmail.trim(),
         displayName: guestDisplayName.trim(),
-        text: commentText.trim(),
-        chapterId: chapterId,
-        novelId: novelId,
-        timestamp: Date.now(), // For potential expiry logic later
-      };
-      localStorage.setItem(PENDING_COMMENT_STORAGE_KEY, JSON.stringify(pendingCommentData));
-
-      // Initiate OTP (magic link) flow.
-      // Ensure your AuthProvider's signInWithEmailOtp correctly calls supabase.auth.signInWithOtp
-      await signInWithEmailOtp(guestEmail.trim()); // This function should handle options like emailRedirectTo
-
-      // UI will show "Check your email..."
-      // The actual account & profile creation, and comment submission will happen in /auth/callback
-      // after the user clicks the link in their email.
-      setGuestEmail(''); // Clear fields after starting the process
-      setGuestDisplayName('');
-      setCommentText('');
-      toast.success("Verification link sent! Please check your email to continue.", { duration: 10000 });
-
+        text: commentText.trim()
+    };
+    try {
+      await signInWithEmail(guestEmail.trim()); 
+      setIsAwaitingOtp(true);
+      toast.success("Verification code sent! Please check your email.", { duration: 8000 });
     } catch (error: any) {
-      console.error("Guest OTP signup initiation error:", error);
-      toast.error(`Error: ${error.message || "Could not send verification email."}`);
-      localStorage.removeItem(PENDING_COMMENT_STORAGE_KEY); // Clean up if OTP send failed
+      toast.error(`Error: ${error.message || "Could not send verification code."}`);
+      guestInputRef.current = { email: '', displayName: '', text: '' }; 
     } finally {
-      setIsGuestSubmitting(false);
+      setIsSubmitting(false);
     }
   };
+
+  const handleOtpVerification = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!otpValue.trim() || otpValue.trim().length !== 6) {
+      toast.warning("Please enter the 6-digit OTP from your email.");
+      return;
+    }
+    setIsSubmitting(true);
+    toast.info("Verifying code...");
+    try {
+      const { user: verifiedUser, error: otpError } = await verifyEmailOtp(guestInputRef.current.email, otpValue.trim());
+      if (otpError || !verifiedUser) {
+        throw otpError || new Error("OTP verification failed. Code might be incorrect or expired.");
+      }
+      setOtpValue('');
+      toast.success("Code verified! Finalizing...");
+      // The useEffect listening to [user, profile, isAwaitingOtp] will call finalizeSignupAndPostComment
+    } catch (error: any) {
+      console.error("OTP verification error:", error);
+      toast.error(`Error: ${error.message || "Failed to verify OTP."}`);
+      setIsSubmitting(false);
+    }
+  };
+  
+  const finalizeSignupAndPostComment = async (displayNameForProfile: string, commentTextForPost: string) => {
+    if (!user || !user.id || !user.email) { 
+        toast.error("User session not found after OTP. Cannot post comment.");
+        setIsSubmitting(false);
+        setIsAwaitingOtp(false);
+        return;
+    }
+    console.log(`[ChapterComments] Finalizing signup for user ${user.id} and posting comment.`);
+    // isSubmitting should already be true if called from handleOtpVerification flow completion
+    // If called due to profile loading later, we might need to set it. For simplicity, ensure it's set.
+    setIsSubmitting(true); 
+    try {
+      const response = await fetch('/api/profiles/complete-signup-and-comment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            displayName: displayNameForProfile,
+            commentText: commentTextForPost,
+            chapterId: chapterId,
+            novelId: novelId,
+          }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'API error during final submission.');
+      toast.success(result.message || "Account setup complete and comment submitted!");
+      setGuestEmail(''); 
+      setGuestDisplayName('');
+      setCommentText(''); // Clear the main comment text as well now
+      guestInputRef.current = { email: '', displayName: '', text: '' }; 
+      fetchComments(1, false); 
+    } catch (apiError: any) {
+        console.error("API error during finalizeSignupAndPostComment:", apiError);
+        toast.error(`Error posting comment after signup: ${apiError.message}. Please try again or check your profile.`);
+    } finally {
+        setIsSubmitting(false); 
+        setIsAwaitingOtp(false); 
+    }
+};
 
   const handleRegisteredUserSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !profile) {
-      toast.error("You must be logged in with a complete profile.");
+      toast.error("You must be logged in with a complete profile to comment.");
       return;
     }
     if (!commentText.trim()) {
       toast.warning("Comment cannot be empty.");
       return;
     }
-
-    setIsGuestSubmitting(true); // Use same loading state for simplicity
+    setIsSubmitting(true);
     try {
       const addedCommentData = await addComment(user.id, chapterId, commentText.trim());
       if (addedCommentData) {
-        setCommentText('');
+        setCommentText(''); 
         toast.success(role === 'admin' ? "Comment posted!" : "Comment submitted for approval!");
         fetchComments(1, false);
       } else {
@@ -247,12 +280,11 @@ const ChapterComments = memo(({ chapterId, novelId }: ChapterCommentsProps) => {
       console.error("Registered user comment submission error:", err);
       toast.error(`Failed to post comment: ${err.message}`);
     } finally {
-      setIsGuestSubmitting(false);
+      setIsSubmitting(false);
     }
   };
 
   const handleDeleteComment = useCallback(async (commentId: number) => {
-    // ... (same as your existing)
     if (!user) return;
     if (!confirm("Are you sure you want to delete this comment?")) return;
     setDeletingId(commentId);
@@ -261,24 +293,17 @@ const ChapterComments = memo(({ chapterId, novelId }: ChapterCommentsProps) => {
       if (success) {
         toast.success("Comment deleted.");
         setComments(prevComments => prevComments.filter(c => c.id !== commentId));
-        setTotalComments(prevTotal => prevTotal > 0 ? prevTotal -1 : 0);
-      } else {
-        throw new Error("Failed to delete comment via API.");
-      }
-    } catch (err) {
-      console.error("[ChapterComments] Error deleting comment:", err);
-      toast.error("Failed to delete comment.");
-    } finally {
-      setDeletingId(null);
-    }
+        setTotalComments(prevTotal => Math.max(0, prevTotal - 1));
+      } else { throw new Error("Failed to delete comment via API."); }
+    } catch (err: any) { console.error("Error deleting comment", err); toast.error("Failed to delete comment.")} finally { setDeletingId(null); }
   }, [user]);
 
 
-  if (authLoading) { // Simplified initial loading check
+  if (authLoading && !user) { 
     return (
       <div className="mt-8 pt-6 border-t border-border flex flex-col items-center">
         <LoadingSpinner />
-        <p className="text-muted-foreground mt-2">Loading comments section...</p>
+        <p className="text-muted-foreground mt-2 text-sm">Loading comments section...</p>
       </div>
     );
   }
@@ -287,71 +312,59 @@ const ChapterComments = memo(({ chapterId, novelId }: ChapterCommentsProps) => {
     <div className="mt-8 pt-6 border-t border-border">
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-xl font-semibold text-foreground">Comments ({totalComments})</h3>
-        <Button variant="ghost" size="sm" onClick={() => fetchComments(1, false)} disabled={loadingComments || loadingMore || isGuestSubmitting} title="Refresh comments">
-            <RefreshCw size={14} className={cn("mr-1", (loadingComments || loadingMore) && "animate-spin")} />
+        <Button variant="ghost" size="sm" onClick={() => fetchComments(1, false)} disabled={loadingComments || loadingMore || isSubmitting} title="Refresh comments">
+            <RefreshCw size={14} className={cn("mr-1", (loadingComments || loadingMore || isSubmitting) && "animate-spin")} />
             Refresh
         </Button>
       </div>
 
-      {/* Comment Submission Area */}
       <div className="mb-6">
-        {!user ? (
-          // Guest commenting form with OTP signup
-          <form onSubmit={handleGuestCommentAndOtpSignup} className="p-4 bg-card border border-border rounded-lg space-y-3">
-            <div className="flex items-center gap-2 text-sm text-primary">
-              <Mail size={18} />
-              <span>Post Comment & Sign Up/Login with Email Link</span>
-            </div>
-            <div>
-              <label htmlFor="guestEmail" className="block text-xs font-medium text-muted-foreground mb-1">Your Email</label>
-              <Input
-                id="guestEmail"
-                type="email"
-                value={guestEmail}
-                onChange={(e) => setGuestEmail(e.target.value)}
-                placeholder="you@example.com"
-                required
-                className="bg-input border-input"
-                disabled={isGuestSubmitting}
-              />
-            </div>
-            <div>
-              <label htmlFor="guestDisplayName" className="block text-xs font-medium text-muted-foreground mb-1">Display Name (Public)</label>
-              <Input
-                id="guestDisplayName"
-                type="text"
-                value={guestDisplayName}
-                onChange={(e) => setGuestDisplayName(e.target.value)}
-                placeholder="Your public name"
-                required
-                className="bg-input border-input"
-                disabled={isGuestSubmitting}
-              />
-            </div>
-            <div>
-              <label htmlFor="guestCommentText" className="block text-xs font-medium text-muted-foreground mb-1">Your Comment</label>
-              <Textarea
-                id="guestCommentText"
-                value={commentText}
-                onChange={(e) => setCommentText(e.target.value)}
-                placeholder="Share your thoughts..."
-                rows={3}
-                className="bg-input border-input placeholder:text-muted-foreground/70"
-                maxLength={1000}
-                required
-                disabled={isGuestSubmitting}
-              />
-              <p className="text-xs text-muted-foreground mt-1">{commentText.length}/1000</p>
-            </div>
-            <Button type="submit" disabled={isGuestSubmitting || !guestEmail.trim() || !guestDisplayName.trim() || !commentText.trim()} className="w-full sm:w-auto">
-              {isGuestSubmitting ? <LoadingSpinner size="sm" className="mr-1" /> : <Send size={16} className="mr-1" />}
-              {isGuestSubmitting ? 'Processing...' : 'Post & Get Login Link'}
-            </Button>
-             <p className="text-xs text-muted-foreground">
-                We'll send a login link to your email. Clicking it will log you in, create your account (if new), and then your comment will be submitted for approval.
-            </p>
-          </form>
-        ) : !profile && !profileLoading ? ( // User logged in, but profile needs completion
+        {!user ? ( 
+          !isAwaitingOtp ? ( 
+            <form onSubmit={handleGuestOtpInitiation} className="p-4 bg-card border border-border rounded-lg space-y-3">
+              <div className="flex items-center gap-2 text-sm text-primary font-medium">
+                <Mail size={18} />
+                <span>Post a Comment & Sign Up/Login via Email Code</span>
+              </div>
+              <div>
+                <label htmlFor="guestEmail-comment" className="block text-xs font-medium text-muted-foreground mb-1">Your Email</label>
+                <Input id="guestEmail-comment" type="email" value={guestEmail} onChange={(e) => setGuestEmail(e.target.value)} placeholder="you@example.com" required disabled={isSubmitting} className="bg-input"/>
+              </div>
+              <div>
+                <label htmlFor="guestDisplayName-comment" className="block text-xs font-medium text-muted-foreground mb-1">Display Name (Public)</label>
+                <Input id="guestDisplayName-comment" type="text" value={guestDisplayName} onChange={(e) => setGuestDisplayName(e.target.value)} placeholder="How you'll appear" required disabled={isSubmitting} className="bg-input"/>
+              </div>
+              <div>
+                <label htmlFor="commentText-guest" className="block text-xs font-medium text-muted-foreground mb-1">Your Comment</label>
+                <Textarea id="commentText-guest" value={commentText} onChange={(e) => setCommentText(e.target.value)} placeholder="Share your thoughts..." rows={3} required disabled={isSubmitting} className="bg-input"/>
+                <p className="text-xs text-muted-foreground mt-1">{commentText.length}/1000</p>
+              </div>
+              <Button type="submit" disabled={isSubmitting || !guestEmail.trim() || !guestDisplayName.trim() || !commentText.trim()} className="w-full sm:w-auto">
+                {isSubmitting ? <LoadingSpinner size="sm" className="mr-1" /> : <Send size={16} className="mr-1" />}
+                {isSubmitting ? 'Sending Code...' : 'Get Verification Code'}
+              </Button>
+            </form>
+          ) : ( 
+            <form onSubmit={handleOtpVerification} className="p-4 bg-card border border-border rounded-lg space-y-3">
+              <div className="flex items-center gap-2 text-sm text-primary font-medium">
+                <KeyRound size={18} />
+                <span>Verify Your Email</span>
+              </div>
+              <p className="text-sm text-muted-foreground">A 6-digit code was sent to <strong>{guestInputRef.current.email || guestEmail}</strong>. Enter it below to post your comment.</p>
+              <div>
+                <label htmlFor="otpValue-comment" className="block text-xs font-medium text-muted-foreground mb-1">Verification Code (OTP)</label>
+                <Input id="otpValue-comment" type="text" value={otpValue} onChange={(e) => setOtpValue(e.target.value.replace(/\D/g, '').substring(0,6))} placeholder="123456" required maxLength={6} disabled={isSubmitting} className="bg-input text-center tracking-[0.3em] text-lg"/>
+              </div>
+              <Button type="submit" disabled={isSubmitting || otpValue.trim().length !== 6} className="w-full sm:w-auto">
+                {isSubmitting ? <LoadingSpinner size="sm" className="mr-1" /> : <UserPlus size={16} className="mr-1" />}
+                {isSubmitting ? 'Verifying...' : 'Verify & Post'}
+              </Button>
+              <Button variant="link" size="sm" onClick={() => { setIsAwaitingOtp(false); setOtpValue(''); }} disabled={isSubmitting} className="text-xs">
+                Entered wrong email or need to change details?
+              </Button>
+            </form>
+          )
+        ) : !profile && !profileLoading ? ( 
           <div className="p-4 bg-card border border-border rounded-md text-center">
             <MessageSquare className="mx-auto mb-2 text-muted-foreground" size={28}/>
             <p className="text-accent-foreground">
@@ -359,36 +372,35 @@ const ChapterComments = memo(({ chapterId, novelId }: ChapterCommentsProps) => {
             </p>
             <p className="text-xs text-muted-foreground mt-2">(Your unique username will be auto-generated based on your display name).</p>
           </div>
-        ) : profile ? ( // Logged-in user with profile - standard comment form
+        ) : profile ? ( 
           <form onSubmit={handleRegisteredUserSubmit}>
             <Textarea
-              value={commentText}
+              value={commentText} 
               onChange={(e) => setCommentText(e.target.value)}
               placeholder="Share your thoughts on this chapter..."
               rows={3}
               className="mb-2 bg-input border-border text-foreground placeholder:text-muted-foreground"
               maxLength={1000}
-              disabled={isGuestSubmitting}
+              disabled={isSubmitting || authLoading || profileLoading}
             />
             <div className="flex justify-end items-center">
               <span className="text-xs text-muted-foreground mr-2">{commentText.length}/1000</span>
-              <Button type="submit" disabled={isGuestSubmitting || !commentText.trim()} size="sm">
-                {isGuestSubmitting ? <LoadingSpinner size="sm" className="mr-1" /> : <Send size={16} className="mr-1" />}
-                {isGuestSubmitting ? 'Posting...' : 'Post Comment'}
+              <Button type="submit" disabled={isSubmitting || !commentText.trim() || authLoading || profileLoading} size="sm">
+                {isSubmitting ? <LoadingSpinner size="sm" className="mr-1" /> : <Send size={16} className="mr-1" />}
+                {isSubmitting ? 'Posting...' : 'Post Comment'}
               </Button>
             </div>
           </form>
-        ) : ( // Fallback for profile loading state
+        ) : ( 
             <div className="flex justify-center items-center py-8">
                 <LoadingSpinner size="sm" />
-                <span className="ml-2 text-muted-foreground text-sm">Loading profile information...</span>
+                <span className="ml-2 text-muted-foreground text-sm">Loading your profile information...</span>
             </div>
         )}
       </div>
 
-      {/* Display Comments (logic remains the same) */}
-      {/* ... (your existing comments display logic) ... */}
-       {loadingComments && comments.length === 0 ? (
+      {/* Display Comments Section */}
+      {loadingComments && comments.length === 0 && !error ? (
         <div className="flex justify-center items-center py-8">
           <LoadingSpinner size="md" />
           <span className="ml-2 text-muted-foreground">Loading comments...</span>
@@ -414,7 +426,7 @@ const ChapterComments = memo(({ chapterId, novelId }: ChapterCommentsProps) => {
               <Button
                 variant="outline"
                 onClick={handleLoadMore}
-                disabled={loadingMore || isGuestSubmitting }
+                disabled={loadingMore || isSubmitting }
                 className="text-primary border-primary hover:bg-primary/10"
               >
                 <RefreshCw size={16} className="mr-2" />
