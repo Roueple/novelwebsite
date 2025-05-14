@@ -1,7 +1,7 @@
 // src/components/reading/ChapterComments.tsx
 "use client";
 
-import React, { useState, useEffect, useCallback, memo, useRef } from 'react'; // Added useRef
+import React, { useState, useEffect, useCallback, memo, useRef } from 'react';
 
 // Import types from their canonical sources
 import type { User as SupabaseUser, Session as SupabaseSession } from '@supabase/supabase-js'; // For Supabase User object
@@ -9,22 +9,21 @@ import type { Profile as AppProfile, UserRole as AppUserRole } from '@/types'; /
 
 import { useAuth } from '@/providers/auth-provider';
 import { getChapterComments, addComment, deleteComment, type DisplayComment } from '@/lib/api';
-
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import LoadingSpinner from '@/components/ui/loading-spinner';
-import { Send, Trash2, RefreshCw, MessageSquare, Mail, KeyRound, UserPlus } from 'lucide-react';
+import { Send, Trash2, RefreshCw, MessageSquare, Mail, KeyRound, UserPlus, Link as LinkIcon } from 'lucide-react'; // Added LinkIcon
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 
-// CommentItem Component
+// CommentItem Component (remains unchanged from your provided code)
 interface CommentItemProps {
   comment: DisplayComment;
-  currentUser: SupabaseUser | null; // Use SupabaseUser type
-  currentUserRole: AppUserRole | null; // Use your AppUserRole type
+  currentUser: SupabaseUser | null;
+  currentUserRole: AppUserRole | null;
   onDelete: (commentId: number) => Promise<void>;
   isDeleting: boolean;
 }
@@ -54,7 +53,7 @@ const CommentItem = memo(({
         <div className="flex items-center justify-between mb-1 flex-wrap gap-x-2">
           <span className="font-medium text-sm text-foreground break-words">
             {displayName}
-            {comment.profiles?.role === 'admin' && ( 
+            {comment.profiles?.role === 'admin' && (
               <span className="ml-1 text-xs font-semibold px-1.5 py-0.5 rounded bg-primary/10 text-primary">(Admin)</span>
             )}
           </span>
@@ -95,10 +94,10 @@ interface ChapterCommentsProps {
 }
 
 const COMMENTS_PER_PAGE = 15;
-
 const ChapterComments = memo(({ chapterId, novelId }: ChapterCommentsProps) => {
-  const { user, role, loading: authLoading, profileLoading, profile, signInWithEmail, verifyEmailOtp } = useAuth();
-  
+  // Use signInWithEmail from useAuth. verifyEmailOtp is not directly used in this component's flow anymore.
+  const { user, role, loading: authLoading, profileLoading, profile, signInWithEmail } = useAuth();
+
   const [comments, setComments] = useState<DisplayComment[]>([]);
   const [loadingComments, setLoadingComments] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -108,9 +107,9 @@ const ChapterComments = memo(({ chapterId, novelId }: ChapterCommentsProps) => {
   // Guest signup flow states
   const [guestEmail, setGuestEmail] = useState('');
   const [guestDisplayName, setGuestDisplayName] = useState('');
-  const [otpValue, setOtpValue] = useState('');
-  const [isAwaitingOtp, setIsAwaitingOtp] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false); 
+  // REMOVE otpValue state: const [otpValue, setOtpValue] = useState('');
+  const [isAwaitingMagicLinkConfirmation, setIsAwaitingMagicLinkConfirmation] = useState(false); // RENAMED from isAwaitingOtp
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [totalComments, setTotalComments] = useState(0);
@@ -121,8 +120,8 @@ const ChapterComments = memo(({ chapterId, novelId }: ChapterCommentsProps) => {
 
   const fetchComments = useCallback(async (page = 1, append = false) => {
     if (!append) {
-      setLoadingComments(true); 
-      setComments([]); 
+      setLoadingComments(true);
+      setComments([]);
       setCurrentPage(1);
       setHasMore(true);
     } else {
@@ -140,7 +139,7 @@ const ChapterComments = memo(({ chapterId, novelId }: ChapterCommentsProps) => {
     } catch (err: any) {
       setError(err.message || "Failed to load comments.");
       toast.error(err.message || "Could not load comments.");
-      setHasMore(false); 
+      setHasMore(false);
     } finally { setLoadingComments(false); setLoadingMore(false); }
   }, [chapterId]);
 
@@ -150,14 +149,15 @@ const ChapterComments = memo(({ chapterId, novelId }: ChapterCommentsProps) => {
     }
   }, [fetchComments, chapterId]);
 
+  // This effect handles finalizing the comment submission after the user clicks the magic link
+  // and their session/profile is updated by AuthProvider.
   useEffect(() => {
-    if (user && profile && isAwaitingOtp) {
-      console.log("[ChapterComments] User authenticated and profile loaded after OTP. Finalizing post.");
+    if (user && profile && isAwaitingMagicLinkConfirmation) {
+      console.log("[ChapterComments] User authenticated and profile loaded after magic link. Finalizing post.");
       finalizeSignupAndPostComment(guestInputRef.current.displayName, guestInputRef.current.text);
-      setIsAwaitingOtp(false); 
+      setIsAwaitingMagicLinkConfirmation(false); // Reset confirmation state
     }
-  }, [user, profile, isAwaitingOtp]); 
-
+  }, [user, profile, isAwaitingMagicLinkConfirmation]); // DEPENDENCY updated
 
   const handleLoadMore = () => {
     if (!loadingMore && hasMore) {
@@ -165,7 +165,8 @@ const ChapterComments = memo(({ chapterId, novelId }: ChapterCommentsProps) => {
     }
   };
 
-  const handleGuestOtpInitiation = async (e: React.FormEvent) => {
+  // Renamed from handleGuestOtpInitiation
+  const handleGuestMagicLinkInitiation = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!guestEmail.trim() || !guestDisplayName.trim() || !commentText.trim()) {
       toast.warning("Please fill in your email, display name, and comment.");
@@ -176,63 +177,46 @@ const ChapterComments = memo(({ chapterId, novelId }: ChapterCommentsProps) => {
         return;
     }
     setIsSubmitting(true);
-    toast.info("Sending verification code to your email...");
+    toast.info("Sending verification link to your email..."); // UPDATED toast message
     guestInputRef.current = {
         email: guestEmail.trim(),
         displayName: guestDisplayName.trim(),
         text: commentText.trim()
     };
     try {
-      await signInWithEmail(guestEmail.trim()); 
-      setIsAwaitingOtp(true);
-      toast.success("Verification code sent! Please check your email.", { duration: 8000 });
+      // signInWithEmail already configures the redirect to /auth/callback for magic link
+      await signInWithEmail(guestEmail.trim());
+      setIsAwaitingMagicLinkConfirmation(true); // SET updated state
+      toast.success("Verification link sent! Please check your email and click the link to complete sign up and post your comment.", { duration: 10000 }); // UPDATED toast message
     } catch (error: any) {
-      toast.error(`Error: ${error.message || "Could not send verification code."}`);
-      guestInputRef.current = { email: '', displayName: '', text: '' }; 
+      toast.error(`Error: ${error.message || "Could not send verification link."}`); // UPDATED toast message
+      guestInputRef.current = { email: '', displayName: '', text: '' };
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleOtpVerification = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!otpValue.trim() || otpValue.trim().length !== 6) {
-      toast.warning("Please enter the 6-digit OTP from your email.");
-      return;
-    }
-    setIsSubmitting(true);
-    toast.info("Verifying code...");
-    try {
-      const { user: verifiedUser, error: otpError } = await verifyEmailOtp(guestInputRef.current.email, otpValue.trim());
-      if (otpError || !verifiedUser) {
-        throw otpError || new Error("OTP verification failed. Code might be incorrect or expired.");
-      }
-      setOtpValue('');
-      toast.success("Code verified! Finalizing...");
-      // The useEffect listening to [user, profile, isAwaitingOtp] will call finalizeSignupAndPostComment
-    } catch (error: any) {
-      console.error("OTP verification error:", error);
-      toast.error(`Error: ${error.message || "Failed to verify OTP."}`);
-      setIsSubmitting(false);
-    }
-  };
-  
+  // REMOVE handleOtpVerification function entirely
+  // const handleOtpVerification = async (e: React.FormEvent) => { ... };
+
   const finalizeSignupAndPostComment = async (displayNameForProfile: string, commentTextForPost: string) => {
-    if (!user || !user.id || !user.email) { 
-        toast.error("User session not found after OTP. Cannot post comment.");
+    if (!user || !user.id || !user.email) {
+        toast.error("User session not found after verification. Cannot post comment.");
         setIsSubmitting(false);
-        setIsAwaitingOtp(false);
+        setIsAwaitingMagicLinkConfirmation(false); // RESET state
         return;
     }
     console.log(`[ChapterComments] Finalizing signup for user ${user.id} and posting comment.`);
-    // isSubmitting should already be true if called from handleOtpVerification flow completion
-    // If called due to profile loading later, we might need to set it. For simplicity, ensure it's set.
-    setIsSubmitting(true); 
+    setIsSubmitting(true);
     try {
+      // The API route /api/profiles/complete-signup-and-comment handles profile creation/update
+      // and comment submission. It uses the session cookie to identify the user.
       const response = await fetch('/api/profiles/complete-signup-and-comment', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            // userId: user.id, // API gets user from session
+            // email: user.email, // API gets user from session
             displayName: displayNameForProfile,
             commentText: commentTextForPost,
             chapterId: chapterId,
@@ -241,18 +225,19 @@ const ChapterComments = memo(({ chapterId, novelId }: ChapterCommentsProps) => {
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'API error during final submission.');
+
       toast.success(result.message || "Account setup complete and comment submitted!");
-      setGuestEmail(''); 
+      setGuestEmail('');
       setGuestDisplayName('');
-      setCommentText(''); // Clear the main comment text as well now
-      guestInputRef.current = { email: '', displayName: '', text: '' }; 
-      fetchComments(1, false); 
+      setCommentText('');
+      guestInputRef.current = { email: '', displayName: '', text: '' };
+      fetchComments(1, false); // Refresh comments
     } catch (apiError: any) {
         console.error("API error during finalizeSignupAndPostComment:", apiError);
         toast.error(`Error posting comment after signup: ${apiError.message}. Please try again or check your profile.`);
     } finally {
-        setIsSubmitting(false); 
-        setIsAwaitingOtp(false); 
+        setIsSubmitting(false);
+        setIsAwaitingMagicLinkConfirmation(false); // RESET state
     }
 };
 
@@ -270,7 +255,7 @@ const ChapterComments = memo(({ chapterId, novelId }: ChapterCommentsProps) => {
     try {
       const addedCommentData = await addComment(user.id, chapterId, commentText.trim());
       if (addedCommentData) {
-        setCommentText(''); 
+        setCommentText('');
         toast.success(role === 'admin' ? "Comment posted!" : "Comment submitted for approval!");
         fetchComments(1, false);
       } else {
@@ -299,7 +284,7 @@ const ChapterComments = memo(({ chapterId, novelId }: ChapterCommentsProps) => {
   }, [user]);
 
 
-  if (authLoading && !user) { 
+  if (authLoading && !user) {
     return (
       <div className="mt-8 pt-6 border-t border-border flex flex-col items-center">
         <LoadingSpinner />
@@ -319,12 +304,14 @@ const ChapterComments = memo(({ chapterId, novelId }: ChapterCommentsProps) => {
       </div>
 
       <div className="mb-6">
-        {!user ? ( 
-          !isAwaitingOtp ? ( 
-            <form onSubmit={handleGuestOtpInitiation} className="p-4 bg-card border border-border rounded-lg space-y-3">
+        {/* Guest Signup / Login via Magic Link */}
+        {!user ? (
+          !isAwaitingMagicLinkConfirmation ? ( // Check RENAMED state
+            // Initial form to get email, display name, and comment
+            <form onSubmit={handleGuestMagicLinkInitiation} className="p-4 bg-card border border-border rounded-lg space-y-3">
               <div className="flex items-center gap-2 text-sm text-primary font-medium">
                 <Mail size={18} />
-                <span>Post a Comment & Sign Up/Login via Email Code</span>
+                <span>Post a Comment & Sign Up/Login via Email Link</span>
               </div>
               <div>
                 <label htmlFor="guestEmail-comment" className="block text-xs font-medium text-muted-foreground mb-1">Your Email</label>
@@ -340,42 +327,42 @@ const ChapterComments = memo(({ chapterId, novelId }: ChapterCommentsProps) => {
                 <p className="text-xs text-muted-foreground mt-1">{commentText.length}/1000</p>
               </div>
               <Button type="submit" disabled={isSubmitting || !guestEmail.trim() || !guestDisplayName.trim() || !commentText.trim()} className="w-full sm:w-auto">
-                {isSubmitting ? <LoadingSpinner size="sm" className="mr-1" /> : <Send size={16} className="mr-1" />}
-                {isSubmitting ? 'Sending Code...' : 'Get Verification Code'}
+                {isSubmitting ? <LoadingSpinner size="sm" className="mr-1" /> : <LinkIcon size={16} className="mr-1" />} {/* UPDATED Icon */}
+                {isSubmitting ? 'Sending Link...' : 'Send Verification Link'} {/* UPDATED Button Text */}
               </Button>
             </form>
-          ) : ( 
-            <form onSubmit={handleOtpVerification} className="p-4 bg-card border border-border rounded-lg space-y-3">
-              <div className="flex items-center gap-2 text-sm text-primary font-medium">
-                <KeyRound size={18} />
-                <span>Verify Your Email</span>
+          ) : (
+            // Message shown after magic link initiation
+            <div className="p-4 bg-card border border-border rounded-lg space-y-3 text-center">
+              <div className="flex items-center justify-center gap-2 text-sm text-primary font-medium mb-2">
+                <Mail size={20} />
+                <span>Check Your Email</span>
               </div>
-              <p className="text-sm text-muted-foreground">A 6-digit code was sent to <strong>{guestInputRef.current.email || guestEmail}</strong>. Enter it below to post your comment.</p>
-              <div>
-                <label htmlFor="otpValue-comment" className="block text-xs font-medium text-muted-foreground mb-1">Verification Code (OTP)</label>
-                <Input id="otpValue-comment" type="text" value={otpValue} onChange={(e) => setOtpValue(e.target.value.replace(/\D/g, '').substring(0,6))} placeholder="123456" required maxLength={6} disabled={isSubmitting} className="bg-input text-center tracking-[0.3em] text-lg"/>
-              </div>
-              <Button type="submit" disabled={isSubmitting || otpValue.trim().length !== 6} className="w-full sm:w-auto">
-                {isSubmitting ? <LoadingSpinner size="sm" className="mr-1" /> : <UserPlus size={16} className="mr-1" />}
-                {isSubmitting ? 'Verifying...' : 'Verify & Post'}
-              </Button>
-              <Button variant="link" size="sm" onClick={() => { setIsAwaitingOtp(false); setOtpValue(''); }} disabled={isSubmitting} className="text-xs">
+              <p className="text-sm text-foreground">
+                A verification link has been sent to <strong>{guestInputRef.current.email || guestEmail}</strong>.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Please click the link in that email to complete your sign-up and post your comment. You can close this message.
+              </p>
+              <Button variant="link" size="sm" onClick={() => { setIsAwaitingMagicLinkConfirmation(false); }} className="text-xs mt-2">
                 Entered wrong email or need to change details?
               </Button>
-            </form>
+            </div>
           )
-        ) : !profile && !profileLoading ? ( 
+        ) : !profile && !profileLoading ? (
+          // User is logged in but profile is incomplete
           <div className="p-4 bg-card border border-border rounded-md text-center">
             <MessageSquare className="mx-auto mb-2 text-muted-foreground" size={28}/>
             <p className="text-accent-foreground">
                 Almost there! Please <Link href="/profile/setup" className="font-semibold underline hover:text-primary">complete your profile</Link> to post comments.
             </p>
-            <p className="text-xs text-muted-foreground mt-2">(Your unique username will be auto-generated based on your display name).</p>
+            {/* Removed the part about auto-generated username as profile setup handles that choice */}
           </div>
-        ) : profile ? ( 
+        ) : profile ? (
+          // Registered and profile-complete user comment form
           <form onSubmit={handleRegisteredUserSubmit}>
             <Textarea
-              value={commentText} 
+              value={commentText}
               onChange={(e) => setCommentText(e.target.value)}
               placeholder="Share your thoughts on this chapter..."
               rows={3}
@@ -391,15 +378,16 @@ const ChapterComments = memo(({ chapterId, novelId }: ChapterCommentsProps) => {
               </Button>
             </div>
           </form>
-        ) : ( 
-            <div className="flex justify-center items-center py-8">
+        ) : (
+            // Fallback while profile is loading for an authenticated user
+           <div className="flex justify-center items-center py-8">
                 <LoadingSpinner size="sm" />
                 <span className="ml-2 text-muted-foreground text-sm">Loading your profile information...</span>
             </div>
         )}
       </div>
 
-      {/* Display Comments Section */}
+      {/* Display Comments Section (remains unchanged) */}
       {loadingComments && comments.length === 0 && !error ? (
         <div className="flex justify-center items-center py-8">
           <LoadingSpinner size="md" />
