@@ -2,32 +2,32 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation'; // Added useSearchParams
+import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import type { Profile } from '@/types';
+// import type { Profile } from '@/types'; // Not strictly needed here anymore
 import LoadingSpinner from '@/components/ui/loading-spinner';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 
-const PENDING_COMMENT_STORAGE_KEY = 'pendingCommentData'; // Same key as in ChapterComments
+const PENDING_COMMENT_STORAGE_KEY = 'pendingCommentData'; // Ensure this key matches
 
 export default function AuthCallback() {
   const router = useRouter();
-  const searchParams = useSearchParams(); // To potentially read error messages from URL
+  const searchParams = useSearchParams();
 
   const [status, setStatus] = useState<'loading' | 'processing_profile' | 'redirecting' | 'error' | 'idle_profile_exists'>('loading');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    // Check for Supabase auth errors in URL (e.g., if magic link expired)
     const errorParam = searchParams.get('error');
     const errorDescriptionParam = searchParams.get('error_description');
     if (errorParam) {
       console.error(`[AuthCallback] Error from Supabase redirect: ${errorParam} - ${errorDescriptionParam}`);
-      setErrorMessage(errorDescriptionParam || decodeURIComponent(errorParam) || "Authentication failed via email link.");
+      const decodedError = decodeURIComponent(errorDescriptionParam || errorParam) || "Authentication failed via email link.";
+      setErrorMessage(decodedError);
       setStatus('error');
-      toast.error(errorMessage || "Failed to authenticate via email link.");
-      // No localStorage.removeItem(PENDING_COMMENT_STORAGE_KEY) here as the process failed before completion
+      toast.error(decodedError);
+      // Don't remove PENDING_COMMENT_STORAGE_KEY on Supabase error, user might retry
       return;
     }
 
@@ -35,10 +35,7 @@ export default function AuthCallback() {
       console.log("[AuthCallback] Handling callback...");
       setStatus('loading');
 
-      // Supabase client handles session automatically on redirect from magic link.
-      // We just need to get the user.
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      
       if (sessionError) {
         console.error("[AuthCallback] Error getting session:", sessionError);
         setErrorMessage("Failed to verify authentication session.");
@@ -48,9 +45,8 @@ export default function AuthCallback() {
       }
 
       const newUser = session?.user;
-
       if (!newUser) {
-        console.warn("[AuthCallback] No user session found after callback. This might be an expired link or an issue.");
+        console.warn("[AuthCallback] No user session found after callback.");
         setErrorMessage("Authentication link may have expired or is invalid.");
         setStatus('error');
         toast.error("Authentication link invalid or expired.");
@@ -58,8 +54,6 @@ export default function AuthCallback() {
       }
 
       console.log("[AuthCallback] User authenticated:", newUser.id, "Email:", newUser.email);
-
-      // Check for pending comment data from localStorage
       const pendingDataString = localStorage.getItem(PENDING_COMMENT_STORAGE_KEY);
       let pendingData = null;
       if (pendingDataString) {
@@ -71,7 +65,6 @@ export default function AuthCallback() {
         }
       }
 
-      // Only proceed with custom comment flow if pending data exists AND matches the current user's email
       if (pendingData && pendingData.email === newUser.email) {
         console.log("[AuthCallback] Pending comment data found for this user:", pendingData);
         setStatus('processing_profile');
@@ -79,20 +72,20 @@ export default function AuthCallback() {
 
         try {
           // Call API route to complete profile and post comment
+          // The API route uses the session from cookies to identify the user.
           const response = await fetch('/api/profiles/complete-signup-and-comment', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            // The API route will get the user from its own Supabase client instance using cookies
             body: JSON.stringify({
-              userId: newUser.id, // Send user ID for verification/association
-              email: newUser.email, // Send email for profile creation
+              // Send all necessary data from localStorage
+              userId: newUser.id, // Still useful for the API to double check if needed, though session is primary
+              email: newUser.email, // Good to pass along
               displayName: pendingData.displayName,
               commentText: pendingData.text,
               chapterId: pendingData.chapterId,
               novelId: pendingData.novelId,
             }),
           });
-
           const result = await response.json();
 
           if (!response.ok) {
@@ -100,43 +93,35 @@ export default function AuthCallback() {
           }
 
           toast.success(result.message || "Setup complete and comment submitted!");
-          localStorage.removeItem(PENDING_COMMENT_STORAGE_KEY); // Crucial: Clear data after successful processing
+          localStorage.removeItem(PENDING_COMMENT_STORAGE_KEY); // Crucial: Clear data
 
-          // Redirect to the chapter page
           if (pendingData.novelId && pendingData.chapterId) {
             router.push(`/novels/${pendingData.novelId}/chapter/${pendingData.chapterId}`);
           } else {
-            router.push('/'); // Fallback redirect
+            router.push('/');
           }
-          // No need to router.refresh() here as AuthProvider should re-fetch profile on user change
-          // and chapter page will fetch comments.
-          return; // Exit early after handling comment flow
+          return;
 
         } catch (apiError: any) {
           console.error("[AuthCallback] API error during profile/comment processing:", apiError);
           setErrorMessage(`Setup failed: ${apiError.message}. Your comment was not posted. Please try commenting again.`);
           setStatus('error');
           toast.error(`Setup failed: ${apiError.message}. Your comment was not posted.`);
-          // Don't remove from localStorage on API error, so user doesn't lose comment text if they want to retry later
-          // However, this could lead to repeated attempts if the error is persistent.
-          // For now, let's clear it to avoid loops if user re-clicks magic link. Consider UX.
+          // Clear data on API error to prevent potential loops if user re-clicks link
           localStorage.removeItem(PENDING_COMMENT_STORAGE_KEY);
           return;
         }
       } else {
-         // No pending comment data, or email mismatch (could be regular login)
-        console.log("[AuthCallback] No matching pending comment data found. Checking profile normally.");
+        console.log("[AuthCallback] No matching pending comment data found. Proceeding with normal login flow.");
         if (pendingDataString) { // If data existed but didn't match, clear it.
-            localStorage.removeItem(PENDING_COMMENT_STORAGE_KEY);
+          localStorage.removeItem(PENDING_COMMENT_STORAGE_KEY);
         }
       }
 
-      // Standard profile check (if not handled by the API above or if no pending data)
-      // This part is similar to your existing callback, checking if profile exists and redirecting
-      // to username setup if needed, or home if profile is complete.
+      // Standard profile check for regular logins or if no pending comment data
       const { data: userProfile, error: profileError } = await supabase
         .from('profiles')
-        .select('id, username, display_name')
+        .select('id, username, display_name') // Only select necessary fields
         .eq('id', newUser.id)
         .maybeSingle();
 
@@ -153,21 +138,19 @@ export default function AuthCallback() {
         router.push('/');
       } else {
         console.log("[AuthCallback] Profile incomplete or missing. Redirecting to username setup.");
-        // If `display_name` was set by OAuth, UsernameSetup should pick it up.
-        // If from OTP and no pending comment, UsernameSetup will ask for display_name and generate username.
-        setStatus('redirecting'); // Or a specific status for setup
-        router.push('/profile/setup'); // Your existing username setup page
+        setStatus('redirecting');
+        router.push('/profile/setup'); // Your username setup page
       }
     };
 
     handleAuthCallback();
-  }, [router, searchParams]); // searchParams added as dependency
+  }, [router, searchParams]);
+
 
   let loadingMessage = "Verifying your authentication...";
   if (status === 'processing_profile') loadingMessage = "Finalizing your account and posting comment...";
   if (status === 'redirecting') loadingMessage = "Redirecting...";
   if (status === 'idle_profile_exists') loadingMessage = "Welcome back! Redirecting...";
-
 
   if (status === 'loading' || status === 'processing_profile' || status === 'redirecting' || status === 'idle_profile_exists') {
     return (
@@ -192,5 +175,5 @@ export default function AuthCallback() {
     );
   }
 
-  return null; // Should be covered by other states
+  return null;
 }

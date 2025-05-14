@@ -2,11 +2,8 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, memo, useRef } from 'react';
-
-// Import types from their canonical sources
-import type { User as SupabaseUser, Session as SupabaseSession } from '@supabase/supabase-js'; // For Supabase User object
-import type { Profile as AppProfile, UserRole as AppUserRole } from '@/types'; // Your app-specific types
-
+import type { User as SupabaseUser } from '@supabase/supabase-js';
+import type { Profile, UserRole as AppUserRole } from '@/types'; // Use Profile directly
 import { useAuth } from '@/providers/auth-provider';
 import { getChapterComments, addComment, deleteComment, type DisplayComment } from '@/lib/api';
 import { Textarea } from '@/components/ui/textarea';
@@ -14,12 +11,12 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import LoadingSpinner from '@/components/ui/loading-spinner';
-import { Send, Trash2, RefreshCw, MessageSquare, Mail, KeyRound, UserPlus, Link as LinkIcon } from 'lucide-react'; // Added LinkIcon
+import { Send, Trash2, RefreshCw, MessageSquare, Mail, Link as LinkIcon } from 'lucide-react'; // Using LinkIcon
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 
-// CommentItem Component (remains unchanged from your provided code)
+// CommentItem Component (remains unchanged)
 interface CommentItemProps {
   comment: DisplayComment;
   currentUser: SupabaseUser | null;
@@ -94,8 +91,9 @@ interface ChapterCommentsProps {
 }
 
 const COMMENTS_PER_PAGE = 15;
+const PENDING_COMMENT_STORAGE_KEY = 'pendingCommentData'; // Key for localStorage
+
 const ChapterComments = memo(({ chapterId, novelId }: ChapterCommentsProps) => {
-  // Use signInWithEmail from useAuth. verifyEmailOtp is not directly used in this component's flow anymore.
   const { user, role, loading: authLoading, profileLoading, profile, signInWithEmail } = useAuth();
 
   const [comments, setComments] = useState<DisplayComment[]>([]);
@@ -104,19 +102,15 @@ const ChapterComments = memo(({ chapterId, novelId }: ChapterCommentsProps) => {
   const [error, setError] = useState<string | null>(null);
   const [commentText, setCommentText] = useState('');
 
-  // Guest signup flow states
   const [guestEmail, setGuestEmail] = useState('');
   const [guestDisplayName, setGuestDisplayName] = useState('');
-  // REMOVE otpValue state: const [otpValue, setOtpValue] = useState('');
-  const [isAwaitingMagicLinkConfirmation, setIsAwaitingMagicLinkConfirmation] = useState(false); // RENAMED from isAwaitingOtp
+  const [isAwaitingMagicLinkConfirmation, setIsAwaitingMagicLinkConfirmation] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [totalComments, setTotalComments] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [deletingId, setDeletingId] = useState<number | null>(null);
-
-  const guestInputRef = useRef({ email: '', displayName: '', text: '' });
 
   const fetchComments = useCallback(async (page = 1, append = false) => {
     if (!append) {
@@ -149,15 +143,24 @@ const ChapterComments = memo(({ chapterId, novelId }: ChapterCommentsProps) => {
     }
   }, [fetchComments, chapterId]);
 
-  // This effect handles finalizing the comment submission after the user clicks the magic link
-  // and their session/profile is updated by AuthProvider.
+  // This effect now primarily manages UI state and clearing form fields after successful submission via callback.
   useEffect(() => {
-    if (user && profile && isAwaitingMagicLinkConfirmation) {
-      console.log("[ChapterComments] User authenticated and profile loaded after magic link. Finalizing post.");
-      finalizeSignupAndPostComment(guestInputRef.current.displayName, guestInputRef.current.text);
-      setIsAwaitingMagicLinkConfirmation(false); // Reset confirmation state
+    if (user && profile && localStorage.getItem(PENDING_COMMENT_STORAGE_KEY) === null && isAwaitingMagicLinkConfirmation) {
+      // This means the callback likely processed the pending comment.
+      // We can clear the local form fields used for guest input if needed,
+      // though the API call in callback should have already done its job.
+      // And refresh comments
+      console.log("[ChapterComments] Detected user & profile, pending data processed by callback. Refreshing comments and UI.");
+      setGuestEmail('');
+      setGuestDisplayName('');
+      // commentText might have been cleared by API success or left for user to decide.
+      // For safety, maybe don't clear commentText here unless PENDING_COMMENT_STORAGE_KEY was just cleared by THIS component
+      // which it isn't.
+      setIsAwaitingMagicLinkConfirmation(false); // Reset UI state
+      fetchComments(1, false); // Refresh comments to show the new one
     }
-  }, [user, profile, isAwaitingMagicLinkConfirmation]); // DEPENDENCY updated
+  }, [user, profile, isAwaitingMagicLinkConfirmation, fetchComments]);
+
 
   const handleLoadMore = () => {
     if (!loadingMore && hasMore) {
@@ -165,7 +168,6 @@ const ChapterComments = memo(({ chapterId, novelId }: ChapterCommentsProps) => {
     }
   };
 
-  // Renamed from handleGuestOtpInitiation
   const handleGuestMagicLinkInitiation = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!guestEmail.trim() || !guestDisplayName.trim() || !commentText.trim()) {
@@ -177,69 +179,28 @@ const ChapterComments = memo(({ chapterId, novelId }: ChapterCommentsProps) => {
         return;
     }
     setIsSubmitting(true);
-    toast.info("Sending verification link to your email..."); // UPDATED toast message
-    guestInputRef.current = {
+    toast.info("Sending verification link to your email...");
+
+    // Store data in localStorage for the callback page
+    const pendingData = {
         email: guestEmail.trim(),
         displayName: guestDisplayName.trim(),
-        text: commentText.trim()
+        text: commentText.trim(),
+        chapterId: chapterId,
+        novelId: novelId
     };
     try {
-      // signInWithEmail already configures the redirect to /auth/callback for magic link
-      await signInWithEmail(guestEmail.trim());
-      setIsAwaitingMagicLinkConfirmation(true); // SET updated state
-      toast.success("Verification link sent! Please check your email and click the link to complete sign up and post your comment.", { duration: 10000 }); // UPDATED toast message
+      localStorage.setItem(PENDING_COMMENT_STORAGE_KEY, JSON.stringify(pendingData));
+      await signInWithEmail(guestEmail.trim()); // AuthProvider sends the magic link
+      setIsAwaitingMagicLinkConfirmation(true);
+      toast.success("Verification link sent! Please check your email and click the link to complete sign up and post your comment.", { duration: 10000 });
     } catch (error: any) {
-      toast.error(`Error: ${error.message || "Could not send verification link."}`); // UPDATED toast message
-      guestInputRef.current = { email: '', displayName: '', text: '' };
+      toast.error(`Error: ${error.message || "Could not send verification link."}`);
+      localStorage.removeItem(PENDING_COMMENT_STORAGE_KEY); // Clear stored data on error
     } finally {
       setIsSubmitting(false);
     }
   };
-
-  // REMOVE handleOtpVerification function entirely
-  // const handleOtpVerification = async (e: React.FormEvent) => { ... };
-
-  const finalizeSignupAndPostComment = async (displayNameForProfile: string, commentTextForPost: string) => {
-    if (!user || !user.id || !user.email) {
-        toast.error("User session not found after verification. Cannot post comment.");
-        setIsSubmitting(false);
-        setIsAwaitingMagicLinkConfirmation(false); // RESET state
-        return;
-    }
-    console.log(`[ChapterComments] Finalizing signup for user ${user.id} and posting comment.`);
-    setIsSubmitting(true);
-    try {
-      // The API route /api/profiles/complete-signup-and-comment handles profile creation/update
-      // and comment submission. It uses the session cookie to identify the user.
-      const response = await fetch('/api/profiles/complete-signup-and-comment', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            // userId: user.id, // API gets user from session
-            // email: user.email, // API gets user from session
-            displayName: displayNameForProfile,
-            commentText: commentTextForPost,
-            chapterId: chapterId,
-            novelId: novelId,
-          }),
-      });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || 'API error during final submission.');
-
-      toast.success(result.message || "Account setup complete and comment submitted!");
-      setGuestEmail('');
-      setGuestDisplayName('');
-      setCommentText('');
-      guestInputRef.current = { email: '', displayName: '', text: '' };
-      fetchComments(1, false); // Refresh comments
-    } catch (apiError: any) {
-        console.error("API error during finalizeSignupAndPostComment:", apiError);
-        toast.error(`Error posting comment after signup: ${apiError.message}. Please try again or check your profile.`);
-    } finally {
-        setIsSubmitting(false);
-        setIsAwaitingMagicLinkConfirmation(false); // RESET state
-    }
-};
 
   const handleRegisteredUserSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -304,10 +265,8 @@ const ChapterComments = memo(({ chapterId, novelId }: ChapterCommentsProps) => {
       </div>
 
       <div className="mb-6">
-        {/* Guest Signup / Login via Magic Link */}
         {!user ? (
-          !isAwaitingMagicLinkConfirmation ? ( // Check RENAMED state
-            // Initial form to get email, display name, and comment
+          !isAwaitingMagicLinkConfirmation ? (
             <form onSubmit={handleGuestMagicLinkInitiation} className="p-4 bg-card border border-border rounded-lg space-y-3">
               <div className="flex items-center gap-2 text-sm text-primary font-medium">
                 <Mail size={18} />
@@ -323,43 +282,39 @@ const ChapterComments = memo(({ chapterId, novelId }: ChapterCommentsProps) => {
               </div>
               <div>
                 <label htmlFor="commentText-guest" className="block text-xs font-medium text-muted-foreground mb-1">Your Comment</label>
-                <Textarea id="commentText-guest" value={commentText} onChange={(e) => setCommentText(e.target.value)} placeholder="Share your thoughts..." rows={3} required disabled={isSubmitting} className="bg-input"/>
+                <Textarea id="commentText-guest" value={commentText} onChange={(e) => setCommentText(e.target.value)} placeholder="Share your thoughts..." rows={3} required disabled={isSubmitting} className="bg-input" maxLength={1000}/>
                 <p className="text-xs text-muted-foreground mt-1">{commentText.length}/1000</p>
               </div>
               <Button type="submit" disabled={isSubmitting || !guestEmail.trim() || !guestDisplayName.trim() || !commentText.trim()} className="w-full sm:w-auto">
-                {isSubmitting ? <LoadingSpinner size="sm" className="mr-1" /> : <LinkIcon size={16} className="mr-1" />} {/* UPDATED Icon */}
-                {isSubmitting ? 'Sending Link...' : 'Send Verification Link'} {/* UPDATED Button Text */}
+                {isSubmitting ? <LoadingSpinner size="sm" className="mr-1" /> : <LinkIcon size={16} className="mr-1" />}
+                {isSubmitting ? 'Sending Link...' : 'Send Verification Link'}
               </Button>
             </form>
           ) : (
-            // Message shown after magic link initiation
             <div className="p-4 bg-card border border-border rounded-lg space-y-3 text-center">
               <div className="flex items-center justify-center gap-2 text-sm text-primary font-medium mb-2">
                 <Mail size={20} />
                 <span>Check Your Email</span>
               </div>
               <p className="text-sm text-foreground">
-                A verification link has been sent to <strong>{guestInputRef.current.email || guestEmail}</strong>.
+                A verification link has been sent to <strong>{guestEmail}</strong>.
               </p>
               <p className="text-sm text-muted-foreground">
                 Please click the link in that email to complete your sign-up and post your comment. You can close this message.
               </p>
-              <Button variant="link" size="sm" onClick={() => { setIsAwaitingMagicLinkConfirmation(false); }} className="text-xs mt-2">
-                Entered wrong email or need to change details?
+              <Button variant="link" size="sm" onClick={() => { setIsAwaitingMagicLinkConfirmation(false); /* Don't clear guestInputRef here */ }} disabled={isSubmitting} className="text-xs mt-2">
+                Resend link or change details?
               </Button>
             </div>
           )
         ) : !profile && !profileLoading ? (
-          // User is logged in but profile is incomplete
           <div className="p-4 bg-card border border-border rounded-md text-center">
             <MessageSquare className="mx-auto mb-2 text-muted-foreground" size={28}/>
             <p className="text-accent-foreground">
                 Almost there! Please <Link href="/profile/setup" className="font-semibold underline hover:text-primary">complete your profile</Link> to post comments.
             </p>
-            {/* Removed the part about auto-generated username as profile setup handles that choice */}
           </div>
         ) : profile ? (
-          // Registered and profile-complete user comment form
           <form onSubmit={handleRegisteredUserSubmit}>
             <Textarea
               value={commentText}
@@ -379,7 +334,6 @@ const ChapterComments = memo(({ chapterId, novelId }: ChapterCommentsProps) => {
             </div>
           </form>
         ) : (
-            // Fallback while profile is loading for an authenticated user
            <div className="flex justify-center items-center py-8">
                 <LoadingSpinner size="sm" />
                 <span className="ml-2 text-muted-foreground text-sm">Loading your profile information...</span>
@@ -387,7 +341,7 @@ const ChapterComments = memo(({ chapterId, novelId }: ChapterCommentsProps) => {
         )}
       </div>
 
-      {/* Display Comments Section (remains unchanged) */}
+      {/* Display Comments Section */}
       {loadingComments && comments.length === 0 && !error ? (
         <div className="flex justify-center items-center py-8">
           <LoadingSpinner size="md" />

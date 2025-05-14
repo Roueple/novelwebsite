@@ -4,12 +4,12 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { User as SupabaseUser, Session as SupabaseSession, Provider } from '@supabase/supabase-js';
-import type { Profile as AppProfile, UserRole as AppUserRole } from '@/types'; // Your central app types
+import type { Profile, UserRole as AppUserRole } from '@/types'; // Use Profile directly
 import { toast } from 'sonner';
 
 interface AuthContextType {
   user: SupabaseUser | null;
-  profile: AppProfile | null;
+  profile: Profile | null;
   role: AppUserRole | null;
   loading: boolean; 
   profileLoading: boolean; 
@@ -26,14 +26,14 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [userState, setUserState] = useState<SupabaseUser | null>(null);
-  const [profileState, setProfileState] = useState<AppProfile | null>(null);
+  const [profileState, setProfileState] = useState<Profile | null>(null);
   const [roleState, setRoleState] = useState<AppUserRole | null>(null);
   const [loading, setLoading] = useState(true);
   const [profileLoading, setProfileLoading] = useState(false);
 
   const userRef = useRef<SupabaseUser | null>(userState);
-  const profileRef = useRef<AppProfile | null>(profileState);
-  const activeUserProfileFetch = useRef<Promise<AppProfile | null> | null>(null);
+  const profileRef = useRef<Profile | null>(profileState);
+  const activeUserProfileFetch = useRef<Promise<Profile | null> | null>(null);
 
   useEffect(() => {
     userRef.current = userState;
@@ -52,7 +52,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setRoleState(null);
   }, []);
 
-  const fetchUserProfile = useCallback(async (userId: string, forceRefetch = false): Promise<AppProfile | null> => {
+  const fetchUserProfile = useCallback(async (userId: string, forceRefetch = false): Promise<Profile | null> => {
     if (!userId) {
         console.warn("[AuthProvider] fetchUserProfile called with no userId.");
         clearAuthStates();
@@ -71,7 +71,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     
     console.log(`[AuthProvider] fetchUserProfile: Attempting for user ID: ${userId}. Force refetch: ${forceRefetch}`);
     setProfileLoading(true);
-    const fetchPromise = (async (): Promise<AppProfile | null> => {
+    const fetchPromise = (async (): Promise<Profile | null> => {
       try {
         const { data: fetchedProfileData, error: fetchError } = await supabase
           .from('profiles')
@@ -91,7 +91,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setRoleState(null);
           return null;
         }
-        const typedProfile = fetchedProfileData as AppProfile;
+        const typedProfile = fetchedProfileData as Profile;
         console.log(`[AuthProvider] Profile successfully fetched for ${userId}.`);
         setProfileState(typedProfile); 
         setRoleState(typedProfile?.role || null);
