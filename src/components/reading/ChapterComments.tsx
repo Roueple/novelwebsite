@@ -1,23 +1,24 @@
 // src/components/reading/ChapterComments.tsx
 "use client";
 
-import React, { useState, useEffect, useCallback, memo } from 'react';
-import { useAuth } from '@/providers/auth-provider';
-// Import DisplayComment from api.ts, and also Profile for pick if not already covered by DisplayComment
+import React, { useState, useEffect, useCallback, memo, useRef } from 'react';
+import { useAuth } from '@/providers/auth-provider'; // Ensure signInWithOtp is exposed if not already
 import { getChapterComments, addComment, deleteComment, type DisplayComment } from '@/lib/api';
-import type { Profile } from '@/types'; // Profile is needed for Pick if DisplayComment doesn't export its Profile part
+import type { Profile } from '@/types';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import LoadingSpinner from '@/components/ui/loading-spinner';
-import { Send, Trash2, RefreshCw } from 'lucide-react';
+import { Send, Trash2, RefreshCw, MessageSquare, UserPlus, Mail } from 'lucide-react'; // Added Mail
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 
-// CommentItem Component
+// CommentItem Component (remains the same - no changes needed here)
+// ... (Keep your existing CommentItem component)
 interface CommentItemProps {
-  comment: DisplayComment; // Use DisplayComment which includes the 'profiles' field
+  comment: DisplayComment;
   currentUser: ReturnType<typeof useAuth>['user'];
   currentUserRole: ReturnType<typeof useAuth>['role'];
   onDelete: (commentId: number) => Promise<void>;
@@ -31,16 +32,12 @@ const CommentItem = memo(({
   onDelete,
   isDeleting
 }: CommentItemProps) => {
-
   const getDisplayName = useCallback((c: DisplayComment): string => {
     if (c.profiles) {
-      // Prioritize display_name, then username (unique handle)
       return c.profiles.display_name || c.profiles.username || 'User';
     }
-    // This case should be rare now that all comments require a user_id
-    // and getChapterComments joins profiles.
     return comment.user_id ? `User (${comment.user_id.substring(0,6)})` : 'Unknown User';
-  }, [comment.user_id]); // Added comment.user_id to dependency for fallback
+  }, [comment.user_id, comment.profiles]);
 
   const displayName = getDisplayName(comment);
 
@@ -77,11 +74,6 @@ const CommentItem = memo(({
             </Button>
           </div>
         )}
-        {/* Pending Approval Tag - Only for admin view if getChapterComments fetches unapproved for admin,
-            but typically getChapterComments fetches only approved ones.
-            If this component is also used in an admin panel showing unapproved, this logic is fine.
-            For reader view, approved comments won't show this.
-        */}
         {currentUserRole === 'admin' && !comment.is_approved && (
           <span className="ml-2 text-xs font-semibold text-orange-500">(Pending Approval)</span>
         )}
@@ -95,63 +87,87 @@ CommentItem.displayName = 'CommentItem';
 // Main ChapterComments Component
 interface ChapterCommentsProps {
   chapterId: number;
-  novelId: number; // novelId might be useful for context or future features
+  novelId: number;
 }
 
+const PENDING_COMMENT_STORAGE_KEY = 'pendingCommentData';
 const COMMENTS_PER_PAGE = 15;
 
 const ChapterComments = memo(({ chapterId, novelId }: ChapterCommentsProps) => {
-  // Removed isAnonymous and guestLoading from useAuth()
-  const { user, role, loading: authLoading, profileLoading, profile } = useAuth();
-  const [comments, setComments] = useState<DisplayComment[]>([]); // Use DisplayComment here
+  // Ensure signInWithOtp is available from useAuth, add if not.
+  // For this example, I'll assume it's available as `signInWithEmailOtp`
+  const { user, role, loading: authLoading, profileLoading, profile, signInWithEmail: signInWithEmailOtp } = useAuth();
+  
+  const [comments, setComments] = useState<DisplayComment[]>([]);
   const [loadingComments, setLoadingComments] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [newComment, setNewComment] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
+
+  // State for the comment form
+  const [commentText, setCommentText] = useState('');
+
+  // State specific to guest OTP signup flow
+  const [guestEmail, setGuestEmail] = useState('');
+  const [guestDisplayName, setGuestDisplayName] = useState('');
+  const [isGuestSubmitting, setIsGuestSubmitting] = useState(false); // For OTP initiation
+
   const [currentPage, setCurrentPage] = useState(1);
   const [totalComments, setTotalComments] = useState(0);
   const [hasMore, setHasMore] = useState(true);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const fetchComments = useCallback(async (page = 1, append = false) => {
-    console.log(`[ChapterComments] Fetching comments page ${page} for chapter ${chapterId}`);
-    if (!append) {
-      setLoadingComments(true);
-      // setComments([]); // Clearing here causes brief flash; let new data replace it.
-      setCurrentPage(1); // Reset page when doing a fresh fetch
-      setHasMore(true);    // Assume has more until fetch result says otherwise
-    } else {
-      setLoadingMore(true);
-    }
+    setLoadingComments(true);
+    if (!append) { setCurrentPage(1); setHasMore(true); }
+    else { setLoadingMore(true); }
     setError(null);
     try {
       const result = await getChapterComments(chapterId, page, COMMENTS_PER_PAGE);
       if (result) {
-        console.log(`[ChapterComments] Fetched ${result.comments.length} comments. Total: ${result.totalCount}`);
         setComments(prev => append ? [...prev, ...result.comments] : result.comments);
         setTotalComments(result.totalCount);
         setHasMore((page * COMMENTS_PER_PAGE) < result.totalCount);
         setCurrentPage(page);
-      } else {
-        throw new Error("API returned null while fetching comments.");
-      }
-    } catch (err) {
-      console.error("[ChapterComments] Error fetching comments:", err);
-      setError("Failed to load comments.");
-      toast.error("Could not load comments.");
+      } else { throw new Error("API returned null for comments."); }
+    } catch (err: any) {
+      setError(err.message || "Failed to load comments.");
+      toast.error(err.message || "Could not load comments.");
       setHasMore(false);
-    } finally {
-      setLoadingComments(false);
-      setLoadingMore(false);
-    }
-  }, [chapterId]); // Only chapterId as dependency
+    } finally { setLoadingComments(false); setLoadingMore(false); }
+  }, [chapterId]);
 
   useEffect(() => {
-    if (chapterId) { // Ensure chapterId is valid before fetching
-        fetchComments(1, false);
+    if (chapterId) {
+      fetchComments(1, false);
     }
-  }, [fetchComments, chapterId]); // Add chapterId here
+  }, [fetchComments, chapterId]);
+
+  // Attempt to load staged data if user just logged in (e.g., after OTP verification)
+  // This effect will run when `user` object changes (e.g., after login)
+  useEffect(() => {
+    if (user && !profileLoading && !authLoading) { // User is now logged in
+      const pendingData = localStorage.getItem(PENDING_COMMENT_STORAGE_KEY);
+      if (pendingData) {
+        try {
+          const { email: storedEmail, displayName: storedDisplayName, text, storedChapterId, storedNovelId } = JSON.parse(pendingData);
+          // Check if this pending data is for the current user and chapter
+          if (user.email === storedEmail && chapterId === storedChapterId) {
+            setCommentText(text); // Pre-fill comment text
+            // Display name is handled during profile creation in /auth/callback
+            // localStorage.removeItem(PENDING_COMMENT_STORAGE_KEY); // Cleared in /auth/callback
+            toast.info("You can now post your comment.", { duration: 5000 });
+          } else {
+            // Stored data is for a different user/context, clear it
+            localStorage.removeItem(PENDING_COMMENT_STORAGE_KEY);
+          }
+        } catch (e) {
+          console.error("Error parsing pending comment data:", e);
+          localStorage.removeItem(PENDING_COMMENT_STORAGE_KEY);
+        }
+      }
+    }
+  }, [user, profileLoading, authLoading, chapterId]);
+
 
   const handleLoadMore = () => {
     if (!loadingMore && hasMore) {
@@ -159,64 +175,93 @@ const ChapterComments = memo(({ chapterId, novelId }: ChapterCommentsProps) => {
     }
   };
 
-  // No more handleCommentInteraction for anonymous sign-in
-
-  const handleSubmitComment = async (e: React.FormEvent) => {
+  const handleGuestCommentAndOtpSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !profile) { // User must be logged in AND have a profile to comment
-      toast.error("Please complete your profile or log in to comment.");
-      // Here you might trigger a login modal or redirect to profile setup
-      // For now, just an error.
+    if (!guestEmail.trim() || !guestDisplayName.trim() || !commentText.trim()) {
+      toast.warning("Please fill in your email, display name, and comment.");
       return;
     }
-    if (!newComment.trim()) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guestEmail.trim())) {
+        toast.error("Please enter a valid email address.");
+        return;
+    }
+
+    setIsGuestSubmitting(true);
+    toast.info("Sending verification link to your email...");
+
+    try {
+      // Store display name and comment text for retrieval after OTP verification
+      const pendingCommentData = {
+        email: guestEmail.trim(),
+        displayName: guestDisplayName.trim(),
+        text: commentText.trim(),
+        chapterId: chapterId,
+        novelId: novelId,
+        timestamp: Date.now(), // For potential expiry logic later
+      };
+      localStorage.setItem(PENDING_COMMENT_STORAGE_KEY, JSON.stringify(pendingCommentData));
+
+      // Initiate OTP (magic link) flow.
+      // Ensure your AuthProvider's signInWithEmailOtp correctly calls supabase.auth.signInWithOtp
+      await signInWithEmailOtp(guestEmail.trim()); // This function should handle options like emailRedirectTo
+
+      // UI will show "Check your email..."
+      // The actual account & profile creation, and comment submission will happen in /auth/callback
+      // after the user clicks the link in their email.
+      setGuestEmail(''); // Clear fields after starting the process
+      setGuestDisplayName('');
+      setCommentText('');
+      toast.success("Verification link sent! Please check your email to continue.", { duration: 10000 });
+
+    } catch (error: any) {
+      console.error("Guest OTP signup initiation error:", error);
+      toast.error(`Error: ${error.message || "Could not send verification email."}`);
+      localStorage.removeItem(PENDING_COMMENT_STORAGE_KEY); // Clean up if OTP send failed
+    } finally {
+      setIsGuestSubmitting(false);
+    }
+  };
+
+  const handleRegisteredUserSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || !profile) {
+      toast.error("You must be logged in with a complete profile.");
+      return;
+    }
+    if (!commentText.trim()) {
       toast.warning("Comment cannot be empty.");
       return;
     }
-    // No guestLoading check needed
 
-    setSubmitting(true);
-    console.log(`[ChapterComments] Submitting comment for user: ${user.id}`);
+    setIsGuestSubmitting(true); // Use same loading state for simplicity
     try {
-      // addComment now takes userId directly
-      const addedCommentData = await addComment(user.id, chapterId, newComment.trim());
+      const addedCommentData = await addComment(user.id, chapterId, commentText.trim());
       if (addedCommentData) {
-        setNewComment('');
-        // If admin, comment is auto-approved by trigger, so refetch to show immediately.
-        // For readers, it goes to moderation.
-        if (role === 'admin') {
-            toast.success("Comment posted!");
-            fetchComments(1, false); // Re-fetch to show admin's own auto-approved comment
-        } else {
-            toast.success("Comment submitted! It will appear after approval.");
-        }
-        console.log("[ChapterComments] Comment submission result:", addedCommentData);
+        setCommentText('');
+        toast.success(role === 'admin' ? "Comment posted!" : "Comment submitted for approval!");
+        fetchComments(1, false);
       } else {
-        throw new Error("Failed to add comment: API returned unsuccessful.");
+        throw new Error("Failed to add comment via API.");
       }
     } catch (err: any) {
-      console.error("[ChapterComments] Error submitting comment:", err);
-      toast.error(`Failed to post comment: ${err.message || 'Please try again.'}`);
+      console.error("Registered user comment submission error:", err);
+      toast.error(`Failed to post comment: ${err.message}`);
     } finally {
-      setSubmitting(false);
+      setIsGuestSubmitting(false);
     }
   };
 
   const handleDeleteComment = useCallback(async (commentId: number) => {
-    if (!user) return; // Should not happen if delete button is shown only for logged-in users
+    // ... (same as your existing)
+    if (!user) return;
     if (!confirm("Are you sure you want to delete this comment?")) return;
     setDeletingId(commentId);
     try {
       const success = await deleteComment(commentId);
       if (success) {
         toast.success("Comment deleted.");
-        console.log(`[ChapterComments] Comment ${commentId} deleted.`);
-        // Refetch comments to update the list
         setComments(prevComments => prevComments.filter(c => c.id !== commentId));
         setTotalComments(prevTotal => prevTotal > 0 ? prevTotal -1 : 0);
-
-        // Alternative: refetch page 1 (might be simpler if pagination/order is complex)
-        // fetchComments(1, false);
       } else {
         throw new Error("Failed to delete comment via API.");
       }
@@ -226,70 +271,131 @@ const ChapterComments = memo(({ chapterId, novelId }: ChapterCommentsProps) => {
     } finally {
       setDeletingId(null);
     }
-  }, [user]); // Removed fetchComments from deps to avoid re-creating it often if fetchComments changes
+  }, [user]);
 
-  const getPlaceholderText = () => {
-    if (authLoading || profileLoading) return "Loading user session...";
-    if (!user) return "Please log in to comment...";
-    if (!profile) return "Please complete your profile to comment..."; // User exists but no profile row yet
-    return "Write your comment...";
-  };
 
-  // User can only comment if logged in AND profile exists (not null)
-  const canComment = !!user && !!profile;
+  if (authLoading) { // Simplified initial loading check
+    return (
+      <div className="mt-8 pt-6 border-t border-border flex flex-col items-center">
+        <LoadingSpinner />
+        <p className="text-muted-foreground mt-2">Loading comments section...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="mt-8 pt-6 border-t border-border">
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-xl font-semibold text-foreground">Comments ({totalComments})</h3>
-        <Button variant="ghost" size="sm" onClick={() => fetchComments(1, false)} disabled={loadingComments || loadingMore} title="Refresh comments">
+        <Button variant="ghost" size="sm" onClick={() => fetchComments(1, false)} disabled={loadingComments || loadingMore || isGuestSubmitting} title="Refresh comments">
             <RefreshCw size={14} className={cn("mr-1", (loadingComments || loadingMore) && "animate-spin")} />
             Refresh
         </Button>
       </div>
 
-      {/* Comment Submission Form */}
-      {user && !profile && !authLoading && !profileLoading && (
-        <div className="mb-6 p-3 bg-accent/50 border border-primary/20 rounded-md text-sm">
-            <p className="text-accent-foreground">
-                Welcome! Please <Link href="/profile/setup" className="font-semibold underline hover:text-primary">complete your profile</Link> (set a username and display name) to post comments.
+      {/* Comment Submission Area */}
+      <div className="mb-6">
+        {!user ? (
+          // Guest commenting form with OTP signup
+          <form onSubmit={handleGuestCommentAndOtpSignup} className="p-4 bg-card border border-border rounded-lg space-y-3">
+            <div className="flex items-center gap-2 text-sm text-primary">
+              <Mail size={18} />
+              <span>Post Comment & Sign Up/Login with Email Link</span>
+            </div>
+            <div>
+              <label htmlFor="guestEmail" className="block text-xs font-medium text-muted-foreground mb-1">Your Email</label>
+              <Input
+                id="guestEmail"
+                type="email"
+                value={guestEmail}
+                onChange={(e) => setGuestEmail(e.target.value)}
+                placeholder="you@example.com"
+                required
+                className="bg-input border-input"
+                disabled={isGuestSubmitting}
+              />
+            </div>
+            <div>
+              <label htmlFor="guestDisplayName" className="block text-xs font-medium text-muted-foreground mb-1">Display Name (Public)</label>
+              <Input
+                id="guestDisplayName"
+                type="text"
+                value={guestDisplayName}
+                onChange={(e) => setGuestDisplayName(e.target.value)}
+                placeholder="Your public name"
+                required
+                className="bg-input border-input"
+                disabled={isGuestSubmitting}
+              />
+            </div>
+            <div>
+              <label htmlFor="guestCommentText" className="block text-xs font-medium text-muted-foreground mb-1">Your Comment</label>
+              <Textarea
+                id="guestCommentText"
+                value={commentText}
+                onChange={(e) => setCommentText(e.target.value)}
+                placeholder="Share your thoughts..."
+                rows={3}
+                className="bg-input border-input placeholder:text-muted-foreground/70"
+                maxLength={1000}
+                required
+                disabled={isGuestSubmitting}
+              />
+              <p className="text-xs text-muted-foreground mt-1">{commentText.length}/1000</p>
+            </div>
+            <Button type="submit" disabled={isGuestSubmitting || !guestEmail.trim() || !guestDisplayName.trim() || !commentText.trim()} className="w-full sm:w-auto">
+              {isGuestSubmitting ? <LoadingSpinner size="sm" className="mr-1" /> : <Send size={16} className="mr-1" />}
+              {isGuestSubmitting ? 'Processing...' : 'Post & Get Login Link'}
+            </Button>
+             <p className="text-xs text-muted-foreground">
+                We'll send a login link to your email. Clicking it will log you in, create your account (if new), and then your comment will be submitted for approval.
             </p>
-        </div>
-      )}
+          </form>
+        ) : !profile && !profileLoading ? ( // User logged in, but profile needs completion
+          <div className="p-4 bg-card border border-border rounded-md text-center">
+            <MessageSquare className="mx-auto mb-2 text-muted-foreground" size={28}/>
+            <p className="text-accent-foreground">
+                Almost there! Please <Link href="/profile/setup" className="font-semibold underline hover:text-primary">complete your profile</Link> to post comments.
+            </p>
+            <p className="text-xs text-muted-foreground mt-2">(Your unique username will be auto-generated based on your display name).</p>
+          </div>
+        ) : profile ? ( // Logged-in user with profile - standard comment form
+          <form onSubmit={handleRegisteredUserSubmit}>
+            <Textarea
+              value={commentText}
+              onChange={(e) => setCommentText(e.target.value)}
+              placeholder="Share your thoughts on this chapter..."
+              rows={3}
+              className="mb-2 bg-input border-border text-foreground placeholder:text-muted-foreground"
+              maxLength={1000}
+              disabled={isGuestSubmitting}
+            />
+            <div className="flex justify-end items-center">
+              <span className="text-xs text-muted-foreground mr-2">{commentText.length}/1000</span>
+              <Button type="submit" disabled={isGuestSubmitting || !commentText.trim()} size="sm">
+                {isGuestSubmitting ? <LoadingSpinner size="sm" className="mr-1" /> : <Send size={16} className="mr-1" />}
+                {isGuestSubmitting ? 'Posting...' : 'Post Comment'}
+              </Button>
+            </div>
+          </form>
+        ) : ( // Fallback for profile loading state
+            <div className="flex justify-center items-center py-8">
+                <LoadingSpinner size="sm" />
+                <span className="ml-2 text-muted-foreground text-sm">Loading profile information...</span>
+            </div>
+        )}
+      </div>
 
-      <form onSubmit={handleSubmitComment} className="mb-6">
-        <Textarea
-          value={newComment}
-          onChange={(e) => setNewComment(e.target.value)}
-          placeholder={getPlaceholderText()}
-          rows={3}
-          className="mb-2 bg-input border-border text-foreground placeholder:text-muted-foreground"
-          maxLength={1000}
-          disabled={!canComment || authLoading || profileLoading || submitting}
-          // Removed onFocus/onClick for auto-signin
-        />
-        <div className="flex justify-end items-center">
-          <span className="text-xs text-muted-foreground mr-2">{newComment.length}/1000</span>
-          <Button
-            type="submit"
-            disabled={!canComment || authLoading || profileLoading || submitting || !newComment.trim()}
-            size="sm"
-          >
-            {submitting ? <LoadingSpinner size="sm" className="mr-1" /> : <Send size={16} className="mr-1" />}
-            {submitting ? 'Posting...' : 'Post Comment'}
-          </Button>
-        </div>
-      </form>
-
-      {/* Display Comments */}
-      {loadingComments && comments.length === 0 ? ( // Show main loader only if comments array is empty
+      {/* Display Comments (logic remains the same) */}
+      {/* ... (your existing comments display logic) ... */}
+       {loadingComments && comments.length === 0 ? (
         <div className="flex justify-center items-center py-8">
           <LoadingSpinner size="md" />
           <span className="ml-2 text-muted-foreground">Loading comments...</span>
         </div>
       ) : error ? (
         <p className="text-destructive text-center py-4">{error}</p>
-      ) : comments.length === 0 && !loadingComments ? ( // No comments and not loading
+      ) : comments.length === 0 && !loadingComments ? (
         <p className="text-muted-foreground text-center text-sm py-4">No comments yet. Be the first!</p>
       ) : (
         <div className="space-y-4">
@@ -308,7 +414,7 @@ const ChapterComments = memo(({ chapterId, novelId }: ChapterCommentsProps) => {
               <Button
                 variant="outline"
                 onClick={handleLoadMore}
-                disabled={loadingMore} // Should already be false here, but good practice
+                disabled={loadingMore || isGuestSubmitting }
                 className="text-primary border-primary hover:bg-primary/10"
               >
                 <RefreshCw size={16} className="mr-2" />
@@ -316,8 +422,8 @@ const ChapterComments = memo(({ chapterId, novelId }: ChapterCommentsProps) => {
               </Button>
             </div>
           )}
-          {loadingMore && ( // Spinner for loading more
-            <div className="flex justify-center items-center py-4">
+          {loadingMore && (
+           <div className="flex justify-center items-center py-4">
               <LoadingSpinner size="md" />
               <span className="ml-2 text-muted-foreground">Loading more...</span>
             </div>

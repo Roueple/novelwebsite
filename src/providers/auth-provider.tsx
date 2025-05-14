@@ -186,20 +186,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  async function signInWithEmail(email: string) { // For OTP
-    console.log(`[AuthProvider] Sending OTP to ${email}`);
-    try {
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
-      });
-      if (error) throw error;
-      toast.info(`Verification link sent to ${email}. Check your inbox.`);
-    } catch (error: any) {
-      toast.error(`Email OTP sign in failed: ${error.message}`);
-      console.error(`Email OTP sign in error for ${email}:`, error);
-    }
+  // In AuthProvider.tsx
+async function signInWithEmail(email: string) {
+  console.log(`[AuthProvider] Sending OTP to ${email}`);
+  try {
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        shouldCreateUser: true, // Allow new users to sign up this way
+        emailRedirectTo: `${window.location.origin}/auth/callback`, // CRUCIAL
+      },
+    });
+    if (error) throw error;
+    // Toast handled in ChapterComments or globally by OTP flow
+  } catch (error: any) {
+    toast.error(`Email OTP sign in failed: ${error.message}`);
+    console.error(`Email OTP sign in error for ${email}:`, error);
+    throw error; // Re-throw to be caught by caller
   }
+}
 
   async function signInWithPhone(phone: string) { // For OTP
     console.log(`[AuthProvider] Sending OTP to ${phone}`);
