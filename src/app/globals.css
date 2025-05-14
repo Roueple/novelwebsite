@@ -328,18 +328,18 @@
    /* ==========================================================================
       Prose (Reading Content) Styles
       ========================================================================== */
-   .prose {
-     max-width: 72ch;
-     margin-left: auto;
-     margin-right: auto;
-     line-height: var(--reading-line-height);
-     font-family: var(--reading-font-family);
-     hyphens: auto;
-     word-break: break-word;
-     overflow-wrap: break-word;
-     font-size: var(--reading-font-size);
-     color: var(--foreground);
-   }
+    .prose {
+      max-width: 72ch;
+      margin-left: auto;
+      margin-right: auto;
+      line-height: var(--reading-line-height);
+      font-family: var(--reading-font-family);
+      hyphens: none; /* Disable automatic hyphenation */
+      word-break: keep-all; /* Prevent breaking in the middle of words for CJK text, can also work for others */
+      overflow-wrap: normal; /* Default behavior, try this if keep-all is too restrictive */
+      font-size: var(--reading-font-size);
+      color: var(--foreground);
+    }
    
    .prose { /* Theme-aware variables for Tailwind Typography */
      --tw-prose-body: var(--foreground);
